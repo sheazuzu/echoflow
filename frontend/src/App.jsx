@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Upload, FileAudio, CheckCircle, Clock, Download, Settings, Cpu, Loader2, RefreshCw } from 'lucide-react';
 import './App.css';
 
+// 导入腾讯云logo
+import tencentCloudLogo from './assets/tencentcloud.png';
+
 const App = () => {
     const [appState, setAppState] = useState('idle'); // idle, processing, completed
     const [minutesData, setMinutesData] = useState(null);
@@ -247,6 +250,9 @@ const App = () => {
                 <div className="logo">
                     <Cpu size={24} color="#a855f7" style={{marginRight: '10px'}}/>
                     <span>EchoFlow Pro</span>
+                </div>
+                <div className="partner-logo">
+                    <img src={tencentCloudLogo} alt="Tencent Cloud" style={{height: '24px', opacity: 0.8}} />
                 </div>
                 <div><Settings size={20} color="#94a3b8" /></div>
             </header>

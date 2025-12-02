@@ -64,6 +64,19 @@ body {
   gap: 12px;
 }
 
+.partner-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  filter: grayscale(0.3);
+  transition: all 0.3s ease;
+}
+
+.partner-logo:hover {
+  filter: grayscale(0);
+  opacity: 1;
+}
+
 /* Upload Section */
 .hero-section {
   text-align: center;
