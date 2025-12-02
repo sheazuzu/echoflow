@@ -11,11 +11,17 @@ if ! command -v docker &> /dev/null; then
     exit 1
 fi
 
-# 检查 Docker Compose 是否安装
-if ! command -v docker-compose &> /dev/null; then
+# 检查 Docker Compose 是否安装（支持两种格式）
+if command -v docker-compose &> /dev/null; then
+    DOCKER_COMPOSE_CMD="docker-compose"
+elif docker compose version &> /dev/null; then
+    DOCKER_COMPOSE_CMD="docker compose"
+else
     echo "❌ Docker Compose 未安装，请先安装 Docker Compose"
     exit 1
 fi
+
+echo "✅ 使用 Docker Compose 命令: $DOCKER_COMPOSE_CMD"
 
 # 检查环境变量文件
 if [ ! -f ".env" ]; then
@@ -37,11 +43,11 @@ echo ""
 
 # 构建和启动服务
 echo "🔨 开始构建 Docker 镜像..."
-docker-compose build
+$DOCKER_COMPOSE_CMD build
 
 echo ""
 echo "🚀 启动服务..."
-docker-compose up -d
+$DOCKER_COMPOSE_CMD up -d
 
 echo ""
 echo "⏳ 等待服务启动..."
@@ -50,7 +56,7 @@ sleep 5
 # 检查服务状态
 echo ""
 echo "📊 服务状态检查:"
-docker-compose ps
+$DOCKER_COMPOSE_CMD ps
 
 echo ""
 echo "🔍 服务健康检查:"
@@ -77,8 +83,8 @@ echo "   前端界面: http://localhost:80"
 echo "   后端API: http://localhost:3000"
 echo ""
 echo "📋 常用命令:"
-echo "   查看日志: docker-compose logs -f"
-echo "   停止服务: docker-compose down"
-echo "   重新部署: docker-compose up -d --build"
+echo "   查看日志: $DOCKER_COMPOSE_CMD logs -f"
+echo "   停止服务: $DOCKER_COMPOSE_CMD down"
+echo "   重新部署: $DOCKER_COMPOSE_CMD up -d --build"
 echo ""
 echo "💡 提示: 首次使用请确保在 .env 文件中配置了正确的 OpenAI API Key"
