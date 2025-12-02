@@ -4,6 +4,8 @@ import './App.css';
 
 // 导入腾讯云logo
 import tencentCloudLogo from './assets/tencentcloud.png';
+// 导入新的白色logo作为主logo
+import sheaWhiteLogo from './assets/shea-white.png';
 
 const App = () => {
     const [appState, setAppState] = useState('idle'); // idle, processing, completed
@@ -248,13 +250,12 @@ const App = () => {
         <div className="app-container">
             <header className="header">
                 <div className="logo">
-                    <Cpu size={24} color="#a855f7" style={{marginRight: '10px'}}/>
-                    <span>EchoFlow Pro</span>
+                    <img src={sheaWhiteLogo} alt="Shea Logo" style={{height: '48px', marginRight: '15px', filter: 'brightness(1.2)', transition: 'all 0.3s ease'}}/>
+                    <span style={{fontSize: '1.8rem', fontWeight: '700', background: 'linear-gradient(135deg, #ffffff 0%, #e2e8f0 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', textShadow: '0 2px 4px rgba(0, 0, 0, 0.3)'}}>EchoFlow Pro</span>
                 </div>
                 <div className="partner-logo">
-                    <img src={tencentCloudLogo} alt="Tencent Cloud" style={{height: '24px', opacity: 0.8}} />
+                    <img src={tencentCloudLogo} alt="Tencent Cloud" style={{height: '40px', opacity: 0.95, transition: 'all 0.3s ease'}} />
                 </div>
-                <div><Settings size={20} color="#94a3b8" /></div>
             </header>
 
             <main>
@@ -348,6 +349,18 @@ const App = () => {
                     </div>
                 )}
             </main>
+
+            {/* Footer */}
+            <footer className="footer">
+                <div className="footer-content">
+                    <div className="footer-logo">
+                        <img src={sheaWhiteLogo} alt="Shea Logo" style={{height: '24px', marginRight: '10px', opacity: 0.9}}/>
+                    </div>
+                    <div className="footer-text">
+                        Copyright © 1992-2025 Shea All Rights Reserved
+                    </div>
+                </div>
+            </footer>
         </div>
     );
 };
