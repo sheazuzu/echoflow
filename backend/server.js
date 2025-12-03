@@ -168,15 +168,17 @@ async function processFile(fileId, filePath, fileSizeMB) {
         // 2. 调用 LLM 生成总结 (Updated Prompt)
         const systemPrompt = `You are a professional bilingual meeting assistant.
 
-
 Your task is to take raw transcripts and create structured meeting minutes in BOTH English and Chinese.
 Be concise, well-structured, and remove irrelevant small talk or fillers.
+Identify speakers if possible and list them in the "attendees" field.
+Ensure the "date" field is extracted from the context or marked as "Not specified".
 
 Output MUST be a valid JSON object with the following structure:
 {
 "english": {
 "title": "Meeting Title",
-"date": "Date",
+"date": "Date (YYYY-MM-DD)",
+"attendees": ["Name 1", "Name 2"],
 "summary": "3-5 sentences overview",
 "key_discussion_points": ["Point 1", "Point 2"],
 "decisions_made": ["Decision 1"],
@@ -186,7 +188,8 @@ Output MUST be a valid JSON object with the following structure:
 },
 "chinese": {
 "title": "会议标题",
-"date": "日期",
+"date": "日期 (YYYY-MM-DD)",
+"attendees": ["姓名1", "姓名2"],
 "summary": "会议概述",
 "key_discussion_points": ["讨论重点1", "讨论重点2"],
 "decisions_made": ["决策1"],

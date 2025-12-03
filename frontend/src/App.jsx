@@ -173,75 +173,136 @@ const App = () => {
     // 渲染单个语言版本的纪要列
     const renderMinutesColumn = (data, langTitle) => {
         if (!data) return null;
+
+        // 格式化文本
+        let text = '';
+        text += `1. Meeting Title / Date / Attendees\n`;
+        text += `${data.title || "Not specified"}\n`;
+        text += `${data.date || ""}\n`;
+        if (data.attendees && data.attendees.length > 0) {
+            text += `Attendees: ${data.attendees.join(', ')}\n`;
+        }
+        text += `\n`;
+        
+        text += `2. Summary\n`;
+        text += `${data.summary || ""}\n\n`;
+        
+        text += `3. Key Discussion Points\n`;
+        if (data.key_discussion_points && data.key_discussion_points.length > 0) {
+            data.key_discussion_points.forEach(point => {
+                text += `- ${point}\n`;
+            });
+        } else {
+            text += `None\n`;
+        }
+        text += `\n`;
+        
+        text += `4. Decisions Made\n`;
+        if (data.decisions_made && data.decisions_made.length > 0) {
+            data.decisions_made.forEach(d => {
+                text += `- ${d}\n`;
+            });
+        } else {
+            text += `None\n`;
+        }
+        text += `\n`;
+        
+        text += `5. Action Items\n`;
+        if (data.action_items && data.action_items.length > 0) {
+            data.action_items.forEach(item => {
+                text += `- [${item.assignee || 'Unassigned'}] ${item.task} (Due: ${item.deadline || 'No Date'})\n`;
+            });
+        } else {
+            text += `No action items\n`;
+        }
+        text += `\n`;
+        
+        text += `6. Risks / Issues\n`;
+        if (data.risks_issues && data.risks_issues.length > 0) {
+            data.risks_issues.forEach(r => {
+                text += `- ${r}\n`;
+            });
+        } else {
+            text += `None\n`;
+        }
+        text += `\n`;
+        
+        text += `7. Next Steps\n`;
+        if (data.next_steps && data.next_steps.length > 0) {
+            data.next_steps.forEach(n => {
+                text += `- ${n}\n`;
+            });
+        } else {
+            text += `None\n`;
+        }
+
+        const copyToClipboard = () => {
+            navigator.clipboard.writeText(text).then(() => {
+                const btn = document.getElementById(`btn-copy-${langTitle}`);
+                if(btn) {
+                    // const originalText = btn.innerText; // 简单处理，不保存原始文本
+                    btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-check-circle"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> 已复制!';
+                    btn.style.background = '#4ade80';
+                    setTimeout(() => {
+                        btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-refresh-cw" style="transform: rotate(0deg);"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg> 复制内容';
+                        btn.style.background = '#818cf8';
+                    }, 2000);
+                }
+            }).catch(err => {
+                console.error('复制失败:', err);
+                alert('复制失败');
+            });
+        };
+
         return (
             <div className="minutes-column">
-                <h2 style={{marginTop: 0, marginBottom: '30px', borderBottom: '2px solid #818cf8', paddingBottom: '10px', display: 'inline-block'}}>
-                    {langTitle}
-                </h2>
-
-                <div className="minute-section">
-                    <div className="minute-label">1. Meeting Title / Date</div>
-                    <div className="minute-content" style={{fontWeight: 'bold', fontSize: '1.2em'}}>
-                        {data.title || "Not specified"}
-                    </div>
-                    <div className="minute-content" style={{color: '#94a3b8'}}>
-                        {data.date}
-                    </div>
+                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', borderBottom: '2px solid #818cf8', paddingBottom: '10px'}}>
+                    <h2 style={{margin: 0}}>
+                        {langTitle}
+                    </h2>
+                    <button 
+                        id={`btn-copy-${langTitle}`}
+                        onClick={copyToClipboard}
+                        style={{
+                            padding: '6px 12px',
+                            background: '#818cf8',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            fontSize: '0.9rem',
+                            fontWeight: '500',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                            transition: 'all 0.3s ease'
+                        }}
+                    >
+                        <RefreshCw size={16} style={{transform: 'rotate(0deg)'}}/> 
+                        复制内容
+                    </button>
                 </div>
 
-                <div className="minute-section">
-                    <div className="minute-label">2. Summary</div>
-                    <div className="minute-content">{data.summary}</div>
-                </div>
-
-                <div className="minute-section">
-                    <div className="minute-label">3. Key Discussion Points</div>
-                    <ul className="bullet-list">
-                        {data.key_discussion_points?.map((point, i) => (
-                            <li key={i}>{point}</li>
-                        ))}
-                    </ul>
-                </div>
-
-                <div className="minute-section">
-                    <div className="minute-label">4. Decisions Made</div>
-                    <ul className="bullet-list">
-                        {data.decisions_made?.length > 0 ? data.decisions_made.map((d, i) => (
-                            <li key={i}>{d}</li>
-                        )) : <li style={{color:'#64748b', listStyle:'none'}}>None</li>}
-                    </ul>
-                </div>
-
-                <div className="minute-section">
-                    <div className="minute-label">5. Action Items</div>
-                    {data.action_items?.length > 0 ? data.action_items.map((item, i) => (
-                        <div key={i} className="action-card">
-                            <div className="action-card-header">
-                                <span>{item.assignee || 'Unassigned'}</span>
-                                <span>{item.deadline || 'No Date'}</span>
-                            </div>
-                            <div style={{fontWeight: '500'}}>{item.task}</div>
-                        </div>
-                    )) : <div style={{color:'#64748b'}}>No action items</div>}
-                </div>
-
-                <div className="minute-section">
-                    <div className="minute-label">6. Risks / Issues</div>
-                    <ul className="bullet-list">
-                        {data.risks_issues?.length > 0 ? data.risks_issues.map((r, i) => (
-                            <li key={i}>{r}</li>
-                        )) : <li style={{color:'#64748b', listStyle:'none'}}>None</li>}
-                    </ul>
-                </div>
-
-                <div className="minute-section">
-                    <div className="minute-label">7. Next Steps</div>
-                    <ul className="bullet-list">
-                        {data.next_steps?.length > 0 ? data.next_steps.map((n, i) => (
-                            <li key={i}>{n}</li>
-                        )) : <li style={{color:'#64748b', listStyle:'none'}}>None</li>}
-                    </ul>
-                </div>
+                <textarea 
+                    readOnly
+                    value={text}
+                    style={{
+                        width: '100%',
+                        height: '600px',
+                        padding: '15px',
+                        borderRadius: '8px',
+                        border: '1px solid rgba(255, 255, 255, 0.15)',
+                        fontFamily: 'Monaco, Consolas, "Courier New", monospace',
+                        fontSize: '14px',
+                        lineHeight: '1.6',
+                        resize: 'vertical',
+                        backgroundColor: 'rgba(30, 41, 59, 0.6)',
+                        color: '#f1f5f9',
+                        whiteSpace: 'pre-wrap',
+                        outline: 'none',
+                        boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.2)'
+                    }}
+                />
             </div>
         );
     };
@@ -280,43 +341,168 @@ const App = () => {
 
                 {appState === 'processing' && (
                     <div className="processing-container">
-                        <div style={{textAlign: 'center', marginBottom: '30px'}}>
-                            {getStatusIcon(processingStatus.status)}
-                        </div>
-                        <h3>{getStatusDescription(processingStatus.status)}</h3>
-                        <p style={{color: '#94a3b8', marginTop: '15px'}}>
-                            {processingStatus.status === 'uploading' && '文件上传中，请稍候...'}
-                            {processingStatus.status === 'splitting' && '正在切割大文件为多个片段...'}
-                            {processingStatus.status === 'transcribing' && '使用 Whisper 进行语音转录...'}
-                            {processingStatus.status === 'generating_summary' && '使用 GPT 生成结构化会议纪要...'}
-                            {processingStatus.status === 'completed' && '处理完成！'}
-                            {!processingStatus.status && 'AI 正在深度分析...'}
-                        </p>
+                        <h2 style={{textAlign: 'center', marginBottom: '30px'}}>AI 正在处理您的会议录音</h2>
                         
-                        <div className="progress-bar-bg">
-                            <div 
-                                className="progress-bar-fill" 
-                                style={{ 
-                                    width: `${processingStatus.progress}%`, 
-                                    transition: 'width 0.5s ease-in-out' 
-                                }}
-                            ></div>
-                        </div>
-                        
-                        <div style={{textAlign: 'center', marginTop: '15px', fontSize: '0.9rem', color: '#64748b'}}>
-                            进度: {processingStatus.progress}%
+                        <div className="steps-container">
+                            {['uploading', 'splitting', 'transcribing', 'generating_summary'].map((stepId, index) => {
+                                const steps = [
+                                    { id: 'uploading', label: '上传音频文件', icon: Upload },
+                                    { id: 'splitting', label: '智能音频分片', icon: FileAudio },
+                                    { id: 'transcribing', label: 'Whisper 语音转录', icon: Cpu },
+                                    { id: 'generating_summary', label: 'GPT 生成结构化纪要', icon: Loader2 },
+                                ];
+                                const step = steps[index];
+                                const currentStatus = processingStatus.status;
+                                
+                                // 计算步骤状态
+                                let stepState = 'pending'; // pending, active, completed
+                                const statusOrder = ['uploading', 'splitting', 'transcribing', 'generating_summary', 'completed'];
+                                const currentIndex = statusOrder.indexOf(currentStatus);
+                                const stepIndex = statusOrder.indexOf(step.id);
+                                
+                                if (currentStatus === 'completed') {
+                                    stepState = 'completed';
+                                } else if (currentStatus === 'error') {
+                                    stepState = stepIndex <= currentIndex ? 'error' : 'pending';
+                                } else {
+                                    if (stepIndex < currentIndex) stepState = 'completed';
+                                    else if (stepIndex === currentIndex) stepState = 'active';
+                                    else stepState = 'pending';
+                                }
+
+                                // 特殊处理：如果直接跳过了 splitting (文件小)，当处于 transcribing 时，splitting 应显示完成
+                                if ((currentStatus === 'transcribing' || currentStatus === 'generating_summary') && step.id === 'splitting') {
+                                    stepState = 'completed';
+                                }
+
+                                return (
+                                    <div key={step.id} className={`step-item ${stepState}`}>
+                                        <div className="step-icon">
+                                            {stepState === 'completed' ? (
+                                                <CheckCircle size={20} />
+                                            ) : (
+                                                <step.icon size={20} className={stepState === 'active' && step.id === 'generating_summary' ? 'spin-icon' : ''} />
+                                            )}
+                                        </div>
+                                        <div className="step-content">
+                                            <div className="step-text-container">
+                                                <div className="step-label">{step.label}</div>
+                                            </div>
+                                            {stepState === 'active' && (
+                                                <div className="step-indicator">
+                                                    <span className="pulse-dot"></span>
+                                                    正在进行中...
+                                                </div>
+                                            )}
+                                        </div>
+                                        {index < steps.length - 1 && <div className={`step-line ${stepState === 'completed' ? 'completed' : ''}`}></div>}
+                                    </div>
+                                );
+                            })}
                         </div>
                         
                         <style>{`
+                            .steps-container {
+                                display: flex;
+                                flex-direction: column;
+                                gap: 0;
+                                max-width: 400px;
+                                margin: 0 auto;
+                                padding: 20px;
+                            }
+                            .step-item {
+                                display: flex;
+                                alignItems: flex-start;
+                                gap: 15px;
+                                position: relative;
+                                opacity: 0.5;
+                                transition: all 0.3s ease;
+                                padding-bottom: 30px;
+                            }
+                            .step-item:last-child {
+                                padding-bottom: 0;
+                            }
+                            .step-item.active, .step-item.completed {
+                                opacity: 1;
+                            }
+                            .step-icon {
+                                width: 40px;
+                                height: 40px;
+                                border-radius: 50%;
+                                background: #f1f5f9;
+                                display: grid;
+                                place-items: center;
+                                color: #64748b;
+                                z-index: 2;
+                                transition: all 0.3s ease;
+                                flex-shrink: 0;
+                            }
+                            .step-icon svg {
+                                display: block;
+                            }
+                            .step-item.active .step-icon {
+                                background: #818cf8;
+                                color: white;
+                                box-shadow: 0 0 0 4px rgba(129, 140, 248, 0.2);
+                            }
+                            .step-item.completed .step-icon {
+                                background: #4ade80;
+                                color: white;
+                            }
+                            .step-content {
+                                flex: 1;
+                            }
+                            .step-text-container {
+                                height: 40px;
+                                display: flex;
+                                alignItems: center;
+                            }
+                            .step-label {
+                                font-weight: 600;
+                                font-size: 1rem;
+                                line-height: 1.2;
+                            }
+                            .step-indicator {
+                                font-size: 0.8rem;
+                                color: #818cf8;
+                                display: flex;
+                                alignItems: center;
+                                gap: 6px;
+                                margin-top: -5px;
+                                margin-bottom: 5px;
+                                padding-left: 2px;
+                            }
+                            .pulse-dot {
+                                width: 8px;
+                                height: 8px;
+                                background-color: #818cf8;
+                                border-radius: 50%;
+                                animation: pulse 1.5s infinite;
+                            }
+                            .step-line {
+                                position: absolute;
+                                left: 20px; /* Center of 40px icon */
+                                top: 40px;
+                                bottom: 0;
+                                width: 2px;
+                                background: #e2e8f0;
+                                z-index: 1;
+                                transform: translateX(-50%);
+                            }
+                            .step-line.completed {
+                                background: #4ade80;
+                            }
+                            .spin-icon {
+                                animation: spin 2s linear infinite;
+                            }
+                            @keyframes pulse {
+                                0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(129, 140, 248, 0.7); }
+                                70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(129, 140, 248, 0); }
+                                100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(129, 140, 248, 0); }
+                            }
                             @keyframes spin { 
                                 0% { transform: rotate(0deg); } 
                                 100% { transform: rotate(360deg); } 
-                            }
-                            .progress-bar-fill {
-                                height: 100%;
-                                background: linear-gradient(90deg, #6366f1, #a855f7);
-                                border-radius: 10px;
-                                transition: width 0.5s ease-in-out;
                             }
                         `}</style>
                     </div>
