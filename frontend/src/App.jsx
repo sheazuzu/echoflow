@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, FileAudio, CheckCircle, Clock, Download, Settings, Cpu, Loader2, RefreshCw } from 'lucide-react';
+import { Upload, FileAudio, CheckCircle, Clock, Download, Settings, Cpu, Loader2, RefreshCw, CloudUpload } from 'lucide-react';
 import './App.css';
 
 // 导入腾讯云logo
@@ -14,6 +14,7 @@ const App = () => {
     const [errorMsg, setErrorMsg] = useState('');
     const [processingStatus, setProcessingStatus] = useState({ status: '', progress: 0 });
     const [currentFileId, setCurrentFileId] = useState('');
+    const [isUploading, setIsUploading] = useState(false); // 新增：上传状态标识
 
     const handleFileUpload = (e) => {
         const selectedFile = e.target.files[0];
@@ -25,6 +26,7 @@ const App = () => {
     const startProcessing = async (fileObj) => {
         setAppState('processing');
         setErrorMsg('');
+        setIsUploading(true); // 开始上传，显示加载状态
         setProcessingStatus({ status: 'uploading', progress: 0 });
         
         // 生成文件ID用于进度查询（使用时间戳+文件名）
@@ -50,7 +52,10 @@ const App = () => {
             if (resData.code === 200) {
                 // 文件接收成功，开始异步处理，设置文件ID用于进度轮询
                 setCurrentFileId(resData.fileId);
-                setProcessingStatus({ status: 'uploaded', progress: 10 });
+                // 保持uploading状态，直到进度轮询检测到状态变化，避免状态闪断
+                setProcessingStatus({ status: 'uploading', progress: 10 });
+                // 保持isUploading为true，直到整个处理流程完成
+                setIsUploading(true); // 确保上传状态持续显示
                 
                 // 不立即设置completed状态，等待进度轮询更新状态
             } else {
@@ -58,6 +63,8 @@ const App = () => {
             }
         } catch (error) {
             console.error("处理失败:", error);
+            setAppState('idle');
+            setIsUploading(false); // 只有在最终失败时才重置上传状态
             
             // 更准确的错误信息分类
             let errorMessage = "处理失败";
@@ -91,6 +98,9 @@ const App = () => {
                 clearInterval(window.progressInterval);
             }
             
+            // 确保上传状态持续显示
+            setIsUploading(true);
+            
             window.progressInterval = setInterval(async () => {
                 try {
                     const response = await fetch(`/api/progress/${currentFileId}`);
@@ -103,6 +113,11 @@ const App = () => {
                             totalChunks: progressData.totalChunks
                         });
                         
+                        // 只有当处理完成或出错时才重置上传状态
+                        if (progressData.status === 'completed' || progressData.status === 'error' || progressData.status === 'cancelled') {
+                            setIsUploading(false);
+                        }
+                        
                         // 如果处理完成，更新应用状态并获取会议纪要数据
                         if (progressData.status === 'completed') {
                             try {
@@ -112,14 +127,17 @@ const App = () => {
                                     setMinutesData(minutesResult.minutesData);
                                     setTranscript(minutesResult.transcript || '');
                                     setAppState('completed');
+                                    setIsUploading(false); // 处理完成，重置上传状态
                                 } else {
                                     setErrorMsg('获取会议纪要数据失败');
                                     setAppState('idle');
+                                    setIsUploading(false); // 获取数据失败，重置上传状态
                                 }
                             } catch (error) {
                                 console.error('获取会议纪要数据失败:', error);
                                 setErrorMsg('获取会议纪要数据失败，请刷新页面重试');
                                 setAppState('idle');
+                                setIsUploading(false); // 获取数据失败，重置上传状态
                             }
                             if (window.progressInterval) {
                                 clearInterval(window.progressInterval);
@@ -128,10 +146,22 @@ const App = () => {
                         } else if (progressData.status === 'error' || progressData.status === 'cancelled') {
                             setErrorMsg(`处理${progressData.status === 'cancelled' ? '已取消' : '过程中出错'}: ${progressData.error || '未知错误'}`);
                             setAppState('idle');
+                            setIsUploading(false); // 处理出错或取消，重置上传状态
                             if (window.progressInterval) {
                                 clearInterval(window.progressInterval);
                                 window.progressInterval = null;
                             }
+                        }
+                        
+                        // 状态转换逻辑：当后端状态从uploading变为splitting时，保持uploading状态一段时间
+                        // 确保用户能看到完整的上传过程，避免状态闪断
+                        if (progressData.status === 'splitting' && processingStatus.status === 'uploading') {
+                            // 保持uploading状态，确保用户能看到完整的上传过程
+                            // 在下一次轮询时再更新为splitting状态
+                            setProcessingStatus({ status: 'uploading', progress: 20 });
+                        } else if (progressData.status === 'splitting' && processingStatus.status !== 'uploading') {
+                            // 当状态已经不是uploading时，正常更新为splitting状态
+                            setProcessingStatus({ status: 'splitting', progress: 30 });
                         }
                     }
                 } catch (error) {
@@ -162,12 +192,13 @@ const App = () => {
         setErrorMsg('');
         setProcessingStatus({ status: '', progress: 0 });
         setCurrentFileId('');
+        setIsUploading(false); // 重置上传状态
     };
 
     // 获取进度状态描述
     const getStatusDescription = (status, progressData) => {
         const statusMap = {
-            'uploading': '文件上传中...',
+            'uploading': '上传文件中...',
             'splitting': '音频文件切割中...',
             'transcribing': progressData?.currentChunk && progressData?.totalChunks 
                 ? `语音转录中... (${progressData.currentChunk}/${progressData.totalChunks})`
@@ -355,7 +386,7 @@ const App = () => {
                         </p>
                         {errorMsg && <p style={{color: '#ef4444', background: 'rgba(239, 68, 68, 0.1)', padding: '10px', borderRadius: '8px'}}>{errorMsg}</p>}
 
-                        <div className="upload-card">
+                        <div className={`upload-card ${isUploading ? 'uploading' : ''}`}>
                             <input type="file" accept="audio/*" onChange={handleFileUpload} className="file-input" />
                             <div className="upload-icon-wrapper" style={{background: 'rgba(99, 102, 241, 0.1)', width: '80px', height: '80px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', position: 'relative'}}>
                                 <Upload size={40} color="#818cf8"/>
@@ -367,12 +398,16 @@ const App = () => {
                                     bottom: '-10px',
                                     borderRadius: '50%',
                                     border: '2px solid #818cf8',
-                                    animation: 'uploadPulse 2s infinite',
-                                    opacity: 0
+                                    animation: isUploading ? 'uploadPulse 1.5s infinite' : 'none',
+                                    opacity: isUploading ? 1 : 0
                                 }}></div>
                             </div>
-                            <h3 style={{marginBottom: '10px'}}>点击或拖拽上传录音</h3>
-                            <p style={{ fontSize: '0.9rem', color: '#64748b' }}>支持 MP3 / M4A / WAV</p>
+                            <h3 style={{marginBottom: '10px'}}>
+                                {isUploading ? '文件上传中...' : '点击或拖拽上传录音'}
+                            </h3>
+                            <p style={{ fontSize: '0.9rem', color: isUploading ? '#818cf8' : '#64748b' }}>
+                                {isUploading ? '请稍候，正在上传您的录音文件...' : '支持 MP3 / M4A / WAV'}
+                            </p>
                         </div>
                     </div>
                 )}
@@ -417,10 +452,10 @@ const App = () => {
                         <div className="steps-container">
                             {['uploading', 'splitting', 'transcribing', 'generating_summary'].map((stepId, index) => {
                                 const steps = [
-                                    { id: 'uploading', label: '上传音频文件', icon: Upload },
+                                    { id: 'uploading', label: '上传文件中', icon: Upload },
                                     { id: 'splitting', label: '智能音频分片', icon: FileAudio },
-                                    { id: 'transcribing', label: 'Whisper 语音转录', icon: Cpu },
-                                    { id: 'generating_summary', label: 'GPT 生成结构化纪要', icon: Loader2 },
+                                    { id: 'transcribing', label: 'AI 语音转录', icon: Cpu },
+                                    { id: 'generating_summary', label: 'AI 生成结构化纪要', icon: Loader2 },
                                 ];
                                 const step = steps[index];
                                 const currentStatus = processingStatus.status;
@@ -487,14 +522,28 @@ const App = () => {
                                 gap: 15px;
                                 position: relative;
                                 opacity: 0.5;
-                                transition: all 0.3s ease;
+                                transition: all 0.5s ease;
                                 padding-bottom: 30px;
                             }
                             .step-item:last-child {
                                 padding-bottom: 0;
                             }
-                            .step-item.active, .step-item.completed {
+                            .step-item.active {
                                 opacity: 1;
+                                animation: processingPulse 2s ease-in-out infinite;
+                            }
+                            .step-item.completed {
+                                opacity: 1;
+                            }
+                            @keyframes processingPulse {
+                                0%, 100% {
+                                    opacity: 0.8;
+                                    transform: scale(1);
+                                }
+                                50% {
+                                    opacity: 1;
+                                    transform: scale(1.02);
+                                }
                             }
                             .step-icon {
                                 width: 40px;
@@ -515,10 +564,22 @@ const App = () => {
                                 background: #818cf8;
                                 color: white;
                                 box-shadow: 0 0 0 4px rgba(129, 140, 248, 0.2);
+                                animation: activeIconPulse 1.5s ease-in-out infinite;
                             }
                             .step-item.completed .step-icon {
                                 background: #4ade80;
                                 color: white;
+                                transition: all 0.5s ease;
+                            }
+                            @keyframes activeIconPulse {
+                                0%, 100% {
+                                    background: #818cf8;
+                                    box-shadow: 0 0 0 4px rgba(129, 140, 248, 0.2);
+                                }
+                                50% {
+                                    background: #6366f1;
+                                    box-shadow: 0 0 0 8px rgba(99, 102, 241, 0.3);
+                                }
                             }
                             .step-content {
                                 flex: 1;
@@ -532,6 +593,21 @@ const App = () => {
                                 font-weight: 600;
                                 font-size: 1rem;
                                 line-height: 1.2;
+                                color: #f1f5f9;
+                                transition: all 0.3s ease;
+                            }
+                            .step-item.active .step-label {
+                                animation: activeTextGlow 2s ease-in-out infinite;
+                            }
+                            @keyframes activeTextGlow {
+                                0%, 100% {
+                                    color: #f1f5f9;
+                                    text-shadow: 0 0 0 rgba(129, 140, 248, 0);
+                                }
+                                50% {
+                                    color: #818cf8;
+                                    text-shadow: 0 0 10px rgba(129, 140, 248, 0.5);
+                                }
                             }
                             .step-indicator {
                                 font-size: 0.8rem;

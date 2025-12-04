@@ -419,6 +419,26 @@ button.btn-reset:hover {
   }
 }
 
+@keyframes uploadIconPulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+@keyframes uploadTextGlow {
+  0%, 100% {
+    color: #64748b;
+    text-shadow: 0 0 0 rgba(99, 102, 241, 0);
+  }
+  50% {
+    color: #6366f1;
+    text-shadow: 0 0 10px rgba(99, 102, 241, 0.5);
+  }
+}
+
 /* 文件上传时的加载状态 */
 .upload-card:hover .upload-pulse {
   animation: uploadPulse 2s infinite;
@@ -431,7 +451,12 @@ button.btn-reset:hover {
 
 .upload-card:hover .upload-icon-wrapper svg {
   color: #6366f1;
+  animation: uploadIconPulse 2s ease-in-out infinite;
   transition: all 0.3s ease;
+}
+
+.upload-card:hover h3 {
+  animation: uploadTextGlow 3s ease-in-out infinite;
 }
 
 /* 文件选择时的加载动画 */
@@ -441,4 +466,203 @@ button.btn-reset:hover {
 
 .file-input:active + .upload-icon-wrapper .upload-pulse {
   animation: uploadPulse 0.8s infinite;
+}
+
+/* 文件上传过程中的状态 - 确保动画持续且明显 */
+.upload-card.uploading {
+  background: rgba(99, 102, 241, 0.4);
+  border-color: #6366f1;
+  border-style: solid;
+  border-width: 3px;
+  animation: uploadingBorderPulse 1.2s ease-in-out infinite, uploadingCardGlow 1.5s ease-in-out infinite, uploadingCardShake 2s ease-in-out infinite, uploadingCardBounce 3s ease-in-out infinite;
+  box-shadow: 0 0 50px rgba(99, 102, 241, 0.8), inset 0 0 30px rgba(99, 102, 241, 0.2);
+  transform: translateZ(0); /* 硬件加速 */
+  position: relative;
+  overflow: hidden;
+}
+
+.upload-card.uploading::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(45deg, transparent, rgba(99, 102, 241, 0.1), transparent);
+  animation: uploadingShine 3s linear infinite;
+  z-index: 1;
+}
+
+.upload-card.uploading .upload-icon-wrapper {
+  background: rgba(99, 102, 241, 0.6);
+  animation: uploadIconWrapperPulse 1s ease-in-out infinite, uploadIconWrapperGlow 1.2s ease-in-out infinite, uploadIconWrapperSpin 4s linear infinite;
+  box-shadow: 0 0 30px rgba(99, 102, 241, 0.9), inset 0 0 20px rgba(99, 102, 241, 0.3);
+  position: relative;
+  z-index: 2;
+}
+
+.upload-card.uploading .upload-icon-wrapper svg {
+  animation: uploadIconSpin 0.8s linear infinite, uploadIconPulse 1.5s ease-in-out infinite, uploadIconFloat 2s ease-in-out infinite;
+  filter: drop-shadow(0 0 15px rgba(99, 102, 241, 1));
+}
+
+.upload-card.uploading h3 {
+  color: #6366f1;
+  animation: uploadingTextPulse 1s ease-in-out infinite, uploadingTextGlow 1.2s ease-in-out infinite, uploadingTextShake 1.5s ease-in-out infinite, uploadingTextWave 2s ease-in-out infinite;
+  font-weight: 900;
+  text-shadow: 0 0 20px rgba(99, 102, 241, 0.9), 0 0 40px rgba(99, 102, 241, 0.5);
+  font-size: 1.5rem;
+  position: relative;
+  z-index: 2;
+}
+
+.upload-card.uploading p {
+  color: #a5b4fc;
+  animation: uploadingTextPulse 1.5s ease-in-out infinite, uploadingSubtextGlow 1s ease-in-out infinite, uploadingSubtextFade 2s ease-in-out infinite;
+  font-weight: 800;
+  font-size: 1.1rem;
+  position: relative;
+  z-index: 2;
+}
+
+/* 新增动画效果 */
+@keyframes uploadingCardShake {
+  0%, 100% { transform: translateX(0) translateZ(0); }
+  25% { transform: translateX(-2px) translateZ(0); }
+  75% { transform: translateX(2px) translateZ(0); }
+}
+
+@keyframes uploadingCardBounce {
+  0%, 100% { transform: translateY(0) translateZ(0); }
+  50% { transform: translateY(-3px) translateZ(0); }
+}
+
+@keyframes uploadingShine {
+  0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+  100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+}
+
+@keyframes uploadIconWrapperGlow {
+  0%, 100% { 
+    box-shadow: 0 0 30px rgba(99, 102, 241, 0.8);
+    background: rgba(99, 102, 241, 0.6);
+  }
+  50% { 
+    box-shadow: 0 0 60px rgba(99, 102, 241, 1.2);
+    background: rgba(99, 102, 241, 0.9);
+  }
+}
+
+@keyframes uploadIconWrapperSpin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes uploadIconPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+}
+
+@keyframes uploadIconFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+@keyframes uploadingTextShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-1px); }
+  75% { transform: translateX(1px); }
+}
+
+@keyframes uploadingTextWave {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+
+@keyframes uploadingSubtextGlow {
+  0%, 100% { 
+    color: #818cf8;
+    text-shadow: 0 0 8px rgba(129, 140, 248, 0.7);
+  }
+  50% { 
+    color: #a5b4fc;
+    text-shadow: 0 0 20px rgba(165, 180, 252, 1);
+  }
+}
+
+@keyframes uploadingSubtextFade {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.8; }
+}
+
+@keyframes uploadingCardGlow {
+  0%, 100% {
+    box-shadow: 0 0 30px rgba(99, 102, 241, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 50px rgba(99, 102, 241, 0.6);
+  }
+}
+
+@keyframes uploadIconWrapperPulse {
+  0%, 100% {
+    transform: scale(1);
+    background: rgba(99, 102, 241, 0.4);
+  }
+  50% {
+    transform: scale(1.05);
+    background: rgba(99, 102, 241, 0.6);
+  }
+}
+
+@keyframes uploadingTextGlow {
+  0%, 100% {
+    text-shadow: 0 0 10px rgba(99, 102, 241, 0.5);
+  }
+  50% {
+    text-shadow: 0 0 20px rgba(99, 102, 241, 0.8);
+  }
+}
+
+@keyframes uploadingBorderPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(99, 102, 241, 0);
+  }
+}
+
+@keyframes uploadIconSpin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes uploadingTextPulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+
+
+/* 处理步骤的增强动画 */
+.step-item.active .step-icon {
+  animation: stepPulse 2s infinite;
+}
+
+@keyframes stepPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(129, 140, 248, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(129, 140, 248, 0);
+  }
 }

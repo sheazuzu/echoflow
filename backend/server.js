@@ -164,7 +164,7 @@ const getAudioDuration = (filePath) => {
 };
 
 // 备选方案：使用原生FFmpeg命令行切割音频（更稳定）
-const splitAudioWithFFmpegCLI = async (filePath, segmentTime = 600) => {
+const splitAudioWithFFmpegCLI = async (filePath, segmentTime = 600, fileId = null) => {
     logger('SPLIT', `使用FFmpeg CLI切割文件: ${path.basename(filePath)}，每段${Math.round(segmentTime/60)}分钟`);
     
     // 清理文件名
@@ -194,7 +194,45 @@ const splitAudioWithFFmpegCLI = async (filePath, segmentTime = 600) => {
     logger('DEBUG', `FFmpeg CLI命令: ${command}`);
     
     try {
-        await execAsync(command);
+        // 记录FFmpeg进程（使用child_process以便后续终止）
+        const childProcess = exec(command);
+        
+        // 存储进程信息以便后续终止
+        const processInfo = {
+            type: ProcessType.FFMPEG,
+            process: childProcess,
+            startTime: new Date(),
+            command: command
+        };
+        
+        // 如果提供了fileId，则关联进程以便后续终止
+        if (fileId) {
+            activeProcesses.set(fileId, processInfo);
+        }
+        
+        // 等待进程完成
+        await new Promise((resolve, reject) => {
+            childProcess.on('close', (code) => {
+                // 清理进程跟踪
+                if (fileId) {
+                    activeProcesses.delete(fileId);
+                }
+                
+                if (code === 0) {
+                    resolve();
+                } else {
+                    reject(new Error(`FFmpeg进程退出码: ${code}`));
+                }
+            });
+            
+            childProcess.on('error', (error) => {
+                // 清理进程跟踪
+                if (fileId) {
+                    activeProcesses.delete(fileId);
+                }
+                reject(error);
+            });
+        });
         
         // 读取生成的切片文件并过滤掉太短的切片
         const files = await fs.promises.readdir(splitDir);
@@ -228,12 +266,18 @@ const splitAudioWithFFmpegCLI = async (filePath, segmentTime = 600) => {
 };
 
 // 主音频切割函数，支持多种备选方案
-const splitAudio = async (filePath, segmentTime = 600) => {
+const splitAudio = async (filePath, segmentTime = 600, fileId = null) => {
     logger('SPLIT', `开始切割文件: ${path.basename(filePath)}，每段${Math.round(segmentTime/60)}分钟`);
+    
+    // 检查是否被取消
+    if (fileId && processingStatus.get(fileId)?.status === 'cancelled') {
+        logger('CANCEL', `音频切割进程被取消，跳过文件: ${path.basename(filePath)}`);
+        throw new Error('用户取消了处理');
+    }
     
     // 方案1：首先尝试使用FFmpeg CLI（最稳定）
     try {
-        return await splitAudioWithFFmpegCLI(filePath, segmentTime);
+        return await splitAudioWithFFmpegCLI(filePath, segmentTime, fileId);
     } catch (error) {
         logger('WARN', `FFmpeg CLI方案失败，尝试fluent-ffmpeg方案: ${error.message}`);
     }
@@ -264,7 +308,7 @@ const splitAudio = async (filePath, segmentTime = 600) => {
         
         logger('DEBUG', `使用fluent-ffmpeg处理文件: ${filePath} -> ${outputPattern}`);
         
-        ffmpeg(filePath)
+        const ffmpegProcess = ffmpeg(filePath)
             .outputOptions([
                 '-f segment',
                 `-segment_time ${segmentTime}`,
@@ -273,8 +317,23 @@ const splitAudio = async (filePath, segmentTime = 600) => {
             .output(outputPattern)
             .on('start', (commandLine) => {
                 logger('DEBUG', `fluent-ffmpeg命令: ${commandLine}`);
+                
+                // 记录进程信息
+                if (fileId) {
+                    activeProcesses.set(fileId, {
+                        type: ProcessType.FFMPEG,
+                        process: ffmpegProcess,
+                        startTime: new Date(),
+                        command: commandLine
+                    });
+                }
             })
             .on('end', () => {
+                // 清理进程跟踪
+                if (fileId) {
+                    activeProcesses.delete(fileId);
+                }
+                
                 fs.readdir(splitDir, (err, files) => {
                     if (err) {
                         reject(err);
@@ -306,15 +365,44 @@ const splitAudio = async (filePath, segmentTime = 600) => {
                 });
             })
             .on('error', (err) => {
+                // 清理进程跟踪
+                if (fileId) {
+                    activeProcesses.delete(fileId);
+                }
+                
                 logger('ERROR', `fluent-ffmpeg切割失败: ${err.message}`);
                 reject(err);
             })
             .run();
+            
+        // 添加取消检查
+        if (fileId) {
+            const checkCancelInterval = setInterval(() => {
+                if (processingStatus.get(fileId)?.status === 'cancelled') {
+                    clearInterval(checkCancelInterval);
+                    logger('CANCEL', `检测到取消请求，终止fluent-ffmpeg进程: ${fileId}`);
+                    
+                    // 尝试终止ffmpeg进程
+                    try {
+                        ffmpegProcess.kill();
+                        logger('CANCEL', `已发送终止信号给fluent-ffmpeg进程: ${fileId}`);
+                    } catch (err) {
+                        logger('WARN', `终止fluent-ffmpeg进程失败: ${err.message}`);
+                    }
+                    
+                    reject(new Error('用户取消了处理'));
+                }
+            }, 1000); // 每秒检查一次
+            
+            // 清理定时器
+            ffmpegProcess.on('end', () => clearInterval(checkCancelInterval));
+            ffmpegProcess.on('error', () => clearInterval(checkCancelInterval));
+        }
     });
 };
 
 // 辅助函数：调用 Whisper 转录
-const transcribeChunk = async (filePath) => {
+const transcribeChunk = async (filePath, fileId = null) => {
     const fileName = path.basename(filePath);
     logger('WHISPER', `正在转录片段: ${fileName}...`);
     
@@ -326,6 +414,12 @@ const transcribeChunk = async (filePath) => {
     }
     
     const startTime = Date.now();
+
+    // 检查是否被取消（如果提供了fileId）
+    if (fileId && processingStatus.get(fileId)?.status === 'cancelled') {
+        logger('CANCEL', `转录进程被取消，跳过片段: ${fileName}`);
+        throw new Error('用户取消了处理');
+    }
 
     const transcription = await openai.audio.transcriptions.create({
         file: fs.createReadStream(filePath),
@@ -339,6 +433,18 @@ const transcribeChunk = async (filePath) => {
 
 // 处理进度状态存储（简单内存存储，生产环境建议使用Redis）
 const processingStatus = new Map();
+
+// 进程跟踪器：存储正在运行的FFmpeg和OpenAI进程
+const activeProcesses = new Map();
+
+// 进程类型枚举
+const ProcessType = {
+    FFMPEG: 'ffmpeg',
+    OPENAI: 'openai',
+    SPLIT: 'split',
+    TRANSCRIBE: 'transcribe',
+    SUMMARY: 'summary'
+};
 
 // 上传与处理接口
 app.post('/api/upload', upload.single('file'), async (req, res) => {
@@ -416,26 +522,60 @@ async function processFile(fileId, cosKey, fileSizeMB) {
             
             logger('PROCESS', `文件时长约${Math.round(fileDuration/60)}分钟，预计切成${estimatedChunkCount}个切片，每段${Math.round(segmentTime/60)}分钟`);
             
-            const chunks = await splitAudio(localFilePath, segmentTime);
+            // 记录切片进程
+            activeProcesses.set(fileId, { type: ProcessType.SPLIT, startTime: new Date() });
+            
+            const chunks = await splitAudio(localFilePath, segmentTime, fileId);
 
             processingStatus.set(fileId, { status: 'transcribing', progress: 70, currentChunk: 0, totalChunks: chunks.length });
             logger('PROCESS', `开始并行处理 ${chunks.length} 个切片...`);
+            
+            // 记录转录进程
+            activeProcesses.set(fileId, { type: ProcessType.TRANSCRIBE, startTime: new Date(), totalChunks: chunks.length });
+            
             for (const [index, chunkPath] of chunks.entries()) {
                 const progress = 70 + Math.floor((index / chunks.length) * 20);
                 processingStatus.set(fileId, { status: 'transcribing', progress, currentChunk: index + 1, totalChunks: chunks.length });
                 logger('PROCESS', `处理进度: ${index + 1}/${chunks.length}`);
-                const text = await transcribeChunk(chunkPath);
+                
+                // 检查是否被取消
+                if (processingStatus.get(fileId)?.status === 'cancelled') {
+                    logger('CANCEL', `转录进程被取消，终止处理切片 ${index + 1}/${chunks.length}`);
+                    fs.unlinkSync(chunkPath);
+                    break;
+                }
+                
+                const text = await transcribeChunk(chunkPath, fileId);
                 fullTranscript += text + " ";
                 fs.unlinkSync(chunkPath);
             }
         } else {
             processingStatus.set(fileId, { status: 'transcribing', progress: 70 });
             logger('PROCESS', `文件小于 25MB，直接转录`);
-            fullTranscript = await transcribeChunk(localFilePath);
+            
+            // 记录转录进程
+            activeProcesses.set(fileId, { type: ProcessType.TRANSCRIBE, startTime: new Date(), totalChunks: 1 });
+            
+            // 检查是否被取消
+            if (processingStatus.get(fileId)?.status === 'cancelled') {
+                logger('CANCEL', `转录进程被取消，跳过小文件转录`);
+                throw new Error('用户取消了处理');
+            }
+            
+            fullTranscript = await transcribeChunk(localFilePath, fileId);
         }
 
         processingStatus.set(fileId, { status: 'generating_summary', progress: 80 });
         logger('LLM', `转录完成，正在生成 8 点结构化会议纪要...`);
+
+        // 检查是否被取消
+        if (processingStatus.get(fileId)?.status === 'cancelled') {
+            logger('CANCEL', `总结生成进程被取消，跳过LLM调用`);
+            throw new Error('用户取消了处理');
+        }
+
+        // 记录总结生成进程
+        activeProcesses.set(fileId, { type: ProcessType.SUMMARY, startTime: new Date() });
 
         // 2. 调用 LLM 生成总结 (Enhanced Prompt for Detailed Minutes)
         const systemPrompt = `You are a professional bilingual meeting assistant specializing in detailed meeting documentation.
@@ -587,11 +727,26 @@ app.post('/api/cancel/:fileId', (req, res) => {
         error: '用户取消了处理'
     });
     
+    // 强制终止正在运行的进程
+    const activeProcess = activeProcesses.get(fileId);
+    if (activeProcess) {
+        logger('CANCEL', `强制终止进程: ${fileId}，类型: ${activeProcess.type}`);
+        
+        if (activeProcess.process && activeProcess.process.kill) {
+            // 终止FFmpeg进程
+            activeProcess.process.kill('SIGTERM');
+            logger('CANCEL', `已发送终止信号给进程: ${fileId}`);
+        }
+        
+        // 清理进程跟踪
+        activeProcesses.delete(fileId);
+    }
+    
     logger('CANCEL', `用户取消了文件处理: ${fileId}`);
     
     res.json({
         code: 200,
-        message: "处理已成功取消",
+        message: "处理已成功取消，正在终止相关进程",
         fileId: fileId
     });
 });
