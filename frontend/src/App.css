@@ -350,3 +350,15 @@ button.btn-reset:hover {
   font-weight: 400;
   letter-spacing: 0.3px;
 }
+
+.transcript-container {
+  background: rgba(30, 41, 59, 0.6);
+  border-radius: 16px;
+  padding: 20px;
+  margin-top: 20px;
+  color: #f1f5f9;
+  /* 添加滚动和换行功能 */
+  overflow-y: auto;
+  max-height: 300px;
+  word-wrap: break-word;
+}

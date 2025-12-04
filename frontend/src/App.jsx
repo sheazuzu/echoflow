@@ -10,6 +10,7 @@ import sheaWhiteLogo from './assets/shea-white.png';
 const App = () => {
     const [appState, setAppState] = useState('idle'); // idle, processing, completed
     const [minutesData, setMinutesData] = useState(null);
+    const [transcript, setTranscript] = useState('');
     const [errorMsg, setErrorMsg] = useState('');
     const [processingStatus, setProcessingStatus] = useState({ status: '', progress: 0 });
     const [currentFileId, setCurrentFileId] = useState('');
@@ -104,6 +105,7 @@ const App = () => {
                                 if (minutesResponse.ok) {
                                     const minutesResult = await minutesResponse.json();
                                     setMinutesData(minutesResult.minutesData);
+                                    setTranscript(minutesResult.transcript || '');
                                     setAppState('completed');
                                 } else {
                                     setErrorMsg('获取会议纪要数据失败');
@@ -135,6 +137,7 @@ const App = () => {
     const resetApp = () => {
         setAppState('idle');
         setMinutesData(null);
+        setTranscript('');
         setErrorMsg('');
         setProcessingStatus({ status: '', progress: 0 });
         setCurrentFileId('');
@@ -532,6 +535,39 @@ const App = () => {
                             {/* 右侧英文 */}
                             {renderMinutesColumn(minutesData.english, "English Minutes")}
                         </div>
+
+                        {/* 原始转录文本展示 */}
+                        {transcript && (
+                            <div className="transcript-section" style={{marginTop: '40px', paddingTop: '30px', borderTop: '1px solid rgba(226, 232, 240, 0.1)'}}>
+                                <div style={{display: 'flex', alignItems: 'center', marginBottom: '15px', gap: '10px'}}>
+                                    <FileAudio size={20} color="#818cf8"/>
+                                    <h3 style={{margin: 0, fontSize: '1.2rem', color: '#f1f5f9'}}>原始转录文本 (Transcript)</h3>
+                                </div>
+                                <textarea 
+                                    readOnly
+                                    value={transcript}
+                                    style={{
+                                        width: '100%',
+                                        height: '300px',
+                                        padding: '20px',
+                                        boxSizing: 'border-box',
+                                        borderRadius: '12px',
+                                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                                        fontFamily: 'system-ui, -apple-system, sans-serif',
+                                        fontSize: '14px',
+                                        lineHeight: '1.8',
+                                        resize: 'vertical',
+                                        backgroundColor: 'rgba(15, 23, 42, 0.4)',
+                                        color: '#cbd5e1',
+                                        whiteSpace: 'pre-wrap',
+                                        wordBreak: 'break-word',
+                                        overflowY: 'auto',
+                                        outline: 'none',
+                                        boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.1)'
+                                    }}
+                                />
+                            </div>
+                        )}
                     </div>
                 )}
             </main>

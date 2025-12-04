@@ -216,7 +216,12 @@ Follow the JSON structure strictly.
         });
 
         const aiResult = JSON.parse(completion.choices[0].message.content);
-        processingStatus.set(fileId, { status: 'completed', progress: 100, minutesData: aiResult });
+        processingStatus.set(fileId, { 
+            status: 'completed', 
+            progress: 100, 
+            minutesData: aiResult,
+            transcript: fullTranscript 
+        });
         
         // 输出会议纪要简介到日志
         const chineseSummary = aiResult.chinese?.summary || "无摘要";
@@ -283,7 +288,8 @@ app.get('/api/minutes/:fileId', (req, res) => {
     res.json({
         fileId,
         status: status.status,
-        minutesData: status.minutesData
+        minutesData: status.minutesData,
+        transcript: status.transcript
     });
 });
 
