@@ -51,6 +51,21 @@ $DOCKER_COMPOSE_CMD up -d
 
 echo ""
 echo "⏳ 等待服务启动..."
+echo "   等待Traefik和服务完全启动..."
+
+# 等待容器完全健康
+for i in {1..30}; do
+    if docker compose ps | grep -q "healthy"; then
+        echo "✅ 所有服务已健康启动"
+        break
+    fi
+    if [ $i -eq 30 ]; then
+        echo "⚠️  超时：部分服务仍在启动中，继续健康检查..."
+    fi
+    sleep 2
+done
+
+echo "   等待Traefik路由注册..."
 sleep 5
 
 # 检查服务状态
@@ -61,26 +76,27 @@ $DOCKER_COMPOSE_CMD ps
 echo ""
 echo "🔍 服务健康检查:"
 
-# 检查后端服务
-if curl -f http://localhost:3000/api/health > /dev/null 2>&1; then
-    echo "✅ 后端服务运行正常 (端口: 3000)"
+# 检查后端服务（通过Traefik）
+if curl -f http://localhost/api/health > /dev/null 2>&1; then
+    echo "✅ 后端服务运行正常 (通过Traefik: /api/health)"
 else
-    echo "❌ 后端服务启动失败"
+    echo "❌ 后端服务启动失败（无法通过Traefik访问 /api/health）"
 fi
 
-# 检查前端服务
-if curl -f http://localhost:80 > /dev/null 2>&1; then
-    echo "✅ 前端服务运行正常 (端口: 80)"
+# 检查前端服务（通过Traefik）
+if curl -f http://localhost/ > /dev/null 2>&1; then
+    echo "✅ 前端服务运行正常 (通过Traefik: /)"
 else
-    echo "❌ 前端服务启动失败"
+    echo "❌ 前端服务启动失败（无法通过Traefik访问 /）"
 fi
 
 echo ""
 echo "🎉 部署完成！"
 echo ""
 echo "🌐 访问地址:"
-echo "   前端界面: http://localhost:80"
-echo "   后端API: http://localhost:3000"
+echo "   前端界面: http://localhost/"
+echo "   后端API: http://localhost/api/"
+echo "   Traefik仪表板: http://localhost:8080/ (仅开发环境)"
 echo ""
 echo "📋 常用命令:"
 echo "   查看日志: $DOCKER_COMPOSE_CMD logs -f"

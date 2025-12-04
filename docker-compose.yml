@@ -9,6 +9,11 @@ services:
       - NODE_ENV=production
 
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - COS_SECRET_ID=${COS_SECRET_ID}
+      - COS_SECRET_KEY=${COS_SECRET_KEY}
+      - COS_BUCKET=${COS_BUCKET}
+      - COS_ENDPOINT=${COS_ENDPOINT}
+      - COS_REGION=${COS_REGION}
     volumes:
       - ./backend/uploads:/app/uploads
     restart: unless-stopped

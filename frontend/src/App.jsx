@@ -98,7 +98,9 @@ const App = () => {
                         const progressData = await response.json();
                         setProcessingStatus({
                             status: progressData.status,
-                            progress: progressData.progress
+                            progress: progressData.progress,
+                            currentChunk: progressData.currentChunk,
+                            totalChunks: progressData.totalChunks
                         });
                         
                         // 如果处理完成，更新应用状态并获取会议纪要数据
@@ -123,8 +125,8 @@ const App = () => {
                                 clearInterval(window.progressInterval);
                                 window.progressInterval = null;
                             }
-                        } else if (progressData.status === 'error') {
-                            setErrorMsg(`处理过程中出错: ${progressData.error || '未知错误'}`);
+                        } else if (progressData.status === 'error' || progressData.status === 'cancelled') {
+                            setErrorMsg(`处理${progressData.status === 'cancelled' ? '已取消' : '过程中出错'}: ${progressData.error || '未知错误'}`);
                             setAppState('idle');
                             if (window.progressInterval) {
                                 clearInterval(window.progressInterval);
@@ -163,14 +165,17 @@ const App = () => {
     };
 
     // 获取进度状态描述
-    const getStatusDescription = (status) => {
+    const getStatusDescription = (status, progressData) => {
         const statusMap = {
             'uploading': '文件上传中...',
             'splitting': '音频文件切割中...',
-            'transcribing': '语音转录中...',
+            'transcribing': progressData?.currentChunk && progressData?.totalChunks 
+                ? `语音转录中... (${progressData.currentChunk}/${progressData.totalChunks})`
+                : '语音转录中...',
             'generating_summary': '生成会议纪要中...',
             'completed': '处理完成',
-            'error': '处理出错'
+            'error': '处理出错',
+            'cancelled': '处理已取消'
         };
         return statusMap[status] || '处理中...';
     };
@@ -352,8 +357,19 @@ const App = () => {
 
                         <div className="upload-card">
                             <input type="file" accept="audio/*" onChange={handleFileUpload} className="file-input" />
-                            <div className="upload-icon-wrapper" style={{background: 'rgba(99, 102, 241, 0.1)', width: '80px', height: '80px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px'}}>
+                            <div className="upload-icon-wrapper" style={{background: 'rgba(99, 102, 241, 0.1)', width: '80px', height: '80px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', position: 'relative'}}>
                                 <Upload size={40} color="#818cf8"/>
+                                <div className="upload-pulse" style={{
+                                    position: 'absolute',
+                                    top: '-10px',
+                                    left: '-10px',
+                                    right: '-10px',
+                                    bottom: '-10px',
+                                    borderRadius: '50%',
+                                    border: '2px solid #818cf8',
+                                    animation: 'uploadPulse 2s infinite',
+                                    opacity: 0
+                                }}></div>
                             </div>
                             <h3 style={{marginBottom: '10px'}}>点击或拖拽上传录音</h3>
                             <p style={{ fontSize: '0.9rem', color: '#64748b' }}>支持 MP3 / M4A / WAV</p>
@@ -366,16 +382,24 @@ const App = () => {
                         <div className="processing-header">
                             <h2>AI 正在处理您的会议录音</h2>
                             <button 
-                                onClick={() => {
+                                onClick={async () => {
                                     // 停止进度轮询
                                     if (window.progressInterval) {
                                         clearInterval(window.progressInterval);
                                     }
-                                    // 发送取消请求到后端（如果支持）
+                                    
+                                    // 发送取消请求到后端
                                     if (currentFileId) {
-                                        fetch(`/api/cancel/${currentFileId}`, { method: 'POST' })
-                                            .catch(err => console.log('取消请求发送失败:', err));
+                                        try {
+                                            await fetch(`/api/cancel/${currentFileId}`, { 
+                                                method: 'POST' 
+                                            });
+                                            console.log('取消请求发送成功');
+                                        } catch (err) {
+                                            console.log('取消请求发送失败:', err);
+                                        }
                                     }
+                                    
                                     // 重置应用状态回到首页
                                     resetApp();
                                 }}
@@ -438,7 +462,7 @@ const App = () => {
                                             {stepState === 'active' && (
                                                 <div className="step-indicator">
                                                     <span className="pulse-dot"></span>
-                                                    正在进行中...
+                                                    {getStatusDescription(step.id, processingStatus)}
                                                 </div>
                                             )}
                                         </div>
