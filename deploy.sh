@@ -53,6 +53,12 @@ mkdir -p traefik/certs
 mkdir -p traefik/dynamic
 mkdir -p traefik/letsencrypt
 
+# 清理旧的规则配置 (确保从干净的状态开始)
+if [ -f .env ]; then
+    sed -i '' '/FRONTEND_RULE/d' .env
+    sed -i '' '/BACKEND_RULE/d' .env
+fi
+
 if [ "$deploy_mode" = "1" ]; then
     echo "🏠 正在配置私有部署环境..."
     
@@ -83,6 +89,12 @@ EOF
 elif [ "$deploy_mode" = "2" ]; then
     echo "☁️  正在配置云服务器环境..."
     
+    read -p "请输入您的域名 (例如: example.com): " domain_name
+    if [ -z "$domain_name" ]; then
+        echo "❌ 域名不能为空"
+        exit 1
+    fi
+
     read -p "请输入您的邮箱地址 (用于 Let's Encrypt 通知): " acme_email
     
     # 更新 .env 中的邮箱
@@ -91,6 +103,16 @@ elif [ "$deploy_mode" = "2" ]; then
     else
         echo "ACME_EMAIL=$acme_email" >> .env
     fi
+
+    # 配置路由规则到 .env
+    echo "FRONTEND_RULE=Host(\`$domain_name\`)" >> .env
+    echo "BACKEND_RULE=Host(\`$domain_name\`) && PathPrefix(\`/api\`)" >> .env
+
+    # 确保 acme.json 存在且权限正确 (600)
+    if [ ! -f "traefik/letsencrypt/acme.json" ]; then
+        touch traefik/letsencrypt/acme.json
+    fi
+    chmod 600 traefik/letsencrypt/acme.json
 
     # 创建 override 文件以启用 ACME resolver
     cat > docker-compose.override.yml <<EOF
@@ -107,7 +129,7 @@ EOF
     # 清理动态 TLS 配置（避免冲突，或者保留为空）
     rm -f traefik/dynamic/tls.yml
     
-    echo "✅ Let's Encrypt 配置完成"
+    echo "✅ Let's Encrypt 配置完成 (域名: $domain_name)"
 else
     echo "❌ 无效选项，默认使用私有部署模式"
     # 默认为私有部署逻辑...
