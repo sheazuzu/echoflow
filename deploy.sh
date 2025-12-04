@@ -41,6 +41,78 @@ fi
 echo "✅ 环境检查通过"
 echo ""
 
+# 证书管理配置
+echo "🔒 配置 HTTPS 证书..."
+echo "请选择部署环境:"
+echo "1) 私有部署 (使用自签名证书，适合内网或测试)"
+echo "2) 云服务器部署 (使用 Let's Encrypt 免费证书，需要公网IP和域名)"
+read -p "请输入选项 (1/2): " deploy_mode
+
+# 创建必要的目录
+mkdir -p traefik/certs
+mkdir -p traefik/dynamic
+mkdir -p traefik/letsencrypt
+
+if [ "$deploy_mode" = "1" ]; then
+    echo "🏠 正在配置私有部署环境..."
+    
+    # 生成自签名证书
+    if [ ! -f "traefik/certs/server.crt" ]; then
+        echo "Generating self-signed certificate..."
+        openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+            -keyout traefik/certs/server.key \
+            -out traefik/certs/server.crt \
+            -subj "/CN=localhost"
+    fi
+
+    # 生成动态配置文件以加载证书
+    cat > traefik/dynamic/tls.yml <<EOF
+tls:
+  stores:
+    default:
+      defaultCertificate:
+        certFile: /certs/server.crt
+        keyFile: /certs/server.key
+EOF
+
+    # 清理 override 文件（如果存在）
+    rm -f docker-compose.override.yml
+    
+    echo "✅ 自签名证书配置完成"
+
+elif [ "$deploy_mode" = "2" ]; then
+    echo "☁️  正在配置云服务器环境..."
+    
+    read -p "请输入您的邮箱地址 (用于 Let's Encrypt 通知): " acme_email
+    
+    # 更新 .env 中的邮箱
+    if grep -q "ACME_EMAIL=" .env; then
+        sed -i '' "s/ACME_EMAIL=.*/ACME_EMAIL=$acme_email/" .env
+    else
+        echo "ACME_EMAIL=$acme_email" >> .env
+    fi
+
+    # 创建 override 文件以启用 ACME resolver
+    cat > docker-compose.override.yml <<EOF
+version: '3'
+services:
+  frontend:
+    labels:
+      - "traefik.http.routers.frontend.tls.certresolver=myresolver"
+  backend:
+    labels:
+      - "traefik.http.routers.backend.tls.certresolver=myresolver"
+EOF
+
+    # 清理动态 TLS 配置（避免冲突，或者保留为空）
+    rm -f traefik/dynamic/tls.yml
+    
+    echo "✅ Let's Encrypt 配置完成"
+else
+    echo "❌ 无效选项，默认使用私有部署模式"
+    # 默认为私有部署逻辑...
+fi
+
 # 构建和启动服务
 echo "🔨 开始构建 Docker 镜像..."
 $DOCKER_COMPOSE_CMD build

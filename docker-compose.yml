@@ -25,7 +25,8 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.backend.rule=PathPrefix(`/api`)"
-      - "traefik.http.routers.backend.entrypoints=web"
+      - "traefik.http.routers.backend.entrypoints=websecure"
+      - "traefik.http.routers.backend.tls=true"
       - "traefik.http.services.backend.loadbalancer.server.port=3000"
 
   # 前端服务
@@ -45,7 +46,8 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.frontend.rule=PathPrefix(`/`)"
-      - "traefik.http.routers.frontend.entrypoints=web"
+      - "traefik.http.routers.frontend.entrypoints=websecure"
+      - "traefik.http.routers.frontend.tls=true"
       - "traefik.http.services.frontend.loadbalancer.server.port=80"
 
   # 反向代理 / 网关（Traefik）
@@ -68,14 +70,35 @@ services:
       - "--providers.docker.useBindPortIP=false"
       - "--providers.docker.swarmMode=false"
 
-      # 未来可以在这里增加 :443 的 https entrypoint 和证书配置，例如：--entrypoints.websecure.address=:443
+      # 入口点配置
       - "--entrypoints.web.address=:80"
+      # HTTP 自动重定向到 HTTPS
+      - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
+      
+      - "--entrypoints.websecure.address=:443"
+      
+      # 启用 Dashboard
       - "--api.dashboard=true"
       - "--api.insecure=true"
+
+      # 文件提供者（用于加载动态配置，如自签名证书）
+      - "--providers.file.directory=/etc/traefik/dynamic"
+      - "--providers.file.watch=true"
+
+      # Let's Encrypt 配置 (ACME)
+      - "--certificatesresolvers.myresolver.acme.httpchallenge=true"
+      - "--certificatesresolvers.myresolver.acme.httpchallenge.entrypoint=web"
+      - "--certificatesresolvers.myresolver.acme.email=${ACME_EMAIL:-admin@example.com}"
+      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+
     ports:
       - "80:80"
+      - "443:443"
       - "8080:8080"
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
-      # 未来如果使用Let's Encrypt，可以挂载证书存储目录，例如：./traefik/letsencrypt:/letsencrypt
+      - "./traefik/dynamic:/etc/traefik/dynamic"
+      - "./traefik/letsencrypt:/letsencrypt"
+      - "./traefik/certs:/certs"
     restart: unless-stopped
