@@ -293,6 +293,46 @@ button.btn-reset:hover {
   background: rgba(59, 130, 246, 0.1);
 }
 
+/* 取消按钮样式 */
+.btn-cancel {
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(239, 68, 68, 0.3);
+}
+
+.btn-cancel:hover {
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  transform: scale(1.05);
+  box-shadow: 0 4px 8px rgba(239, 68, 68, 0.4);
+}
+
+.btn-cancel:active {
+  transform: scale(0.98);
+  box-shadow: 0 1px 2px rgba(239, 68, 68, 0.3);
+}
+
+/* 处理状态头部布局 */
+.processing-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+}
+
+.processing-header h2 {
+  margin: 0;
+}
+
 /* 响应式设计 */
 @media (max-width: 768px) {
   .minutes-split-view {

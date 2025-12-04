@@ -85,10 +85,13 @@ const App = () => {
 
     // 开始进度轮询
     useEffect(() => {
-        let interval;
-        
         if (appState === 'processing' && currentFileId) {
-            interval = setInterval(async () => {
+            // 清除之前的轮询（如果有）
+            if (window.progressInterval) {
+                clearInterval(window.progressInterval);
+            }
+            
+            window.progressInterval = setInterval(async () => {
                 try {
                     const response = await fetch(`/api/progress/${currentFileId}`);
                     if (response.ok) {
@@ -116,11 +119,17 @@ const App = () => {
                                 setErrorMsg('获取会议纪要数据失败，请刷新页面重试');
                                 setAppState('idle');
                             }
-                            clearInterval(interval);
+                            if (window.progressInterval) {
+                                clearInterval(window.progressInterval);
+                                window.progressInterval = null;
+                            }
                         } else if (progressData.status === 'error') {
                             setErrorMsg(`处理过程中出错: ${progressData.error || '未知错误'}`);
                             setAppState('idle');
-                            clearInterval(interval);
+                            if (window.progressInterval) {
+                                clearInterval(window.progressInterval);
+                                window.progressInterval = null;
+                            }
                         }
                     }
                 } catch (error) {
@@ -130,11 +139,21 @@ const App = () => {
         }
         
         return () => {
-            if (interval) clearInterval(interval);
+            // 清理轮询
+            if (window.progressInterval) {
+                clearInterval(window.progressInterval);
+                window.progressInterval = null;
+            }
         };
     }, [appState, currentFileId]);
 
     const resetApp = () => {
+        // 清理轮询interval
+        if (window.progressInterval) {
+            clearInterval(window.progressInterval);
+            window.progressInterval = null;
+        }
+        
         setAppState('idle');
         setMinutesData(null);
         setTranscript('');
@@ -344,7 +363,32 @@ const App = () => {
 
                 {appState === 'processing' && (
                     <div className="processing-container">
-                        <h2 style={{textAlign: 'center', marginBottom: '30px'}}>AI 正在处理您的会议录音</h2>
+                        <div className="processing-header">
+                            <h2>AI 正在处理您的会议录音</h2>
+                            <button 
+                                onClick={() => {
+                                    // 停止进度轮询
+                                    if (window.progressInterval) {
+                                        clearInterval(window.progressInterval);
+                                    }
+                                    // 发送取消请求到后端（如果支持）
+                                    if (currentFileId) {
+                                        fetch(`/api/cancel/${currentFileId}`, { method: 'POST' })
+                                            .catch(err => console.log('取消请求发送失败:', err));
+                                    }
+                                    // 重置应用状态回到首页
+                                    resetApp();
+                                }}
+                                className="btn-cancel"
+                            >
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <line x1="15" y1="9" x2="9" y2="15"></line>
+                                    <line x1="9" y1="9" x2="15" y2="15"></line>
+                                </svg>
+                                取消处理
+                            </button>
+                        </div>
                         
                         <div className="steps-container">
                             {['uploading', 'splitting', 'transcribing', 'generating_summary'].map((stepId, index) => {

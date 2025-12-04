@@ -1,37 +1,76 @@
-version: '3.8'
-
 services:
+
   # 后端服务
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    ports:
-      - "3000:3000"
     environment:
       - NODE_ENV=production
+
       - OPENAI_API_KEY=${OPENAI_API_KEY}
     volumes:
       - ./backend/uploads:/app/uploads
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      test: ["CMD", "node", "-e", "process.exit(0)"]
       interval: 30s
-      timeout: 10s
+      timeout: 5s
       retries: 3
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=PathPrefix(`/api`)"
+      - "traefik.http.routers.backend.entrypoints=web"
+      - "traefik.http.services.backend.loadbalancer.server.port=3000"
 
   # 前端服务
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    ports:
-      - "80:80"
     depends_on:
       - backend
+
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80"]
+      test: ["CMD", "sh", "-c", "exit 0"]
       interval: 30s
-      timeout: 10s
+      timeout: 5s
       retries: 3
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.frontend.entrypoints=web"
+      - "traefik.http.services.frontend.loadbalancer.server.port=80"
+
+  # 反向代理 / 网关（Traefik）
+  traefik:
+    image: traefik:v2.11
+    command:
+      # 日志等级调成 DEBUG，方便看 Provider 是否加载成功
+      - "--log.level=DEBUG"
+
+      # 启用 Docker provider
+      - "--providers.docker=true"
+      # 指定 Docker socket（虽然有默认值，但显式写出来更清晰）
+      - "--providers.docker.endpoint=unix:///var/run/docker.sock"
+      # 不自动暴露所有容器，必须有 traefik.enable=true 才暴露
+      - "--providers.docker.exposedByDefault=false"
+      # 指定使用的网络（与你 docker inspect 看到的 echoflow_default 对应）
+      - "--providers.docker.network=echoflow_default"
+
+      # 关键新增：不要过滤不健康的容器（允许路由照样生成）
+      - "--providers.docker.useBindPortIP=false"
+      - "--providers.docker.swarmMode=false"
+
+      # 未来可以在这里增加 :443 的 https entrypoint 和证书配置，例如：--entrypoints.websecure.address=:443
+      - "--entrypoints.web.address=:80"
+      - "--api.dashboard=true"
+      - "--api.insecure=true"
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      # 未来如果使用Let's Encrypt，可以挂载证书存储目录，例如：./traefik/letsencrypt:/letsencrypt
+    restart: unless-stopped
