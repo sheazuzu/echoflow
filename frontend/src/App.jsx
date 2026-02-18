@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, FileAudio, CheckCircle, Clock, Download, Settings, Cpu, Loader2, RefreshCw, CloudUpload, Mic } from 'lucide-react';
+import { Upload, FileAudio, CheckCircle, Clock, Download, Settings, Cpu, Loader2, RefreshCw, CloudUpload, Mic, Mail, Copy, Check } from 'lucide-react';
 import './App.css';
 
 // 导入腾讯云logo
@@ -28,6 +28,15 @@ const App = () => {
     const [audioContext, setAudioContext] = useState(null); // Web Audio API上下文
     const [recordingTimerInterval, setRecordingTimerInterval] = useState(null); // 录音计时器
     const [browserSupportsRecording, setBrowserSupportsRecording] = useState(true); // 浏览器是否支持录音
+
+    // 邮件发送相关状态
+    const [showEmailDialog, setShowEmailDialog] = useState(false); // 是否显示邮箱输入对话框
+    const [recipientEmail, setRecipientEmail] = useState(''); // 收件人邮箱地址
+    const [emailError, setEmailError] = useState(''); // 邮箱验证错误信息
+    const [isSendingEmail, setIsSendingEmail] = useState(false); // 是否正在发送邮件
+    const [sendSuccess, setSendSuccess] = useState(false); // 邮件发送成功提示
+    const [copiedTranscript, setCopiedTranscript] = useState(false); // 转录文本复制成功提示
+    const emailInputRef = useRef(null); // 邮箱输入框引用
 
     // 录音功能工具函数
     
@@ -620,6 +629,85 @@ const App = () => {
         
         handleRecordingComplete();
     }, [isRecording, recordedChunks]);
+
+    // 邮箱对话框打开时自动聚焦到输入框
+    useEffect(() => {
+        if (showEmailDialog && emailInputRef.current) {
+            emailInputRef.current.focus();
+        }
+    }, [showEmailDialog]);
+
+    // 邮箱地址验证函数
+    const validateEmail = (email) => {
+        // 邮箱格式正则表达式
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        
+        if (!email || email.trim() === '') {
+            return { valid: false, error: '请输入邮箱地址' };
+        }
+        
+        if (!emailRegex.test(email)) {
+            return { valid: false, error: '请输入有效的邮箱地址' };
+        }
+        
+        return { valid: true, error: '' };
+    };
+
+    // 处理发送邮件按钮点击
+    const handleSendEmailClick = () => {
+        const validation = validateEmail(recipientEmail);
+        
+        if (!validation.valid) {
+            setEmailError(validation.error);
+            return;
+        }
+        
+        // 验证通过，清除错误信息
+        setEmailError('');
+        
+        // 调用发送邮件函数
+        handleSendEmail();
+    };
+
+    // 发送邮件到后端API
+    const handleSendEmail = async () => {
+        setIsSendingEmail(true);
+        
+        try {
+            const response = await fetch('/api/send-email', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    fileId: currentFileId,
+                    recipientEmail: recipientEmail,
+                }),
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                // 发送成功
+                setSendSuccess(true);
+                setShowEmailDialog(false);
+                setRecipientEmail('');
+                
+                // 3秒后隐藏成功提示
+                setTimeout(() => {
+                    setSendSuccess(false);
+                }, 3000);
+            } else {
+                // 发送失败
+                setEmailError(data.message || '邮件发送失败，请稍后重试');
+            }
+        } catch (error) {
+            console.error('邮件发送请求失败:', error);
+            setEmailError('邮件发送失败，请稍后重试');
+        } finally {
+            setIsSendingEmail(false);
+        }
+    };
 
     const resetApp = () => {
         // 清理轮询interval
@@ -1499,8 +1587,29 @@ const App = () => {
                                 <button onClick={resetApp} className="btn-reset" style={{ marginRight: '15px' }}>
                                     <RefreshCw size={16} style={{marginRight:'5px', verticalAlign:'middle'}}/> 新会议
                                 </button>
-                                <button style={{padding:'10px 20px', background:'linear-gradient(135deg, #6366f1, #a855f7)', border:'none', borderRadius:'10px', color:'white', fontWeight:'bold', cursor:'pointer'}}>
-                                    <Download size={16} style={{marginRight:'5px', verticalAlign:'middle'}}/> 导出 PDF
+                                <button 
+                                    onClick={() => setShowEmailDialog(true)}
+                                    style={{
+                                        padding:'10px 20px', 
+                                        background:'linear-gradient(135deg, #6366f1, #a855f7)', 
+                                        border:'none', 
+                                        borderRadius:'10px', 
+                                        color:'white', 
+                                        fontWeight:'bold', 
+                                        cursor:'pointer',
+                                        transition: 'all 0.3s ease',
+                                        boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        e.target.style.transform = 'translateY(-2px)';
+                                        e.target.style.boxShadow = '0 6px 12px rgba(0,0,0,0.15)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.target.style.transform = 'translateY(0)';
+                                        e.target.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
+                                    }}
+                                >
+                                    <Mail size={16} style={{marginRight:'5px', verticalAlign:'middle'}}/> 发送邮件
                                 </button>
                             </div>
                         </div>
@@ -1516,9 +1625,61 @@ const App = () => {
                         {/* 原始转录文本展示 */}
                         {transcript && (
                             <div className="transcript-section" style={{marginTop: '40px', paddingTop: '30px', borderTop: '1px solid rgba(226, 232, 240, 0.1)'}}>
-                                <div style={{display: 'flex', alignItems: 'center', marginBottom: '15px', gap: '10px'}}>
-                                    <FileAudio size={20} color="#818cf8"/>
-                                    <h3 style={{margin: 0, fontSize: '1.2rem', color: '#f1f5f9'}}>原始转录文本 (Transcript)</h3>
+                                <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '15px'}}>
+                                    <div style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
+                                        <FileAudio size={20} color="#818cf8"/>
+                                        <h3 style={{margin: 0, fontSize: '1.2rem', color: '#f1f5f9'}}>原始转录文本 (Transcript)</h3>
+                                    </div>
+                                    <button
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(transcript).then(() => {
+                                                setCopiedTranscript(true);
+                                                setTimeout(() => setCopiedTranscript(false), 2000);
+                                            }).catch(err => {
+                                                console.error('复制失败:', err);
+                                                alert('复制失败，请手动复制');
+                                            });
+                                        }}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px',
+                                            padding: '8px 16px',
+                                            backgroundColor: copiedTranscript ? 'rgba(34, 197, 94, 0.1)' : 'rgba(99, 102, 241, 0.1)',
+                                            color: copiedTranscript ? '#22c55e' : '#818cf8',
+                                            border: copiedTranscript ? '1px solid rgba(34, 197, 94, 0.3)' : '1px solid rgba(129, 140, 248, 0.3)',
+                                            borderRadius: '8px',
+                                            cursor: 'pointer',
+                                            fontSize: '14px',
+                                            fontWeight: '500',
+                                            transition: 'all 0.3s ease',
+                                            outline: 'none'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            if (!copiedTranscript) {
+                                                e.currentTarget.style.backgroundColor = 'rgba(99, 102, 241, 0.2)';
+                                                e.currentTarget.style.transform = 'translateY(-1px)';
+                                            }
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            if (!copiedTranscript) {
+                                                e.currentTarget.style.backgroundColor = 'rgba(99, 102, 241, 0.1)';
+                                                e.currentTarget.style.transform = 'translateY(0)';
+                                            }
+                                        }}
+                                    >
+                                        {copiedTranscript ? (
+                                            <>
+                                                <Check size={16} />
+                                                <span>已复制</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Copy size={16} />
+                                                <span>复制文本</span>
+                                            </>
+                                        )}
+                                    </button>
                                 </div>
                                 <textarea 
                                     readOnly
@@ -1548,6 +1709,184 @@ const App = () => {
                     </div>
                 )}
             </main>
+
+            {/* 邮箱输入对话框 */}
+            {showEmailDialog && (
+                <div 
+                    style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: 1000,
+                        animation: 'fadeIn 0.3s ease'
+                    }}
+                    onClick={() => {
+                        setShowEmailDialog(false);
+                        setRecipientEmail('');
+                        setEmailError('');
+                    }}
+                >
+                    <div 
+                        style={{
+                            backgroundColor: '#1e293b',
+                            borderRadius: '16px',
+                            padding: '30px',
+                            maxWidth: '500px',
+                            width: '90%',
+                            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+                            animation: 'slideIn 0.3s ease'
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <h2 style={{
+                            margin: '0 0 20px 0',
+                            fontSize: '1.5rem',
+                            color: '#f1f5f9',
+                            fontWeight: 'bold'
+                        }}>
+                            发送会议纪要到邮箱
+                        </h2>
+                        
+                        <div style={{ marginBottom: '20px' }}>
+                            <input
+                                ref={emailInputRef}
+                                type="email"
+                                value={recipientEmail}
+                                onChange={(e) => {
+                                    setRecipientEmail(e.target.value);
+                                    setEmailError(''); // 清除错误提示
+                                }}
+                                placeholder="请输入收件人邮箱地址"
+                                style={{
+                                    width: '100%',
+                                    padding: '12px 16px',
+                                    fontSize: '1rem',
+                                    borderRadius: '8px',
+                                    border: emailError ? '2px solid #ef4444' : '1px solid rgba(255, 255, 255, 0.1)',
+                                    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+                                    color: '#f1f5f9',
+                                    outline: 'none',
+                                    boxSizing: 'border-box',
+                                    transition: 'border-color 0.3s ease'
+                                }}
+                                onFocus={(e) => {
+                                    if (!emailError) {
+                                        e.target.style.borderColor = '#6366f1';
+                                    }
+                                }}
+                                onBlur={(e) => {
+                                    if (!emailError) {
+                                        e.target.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+                                    }
+                                }}
+                            />
+                            {emailError && (
+                                <div style={{
+                                    marginTop: '8px',
+                                    color: '#ef4444',
+                                    fontSize: '0.875rem'
+                                }}>
+                                    {emailError}
+                                </div>
+                            )}
+                        </div>
+                        
+                        <div style={{
+                            display: 'flex',
+                            gap: '12px',
+                            justifyContent: 'flex-end'
+                        }}>
+                            <button
+                                onClick={() => {
+                                    setShowEmailDialog(false);
+                                    setRecipientEmail('');
+                                    setEmailError('');
+                                }}
+                                style={{
+                                    padding: '10px 24px',
+                                    fontSize: '1rem',
+                                    borderRadius: '8px',
+                                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                                    backgroundColor: 'transparent',
+                                    color: '#cbd5e1',
+                                    cursor: 'pointer',
+                                    fontWeight: '500',
+                                    transition: 'all 0.3s ease'
+                                }}
+                                onMouseEnter={(e) => {
+                                    e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.target.style.backgroundColor = 'transparent';
+                                }}
+                            >
+                                取消
+                            </button>
+                            <button
+                                onClick={handleSendEmailClick}
+                                disabled={isSendingEmail}
+                                style={{
+                                    padding: '10px 24px',
+                                    fontSize: '1rem',
+                                    borderRadius: '8px',
+                                    border: 'none',
+                                    background: isSendingEmail ? '#94a3b8' : 'linear-gradient(135deg, #6366f1, #a855f7)',
+                                    color: 'white',
+                                    cursor: isSendingEmail ? 'not-allowed' : 'pointer',
+                                    fontWeight: 'bold',
+                                    transition: 'all 0.3s ease',
+                                    boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                                    opacity: isSendingEmail ? 0.7 : 1
+                                }}
+                                onMouseEnter={(e) => {
+                                    if (!isSendingEmail) {
+                                        e.target.style.transform = 'translateY(-2px)';
+                                        e.target.style.boxShadow = '0 6px 12px rgba(0,0,0,0.15)';
+                                    }
+                                }}
+                                onMouseLeave={(e) => {
+                                    if (!isSendingEmail) {
+                                        e.target.style.transform = 'translateY(0)';
+                                        e.target.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
+                                    }
+                                }}
+                            >
+                                {isSendingEmail ? '发送中...' : '发送'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* 邮件发送成功提示 */}
+            {sendSuccess && (
+                <div style={{
+                    position: 'fixed',
+                    top: '20px',
+                    right: '20px',
+                    backgroundColor: '#10b981',
+                    color: 'white',
+                    padding: '16px 24px',
+                    borderRadius: '12px',
+                    boxShadow: '0 10px 30px rgba(0, 0, 0, 0.3)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    zIndex: 1001,
+                    animation: 'slideInRight 0.3s ease',
+                    fontSize: '1rem',
+                    fontWeight: '500'
+                }}>
+                    <CheckCircle size={20} />
+                    <span>邮件发送成功！</span>
+                </div>
+            )}
 
             {/* Footer */}
             <footer className="footer">

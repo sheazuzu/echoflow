@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
 const express = require('express');
 const multer = require('multer');
 const cors = require('cors');
@@ -10,6 +10,7 @@ const COS = require('cos-nodejs-sdk-v5');
 const { exec } = require('child_process');
 const util = require('util');
 const execAsync = util.promisify(exec);
+const emailService = require('./emailService');
 
 const app = express();
 const PORT = 3000;
@@ -27,7 +28,7 @@ const apiKey = process.env.OPENAI_API_KEY || "";
 
 if (!apiKey) {
     console.error("【启动警告】未检测到 OpenAI API Key！");
-    console.error("请在 backend 目录下创建 .env 文件，内容为: OPENAI_API_KEY=sk-...");
+    console.error("请在项目根目录下创建 .env 文件，内容为: OPENAI_API_KEY=sk-...");
     console.error("或者直接在 server.js 代码中填入 Key。");
     // 不强制退出，允许服务启动，但后续 AI 功能会失败
 }
@@ -62,6 +63,9 @@ if (!cosConfig.SecretId || !cosConfig.SecretKey || !cosConfig.Bucket || !cosConf
     console.warn("COS_ENDPOINT=您的COS Endpoint");
     console.warn("COS_REGION=您的存储桶区域（可选，默认ap-guangzhou）");
 }
+
+// 初始化邮件传输器
+const emailTransporter = emailService.createTransporter();
 
 app.use(cors({ origin: 'http://localhost:5173' }));
 app.use(express.json());
@@ -865,6 +869,160 @@ app.get('/api/transcript/:fileId', async (req, res) => {
     }
 });
 
+// 邮件发送API端点
+app.post('/api/send-email', async (req, res) => {
+    const { fileId, recipientEmail } = req.body;
+    
+    // 验证参数
+    if (!fileId || !recipientEmail) {
+        return res.status(400).json({ 
+            success: false, 
+            message: '缺少必需参数：fileId 或 recipientEmail' 
+        });
+    }
+    
+    // 验证邮箱格式
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(recipientEmail)) {
+        return res.status(400).json({ 
+            success: false, 
+            message: '邮箱地址格式无效' 
+        });
+    }
+    
+    // 从processingStatus中获取会议纪要数据
+    const status = processingStatus.get(fileId);
+    
+    if (!status) {
+        return res.status(404).json({ 
+            success: false, 
+            message: '文件处理状态未找到' 
+        });
+    }
+    
+    if (status.status !== 'completed') {
+        return res.status(400).json({ 
+            success: false, 
+            message: '文件处理尚未完成，无法发送邮件' 
+        });
+    }
+    
+    const minutesData = status.minutesData;
+    
+    if (!minutesData) {
+        return res.status(404).json({ 
+            success: false, 
+            message: '会议纪要数据未找到' 
+        });
+    }
+    
+    try {
+        // 检查邮件传输器是否可用
+        if (!emailTransporter) {
+            const maskedUser = process.env.SMTP_USER ? process.env.SMTP_USER.replace(/(.{3}).*(@.*)/, '$1***$2') : '未设置';
+            logger('ERROR', `❌ SMTP邮件服务未配置`);
+            logger('ERROR', `配置检查: HOST=${process.env.SMTP_HOST || '未设置'}, PORT=${process.env.SMTP_PORT || 587}, USER=${maskedUser}, PASS=${process.env.SMTP_PASS ? '已设置' : '未设置'}`);
+            return res.status(500).json({ 
+                success: false, 
+                message: 'SMTP邮件服务未配置，请联系管理员配置邮件服务器' 
+            });
+        }
+        
+        // 生成邮件内容
+        const emailContent = emailService.generateEmailContent(minutesData);
+        
+        // 发送邮件
+        logger('EMAIL', `📧 准备发送会议纪要 - 收件人: ${recipientEmail}, 会议ID: ${fileId}`);
+        const result = await emailService.sendEmail(emailTransporter, recipientEmail, emailContent);
+        
+        if (result.success) {
+            logger('EMAIL', `✅ 邮件发送成功 - 收件人: ${recipientEmail}, MessageID: ${result.messageId}`);
+            res.json({ 
+                success: true, 
+                message: '邮件发送成功！会议纪要已发送到指定邮箱' 
+            });
+        } else {
+            logger('ERROR', `❌ 邮件发送失败 - 收件人: ${recipientEmail}`);
+            logger('ERROR', `错误详情: ${result.error} (代码: ${result.code || '无'})`);
+            
+            // 根据错误类型提供更友好的提示
+            let userMessage = '邮件发送失败';
+            if (result.code === 'EAUTH') {
+                userMessage = '邮件服务器认证失败，请检查SMTP用户名和密码配置';
+            } else if (result.code === 'ECONNECTION' || result.code === 'ETIMEDOUT') {
+                userMessage = '无法连接到邮件服务器，请检查网络和SMTP服务器配置';
+            } else if (result.error) {
+                userMessage = `邮件发送失败: ${result.error}`;
+            }
+            
+            res.status(500).json({ 
+                success: false, 
+                message: userMessage
+            });
+        }
+    } catch (error) {
+        logger('ERROR', `❌ 邮件发送异常 - 收件人: ${recipientEmail}, 会议ID: ${fileId}`);
+        logger('ERROR', `异常信息: ${error.message}`);
+        logger('ERROR', `异常堆栈: ${error.stack}`);
+        res.status(500).json({ 
+            success: false,
+            message: '邮件发送过程中发生异常，请稍后重试' 
+        });
+    }
+});
+
+// SMTP连接测试API端点
+app.get('/api/test-smtp', async (req, res) => {
+    try {
+        const result = await emailService.testSMTPConnection(emailTransporter);
+        
+        if (result.success) {
+            console.log('✅ SMTP连接测试成功 - 服务器:', result.details.server);
+            res.json({
+                success: true,
+                message: result.message,
+                details: result.details
+            });
+        } else {
+            console.error('❌ SMTP连接测试失败:', result.message);
+            console.error('SMTP配置检查:');
+            if (result.details) {
+                console.error('- 服务器:', result.details.server || process.env.SMTP_HOST || '未设置');
+                console.error('- 端口:', result.details.port || process.env.SMTP_PORT || 587);
+                console.error('- 用户:', result.details.user || '未设置');
+                console.error('- 密码配置:', process.env.SMTP_PASS ? '已设置(长度:' + process.env.SMTP_PASS.length + ')' : '未设置');
+                if (result.details.error) {
+                    console.error('- 完整错误:', result.details.error);
+                }
+                if (result.details.response) {
+                    console.error('- SMTP响应:', result.details.response);
+                }
+            }
+            
+            const maskedUser = process.env.SMTP_USER ? process.env.SMTP_USER.replace(/(.{3}).*(@.*)/, '$1***$2') : '未设置';
+            res.status(500).json({
+                success: false,
+                message: result.message,
+                details: result.details || {
+                    server: process.env.SMTP_HOST || '未设置',
+                    port: parseInt(process.env.SMTP_PORT) || 587,
+                    user: maskedUser,
+                    configured: false
+                }
+            });
+        }
+    } catch (error) {
+        console.error('❌ SMTP测试异常:', error.message);
+        res.status(500).json({
+            success: false,
+            message: 'SMTP测试异常: ' + error.message,
+            details: {
+                error: error.message
+            }
+        });
+    }
+});
+
 // 清理过期的处理状态（简单实现，生产环境需要更完善的清理机制）
 setInterval(() => {
     const now = Date.now();
@@ -877,6 +1035,17 @@ setInterval(() => {
     }
 }, 5 * 60 * 1000); // 每5分钟清理一次
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
     logger('SYSTEM', `EchoFlow 后端服务已启动: http://localhost:${PORT}`);
+    
+    // 测试SMTP服务器连通性
+    logger('SYSTEM', '正在测试SMTP服务器连通性...');
+    const smtpTestResult = await emailService.testSMTPConnection(emailTransporter);
+    
+    if (smtpTestResult.success) {
+        logger('SYSTEM', `✓ ${smtpTestResult.message}`);
+    } else {
+        logger('ERROR', `✗ ${smtpTestResult.message}`);
+        logger('ERROR', '邮件发送功能将不可用，请检查.env文件中的SMTP配置');
+    }
 });

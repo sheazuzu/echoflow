@@ -2,6 +2,7 @@
 
 # MeetingMind 一键部署脚本
 
+
 echo "🚀 MeetingMind 容器化部署脚本"
 echo "================================"
 
@@ -182,6 +183,97 @@ if curl -f http://localhost/ > /dev/null 2>&1; then
     echo "✅ 前端服务运行正常 (通过Traefik: /)"
 else
     echo "❌ 前端服务启动失败（无法通过Traefik访问 /）"
+fi
+
+# 检查SMTP配置和连通性
+echo ""
+echo "📧 SMTP邮件服务检查:"
+
+# 检查.env文件中是否配置了SMTP
+if [ -f ".env" ]; then
+    SMTP_HOST=$(grep "^SMTP_HOST=" .env | cut -d '=' -f2)
+    SMTP_USER=$(grep "^SMTP_USER=" .env | cut -d '=' -f2)
+    SMTP_PASS=$(grep "^SMTP_PASS=" .env | cut -d '=' -f2)
+    
+    # 检查哪些配置缺失
+    MISSING_CONFIGS=()
+    [ -z "$SMTP_HOST" ] && MISSING_CONFIGS+=("SMTP_HOST")
+    [ -z "$SMTP_USER" ] && MISSING_CONFIGS+=("SMTP_USER")
+    [ -z "$SMTP_PASS" ] && MISSING_CONFIGS+=("SMTP_PASS")
+    
+    if [ ${#MISSING_CONFIGS[@]} -gt 0 ]; then
+        echo "⚠️  SMTP配置不完整，邮件发送功能将不可用"
+        echo ""
+        echo "❌ 缺失的配置项:"
+        for config in "${MISSING_CONFIGS[@]}"; do
+            case $config in
+                "SMTP_HOST")
+                    echo "   ❌ $config - 请输入SMTP服务器地址 (例如: smtp.gmail.com)"
+                    ;;
+                "SMTP_USER")
+                    echo "   ❌ $config - 请输入发件人邮箱地址 (例如: your-email@gmail.com)"
+                    ;;
+                "SMTP_PASS")
+                    echo "   ❌ $config - 请输入邮箱密码或应用专用密码"
+                    echo "      提示: Gmail需要使用应用专用密码，不是普通登录密码"
+                    ;;
+            esac
+        done
+        echo ""
+        echo "📝 请在项目根目录的 .env 文件中配置以上参数"
+        echo "   示例配置:"
+        echo "   SMTP_HOST=smtp.gmail.com"
+        echo "   SMTP_PORT=587"
+        echo "   SMTP_SECURE=false"
+        echo "   SMTP_USER=your-email@gmail.com"
+        echo "   SMTP_PASS=your-app-password"
+    else
+        # 读取所有SMTP配置
+        SMTP_PORT=$(grep "^SMTP_PORT=" .env | cut -d '=' -f2)
+        SMTP_SECURE=$(grep "^SMTP_SECURE=" .env | cut -d '=' -f2)
+        
+        # 设置默认值
+        SMTP_PORT=${SMTP_PORT:-587}
+        SMTP_SECURE=${SMTP_SECURE:-false}
+        
+        echo "✅ SMTP配置已找到 (服务器: $SMTP_HOST)"
+        echo "   正在测试SMTP连通性..."
+        
+        # 使用Node.js测试SMTP连接，直接传递配置值
+        SMTP_TEST_RESULT=$(docker compose exec -T backend node -e "
+const nodemailer = require('nodemailer');
+const transporter = nodemailer.createTransport({
+    host: '$SMTP_HOST',
+    port: parseInt('$SMTP_PORT'),
+    secure: '$SMTP_SECURE' === 'true',
+    auth: {
+        user: '$SMTP_USER',
+        pass: '$SMTP_PASS',
+    },
+    // 增加超时时间，解决网络不稳定导致的DNS解析失败
+    connectionTimeout: 60000,  // 连接超时：60秒
+    greetingTimeout: 30000,    // 握手超时：30秒
+    socketTimeout: 60000,      // Socket超时：60秒
+});
+transporter.verify()
+    .then(() => console.log('SUCCESS'))
+    .catch(err => console.log('FAILED:' + err.message));
+" 2>&1)
+        
+        if echo "$SMTP_TEST_RESULT" | grep -q "SUCCESS"; then
+            echo "   ✅ SMTP服务器连接成功，邮件发送功能已就绪"
+        else
+            echo "   ❌ SMTP服务器连接失败"
+            ERROR_MSG=$(echo "$SMTP_TEST_RESULT" | grep "FAILED:" | cut -d ':' -f2-)
+            if [ -n "$ERROR_MSG" ]; then
+                echo "   错误信息: $ERROR_MSG"
+            fi
+            echo "   请检查SMTP配置是否正确"
+            echo "   当前配置: $SMTP_HOST:$SMTP_PORT (secure=$SMTP_SECURE)"
+        fi
+    fi
+else
+    echo "⚠️  未找到.env文件，无法检查SMTP配置"
 fi
 
 echo ""
