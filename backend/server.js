@@ -119,6 +119,40 @@ const uploadToCOS = (fileBuffer, fileName) => {
     });
 };
 
+// COS辅助函数：上传转录结果到COS桶
+const uploadTranscriptToCOS = (transcriptText, fileName) => {
+    return new Promise((resolve, reject) => {
+        if (!cosConfig.SecretId || !cosConfig.SecretKey || !cosConfig.Bucket || !cosConfig.Endpoint) {
+            // COS配置不完整，使用本地存储模式
+            const localFilePath = path.join(uploadDir, fileName + '_transcript.txt');
+            fs.writeFileSync(localFilePath, transcriptText);
+            resolve(localFilePath);
+            return;
+        }
+        
+        const cosKey = `transcripts/${fileName}_transcript.txt`;
+        
+        cos.putObject({
+            Bucket: cosConfig.Bucket,
+            Region: cosConfig.Region,
+            Key: cosKey,
+            Body: transcriptText,
+            ContentLength: transcriptText.length
+        }, (err, data) => {
+            if (err) {
+                logger('COS_ERROR', `转录结果上传到COS失败: ${err.message}`);
+                // 上传失败时回退到本地存储
+                const localFilePath = path.join(uploadDir, fileName + '_transcript.txt');
+                fs.writeFileSync(localFilePath, transcriptText);
+                resolve(localFilePath);
+            } else {
+                logger('COS_SUCCESS', `转录结果已上传到COS: ${cosKey}`);
+                resolve(cosKey); // 返回COS对象键
+            }
+        });
+    });
+};
+
 // COS辅助函数：从COS下载文件到本地临时文件
 const downloadFromCOS = (cosKey) => {
     return new Promise((resolve, reject) => {
@@ -490,6 +524,7 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
 // 异步文件处理函数
 async function processFile(fileId, cosKey, fileSizeMB) {
     let localFilePath = null;
+    let transcriptCosKey = null; // 存储转录结果的COS键
     
     try {
         // 1. 从COS下载文件到本地临时文件
@@ -631,11 +666,18 @@ Please create meeting summary.
         });
 
         const aiResult = JSON.parse(completion.choices[0].message.content);
+        
+        // 3. 将转录结果上传到COS桶
+        logger('COS_UPLOAD', `开始上传转录结果到COS桶`);
+        transcriptCosKey = await uploadTranscriptToCOS(fullTranscript, fileId);
+        logger('COS_SUCCESS', `转录结果已存储到COS: ${transcriptCosKey}`);
+        
         processingStatus.set(fileId, { 
             status: 'completed', 
             progress: 100, 
             minutesData: aiResult,
-            transcript: fullTranscript 
+            transcript: fullTranscript,
+            transcriptCosKey: transcriptCosKey // 存储转录结果的COS键
         });
         
         // 输出会议纪要简介到日志
@@ -646,7 +688,7 @@ Please create meeting summary.
         
         logger('LLM', `GPT 总结生成完毕`);
 
-        // 清理文件：删除本地临时文件和COS文件
+        // 清理文件：只清理本地临时文件，保留COS中的转录结果
         try {
             // 清理本地临时文件
             if (localFilePath && fs.existsSync(localFilePath)) {
@@ -654,7 +696,7 @@ Please create meeting summary.
                 logger('CLEANUP', `本地临时文件已清理: ${localFilePath}`);
             }
             
-            // 清理COS文件（如果使用了COS）
+            // 清理COS中的音频文件（不保留音频文件）
             if (cosKey.startsWith('uploads/')) {
                 cos.deleteObject({
                     Bucket: cosConfig.Bucket,
@@ -662,14 +704,14 @@ Please create meeting summary.
                     Key: cosKey
                 }, (err, data) => {
                     if (err) {
-                        logger('COS_CLEANUP_ERROR', `删除COS文件失败: ${err.message}`);
+                        logger('COS_CLEANUP_ERROR', `删除COS音频文件失败: ${err.message}`);
                     } else {
-                        logger('COS_CLEANUP_SUCCESS', `COS文件已删除: ${cosKey}`);
+                        logger('COS_CLEANUP_SUCCESS', `COS音频文件已删除: ${cosKey}`);
                     }
                 });
             }
             
-            logger('CLEANUP', `文件处理流程完成，所有临时文件已清理`);
+            logger('CLEANUP', `文件处理流程完成，本地临时文件已清理，转录结果已存储在COS: ${transcriptCosKey}`);
             
         } catch (cleanupError) {
             logger('ERROR', `清理文件失败: ${cleanupError.message}`);
@@ -774,6 +816,53 @@ app.get('/api/minutes/:fileId', (req, res) => {
         minutesData: status.minutesData,
         transcript: status.transcript
     });
+});
+
+// 获取转录结果接口
+app.get('/api/transcript/:fileId', async (req, res) => {
+    const fileId = req.params.fileId;
+    const status = processingStatus.get(fileId);
+    
+    if (!status) {
+        return res.status(404).json({ message: "文件处理状态未找到" });
+    }
+    
+    if (status.status !== 'completed') {
+        return res.status(400).json({ message: "文件处理尚未完成" });
+    }
+    
+    if (!status.transcriptCosKey) {
+        return res.status(404).json({ message: "转录结果未找到" });
+    }
+    
+    try {
+        // 如果转录结果存储在COS中，从COS下载
+        if (status.transcriptCosKey.startsWith('transcripts/')) {
+            const localFilePath = await downloadFromCOS(status.transcriptCosKey);
+            const transcriptText = fs.readFileSync(localFilePath, 'utf8');
+            
+            // 清理本地临时文件
+            fs.unlinkSync(localFilePath);
+            
+            res.json({
+                fileId,
+                transcript: transcriptText,
+                transcriptCosKey: status.transcriptCosKey,
+                storage: 'cos'
+            });
+        } else {
+            // 如果转录结果存储在本地
+            res.json({
+                fileId,
+                transcript: status.transcript,
+                transcriptPath: status.transcriptCosKey,
+                storage: 'local'
+            });
+        }
+    } catch (error) {
+        logger('ERROR', `获取转录结果失败: ${error.message}`);
+        res.status(500).json({ message: "获取转录结果失败", error: error.message });
+    }
 });
 
 // 清理过期的处理状态（简单实现，生产环境需要更完善的清理机制）

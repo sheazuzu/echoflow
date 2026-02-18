@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Upload, FileAudio, CheckCircle, Clock, Download, Settings, Cpu, Loader2, RefreshCw, CloudUpload } from 'lucide-react';
 import './App.css';
 
@@ -19,7 +19,7 @@ const App = () => {
     const handleFileUpload = (e) => {
         const selectedFile = e.target.files[0];
         if (selectedFile) {
-            startProcessing(selectedFile);
+            // 处理文件上传逻辑
         }
     };
 
@@ -211,22 +211,7 @@ const App = () => {
         return statusMap[status] || '处理中...';
     };
 
-    // 获取进度图标
-    const getStatusIcon = (status) => {
-        switch (status) {
-            case 'uploading':
-            case 'splitting':
-            case 'transcribing':
-            case 'generating_summary':
-                return <Loader2 size={24} color="#818cf8" style={{animation: 'spin 2s linear infinite'}} />;
-            case 'completed':
-                return <CheckCircle size={24} color="#4ade80" />;
-            case 'error':
-                return <div style={{color: '#ef4444', fontSize: '24px'}}>⚠️</div>;
-            default:
-                return <Loader2 size={24} color="#818cf8" style={{animation: 'spin 2s linear infinite'}} />;
-        }
-    };
+
 
     // 渲染单个语言版本的纪要列
     const renderMinutesColumn = (data, langTitle) => {
@@ -386,28 +371,33 @@ const App = () => {
                         </p>
                         {errorMsg && <p style={{color: '#ef4444', background: 'rgba(239, 68, 68, 0.1)', padding: '10px', borderRadius: '8px'}}>{errorMsg}</p>}
 
-                        <div className={`upload-card ${isUploading ? 'uploading' : ''}`}>
-                            <input type="file" accept="audio/*" onChange={handleFileUpload} className="file-input" />
-                            <div className="upload-icon-wrapper" style={{background: 'rgba(99, 102, 241, 0.1)', width: '80px', height: '80px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', position: 'relative'}}>
-                                <Upload size={40} color="#818cf8"/>
-                                <div className="upload-pulse" style={{
-                                    position: 'absolute',
-                                    top: '-10px',
-                                    left: '-10px',
-                                    right: '-10px',
-                                    bottom: '-10px',
-                                    borderRadius: '50%',
-                                    border: '2px solid #818cf8',
-                                    animation: isUploading ? 'uploadPulse 1.5s infinite' : 'none',
-                                    opacity: isUploading ? 1 : 0
-                                }}></div>
+
+
+                        {/* 文件上传区域 */}
+                        <div className="upload-section">
+                            <div className={`upload-card ${isUploading ? 'uploading' : ''}`}>
+                                <input type="file" accept="audio/*" onChange={handleFileUpload} className="file-input" />
+                                <div className="upload-icon-wrapper" style={{background: 'rgba(99, 102, 241, 0.1)', width: '80px', height: '80px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', position: 'relative'}}>
+                                    <Upload size={40} color="#818cf8"/>
+                                    <div className="upload-pulse" style={{
+                                        position: 'absolute',
+                                        top: '-10px',
+                                        left: '-10px',
+                                        right: '-10px',
+                                        bottom: '-10px',
+                                        borderRadius: '50%',
+                                        border: '2px solid #818cf8',
+                                        animation: isUploading ? 'uploadPulse 1.5s infinite' : 'none',
+                                        opacity: isUploading ? 1 : 0
+                                    }}></div>
+                                </div>
+                                <h3 style={{marginBottom: '10px'}}>
+                                    {isUploading ? '文件上传中...' : '点击或拖拽上传音频文件'}
+                                </h3>
+                                <p style={{ fontSize: '0.9rem', color: isUploading ? '#818cf8' : '#64748b' }}>
+                                    {isUploading ? '请稍候，正在上传您的音频文件...' : '支持 MP3 / M4A / WAV / WebM 等音频格式'}
+                                </p>
                             </div>
-                            <h3 style={{marginBottom: '10px'}}>
-                                {isUploading ? '文件上传中...' : '点击或拖拽上传录音'}
-                            </h3>
-                            <p style={{ fontSize: '0.9rem', color: isUploading ? '#818cf8' : '#64748b' }}>
-                                {isUploading ? '请稍候，正在上传您的录音文件...' : '支持 MP3 / M4A / WAV'}
-                            </p>
                         </div>
                     </div>
                 )}
@@ -729,6 +719,6 @@ const App = () => {
             </footer>
         </div>
     );
-};
+}
 
 export default App;
