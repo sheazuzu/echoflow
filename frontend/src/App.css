@@ -1,13 +1,47 @@
 :root {
+  /* 背景色 */
   --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e293b 30%, #1e40af 100%);
   --card-bg: rgba(255, 255, 255, 0.08);
   --card-border: rgba(255, 255, 255, 0.15);
+  
+  /* 主题色 */
   --primary-gradient: linear-gradient(135deg, #ffffff 0%, #e2e8f0 50%, #3b82f6 100%);
-  --text-primary: #f1f5f9;
-  --text-secondary: #cbd5e1;
   --accent-color: #3b82f6;
   --secondary-accent: #60a5fa;
   --white-accent: #ffffff;
+  
+  /* 文字颜色 */
+  --text-primary: #f1f5f9;
+  --text-secondary: #cbd5e1;
+  --text-tertiary: #94a3b8;
+  --text-muted: #64748b;
+  
+  /* 功能色 */
+  --upload-color: #818cf8;
+  --upload-color-light: rgba(99, 102, 241, 0.1);
+  --recording-color: #ec4899;
+  --recording-color-light: rgba(236, 72, 153, 0.1);
+  --success-color: #10b981;
+  --error-color: #ef4444;
+  
+  /* 间距 */
+  --spacing-xs: 8px;
+  --spacing-sm: 12px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 40px;
+  
+  /* 圆角 */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  
+  /* 阴影 */
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.3);
+  --shadow-xl: 0 12px 40px rgba(0, 0, 0, 0.4);
 }
 
 html {
@@ -26,11 +60,76 @@ body {
   background-attachment: fixed;
   color: var(--text-primary);
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+  letter-spacing: 0.01em;
   /* 强制居中布局 */
   display: flex;
   justify-content: center;
   align-items: flex-start; /* 垂直方向置顶 */
   overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 统一标题样式 */
+h1, h2, h3, h4, h5, h6 {
+  margin: 0;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--text-primary);
+}
+
+h1 {
+  font-size: 2.5rem;
+  letter-spacing: -0.02em;
+}
+
+h2 {
+  font-size: 2rem;
+  letter-spacing: -0.01em;
+}
+
+h3 {
+  font-size: 1.5rem;
+}
+
+h4 {
+  font-size: 1.25rem;
+}
+
+/* 统一段落样式 */
+p {
+  margin: 0 0 1rem 0;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+/* 统一按钮样式 */
+button {
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  cursor: pointer;
+  border: none;
+  outline: none;
+  transition: all 0.3s ease;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* 统一链接样式 */
+a {
+  color: var(--accent-color);
+  text-decoration: none;
+  transition: all 0.3s ease;
+}
+
+a:hover {
+  color: var(--secondary-accent);
 }
 
 #root {
@@ -130,6 +229,90 @@ body {
   transform: scale(1.1);
 }
 
+/* GitHub链接样式 */
+.github-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  color: var(--text-primary);
+  text-decoration: none;
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.github-link:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.github-link:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+/* Contact按钮样式 */
+.contact-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: 12px;
+  color: #10b981;
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.contact-button:hover {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+}
+
+.contact-button:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.15);
+}
+
+/* 移动端GitHub链接优化 */
+@media (max-width: 768px) {
+  .github-link {
+    padding: 8px 12px;
+    font-size: 0.85rem;
+    min-width: 44px;
+    min-height: 44px;
+    justify-content: center;
+  }
+  
+  .github-link span {
+    display: none;
+  }
+  
+  .contact-button {
+    padding: 8px 12px;
+    font-size: 0.85rem;
+    min-width: 44px;
+    min-height: 44px;
+    justify-content: center;
+  }
+  
+  .contact-button span {
+    display: none;
+  }
+}
+
 /* 调整hero-section的间距以适应更大的header */
 .hero-section {
   text-align: center;
@@ -140,16 +323,69 @@ body {
   margin-top: 60px;
 }
 
-.upload-card {
+/* 功能模块容器 - 左右布局 */
+.features-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
   margin-top: 40px;
+  width: 100%;
+}
+
+/* 功能模块卡片 */
+.feature-module {
   background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-xl);
+  padding: var(--spacing-xl);
+  backdrop-filter: blur(15px);
+  transition: all 0.3s ease;
+  box-shadow: var(--shadow-md);
+  min-height: 400px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.feature-module:hover {
+  transform: translateY(-5px);
+  box-shadow: var(--shadow-lg);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* 上传模块特定样式 */
+.upload-module:hover {
+  border-color: rgba(129, 140, 248, 0.4);
+  box-shadow: 0 8px 30px rgba(129, 140, 248, 0.2);
+}
+
+/* 录音模块特定样式 */
+.recording-module {
+  text-align: center;
+}
+
+.recording-module:hover {
+  border-color: rgba(236, 72, 153, 0.4);
+  box-shadow: 0 8px 30px rgba(236, 72, 153, 0.2);
+}
+
+.recording-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.upload-card {
+  margin-top: 0;
+  background: transparent;
   border: 2px dashed var(--card-border);
-  border-radius: 24px;
-  padding: 80px 40px;
+  border-radius: 20px;
+  padding: 60px 30px;
   cursor: pointer;
   position: relative;
   transition: all 0.3s;
-  backdrop-filter: blur(10px);
+  backdrop-filter: none;
 }
 
 .upload-card:hover {
@@ -164,6 +400,15 @@ body {
   inset: 0;
   opacity: 0;
   cursor: pointer;
+}
+
+.file-input:focus {
+  outline: none;
+}
+
+.file-input:focus + .upload-icon-wrapper {
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.3);
+  animation: inputFocus 0.6s ease-out;
 }
 
 /* Processing State */
@@ -335,6 +580,17 @@ button.btn-reset:hover {
 
 /* 响应式设计 */
 @media (max-width: 768px) {
+  /* 功能模块在移动端垂直堆叠 */
+  .features-container {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  
+  .feature-module {
+    padding: 30px 20px;
+    min-height: 300px;
+  }
+  
   .minutes-split-view {
     grid-template-columns: 1fr;
   }
@@ -670,6 +926,8 @@ button.btn-reset:hover {
 /* 录音功能样式 */
 .btn-recording {
   transition: all 0.3s ease;
+  min-height: 44px;
+  min-width: 120px;
 }
 
 .btn-recording:hover:not(:disabled) {
@@ -679,6 +937,40 @@ button.btn-reset:hover {
 
 .btn-recording:active:not(:disabled) {
   transform: translateY(0);
+}
+
+/* 统一图标尺寸 */
+.upload-icon-wrapper,
+.recording-icon-wrapper {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto var(--spacing-lg);
+  transition: all 0.3s ease;
+}
+
+.upload-icon-wrapper svg,
+.recording-icon-wrapper svg {
+  width: 40px;
+  height: 40px;
+}
+
+/* 按钮最小触摸目标 */
+button,
+.btn-recording,
+.btn-cancel,
+.btn-reset {
+  min-height: 44px;
+  padding: var(--spacing-sm) var(--spacing-lg);
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-xs);
 }
 
 /* 录音界面响应式优化 */
@@ -804,6 +1096,36 @@ button.btn-reset:hover {
   
   .logo {
     font-size: 1.4rem;
+  }
+  
+  .logo img {
+    height: 36px;
+  }
+  
+  .feature-module {
+    padding: var(--spacing-lg) var(--spacing-md);
+    min-height: 300px;
+  }
+  
+  .upload-icon-wrapper,
+  .recording-icon-wrapper {
+    width: 60px;
+    height: 60px;
+  }
+  
+  .upload-icon-wrapper svg,
+  .recording-icon-wrapper svg {
+    width: 30px;
+    height: 30px;
+  }
+  
+  h3 {
+    font-size: 1.2rem;
+  }
+  
+  .btn-recording {
+    width: 100%;
+    padding: var(--spacing-md) var(--spacing-lg);
   }
 }
 

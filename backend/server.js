@@ -21,31 +21,6 @@ const logger = (stage, message) => {
     console.log(`[${timestamp}] [${stage}] ${message}`);
 };
 
-// 生成标准化文件名：YYYYMMDD_HHMMSS_会议主题.扩展名
-const generateStandardFileName = (originalName, meetingTopic = '') => {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-    const seconds = String(now.getSeconds()).padStart(2, '0');
-    
-    const timestamp = `${year}${month}${day}_${hours}${minutes}${seconds}`;
-    
-    // 获取文件扩展名
-    const ext = path.extname(originalName);
-    
-    // 清理会议主题：移除特殊字符，限制长度
-    let topic = meetingTopic || path.basename(originalName, ext);
-    topic = topic
-        .replace(/[\\/:*?"<>|]/g, '_')  // 替换文件系统不允许的字符
-        .replace(/\s+/g, '_')            // 空格替换为下划线
-        .substring(0, 50);                // 限制长度为50个字符
-    
-    return `${timestamp}_${topic}${ext}`;
-};
-
 // 配置 OpenAI
 // 1. 优先读取 .env 文件中的 OPENAI_API_KEY
 // 2. 如果没有，请在下方 "" 中填入 Key 用于测试，但不要包含中文！
@@ -518,17 +493,27 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
 
     const fileBuffer = req.file.buffer;
     const fileSizeMB = req.file.size / (1024 * 1024);
-    const meetingTopic = req.body.meetingTopic || ''; // 获取会议主题（可选）
     
-    // 生成标准化文件名：YYYYMMDD_HHMMSS_会议主题.扩展名
-    const fileId = generateStandardFileName(req.file.originalname, meetingTopic);
+    // 生成标准化文件名：YYYYMMDD_HHMMSS_原始文件名
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    const timestamp = `${year}${month}${day}_${hours}${minutes}${seconds}`;
+    
+    // 清理原始文件名：移除特殊字符
+    const cleanFileName = req.file.originalname
+        .replace(/[\\/:*?"<>|]/g, '_')  // 替换文件系统不允许的字符
+        .replace(/\s+/g, '_');            // 空格替换为下划线
+    
+    const fileId = `${timestamp}_${cleanFileName}`;
     
     logger('UPLOAD', `接收文件: ${req.file.originalname}`);
     logger('UPLOAD', `标准化文件名: ${fileId}`);
     logger('UPLOAD', `文件大小: ${fileSizeMB.toFixed(2)}MB`);
-    if (meetingTopic) {
-        logger('UPLOAD', `会议主题: ${meetingTopic}`);
-    }
 
     // 立即返回响应，让前端可以开始轮询进度
     res.json({
@@ -1001,6 +986,205 @@ app.post('/api/send-email', async (req, res) => {
         res.status(500).json({ 
             success: false,
             message: '邮件发送过程中发生异常，请稍后重试' 
+        });
+    }
+});
+
+// 用户反馈API端点
+app.post('/api/send-feedback', async (req, res) => {
+    const { name, email, message } = req.body;
+    
+    // 验证参数
+    if (!name || !email || !message) {
+        return res.status(400).json({ 
+            success: false, 
+            message: '请填写所有必需字段（姓名、邮箱、反馈内容）' 
+        });
+    }
+    
+    // 验证邮箱格式
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+        return res.status(400).json({ 
+            success: false, 
+            message: '邮箱地址格式无效' 
+        });
+    }
+    
+    // 验证消息长度
+    if (message.length < 10) {
+        return res.status(400).json({ 
+            success: false, 
+            message: '反馈内容至少需要10个字符' 
+        });
+    }
+    
+    if (message.length > 5000) {
+        return res.status(400).json({ 
+            success: false, 
+            message: '反馈内容不能超过5000个字符' 
+        });
+    }
+    
+    try {
+        // 检查邮件传输器是否可用
+        if (!emailTransporter) {
+            logger('ERROR', `❌ SMTP邮件服务未配置，无法发送反馈`);
+            return res.status(500).json({ 
+                success: false, 
+                message: 'SMTP邮件服务未配置，请联系管理员' 
+            });
+        }
+        
+        // 生成反馈邮件内容
+        const feedbackEmailContent = {
+            subject: `EchoFlow 用户反馈 - ${name}`,
+            html: `
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>用户反馈</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: #ffffff;
+            border-radius: 8px;
+            padding: 30px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #6366f1;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            color: #6366f1;
+            margin: 0;
+            font-size: 24px;
+        }
+        .field {
+            margin-bottom: 20px;
+        }
+        .field-label {
+            font-weight: bold;
+            color: #4b5563;
+            margin-bottom: 8px;
+            display: block;
+        }
+        .field-content {
+            color: #1f2937;
+            padding: 12px;
+            background-color: #f9fafb;
+            border-radius: 6px;
+            border-left: 3px solid #6366f1;
+        }
+        .message-content {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+            color: #9ca3af;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>💬 EchoFlow 用户反馈</h1>
+        </div>
+        
+        <div class="field">
+            <span class="field-label">👤 用户姓名：</span>
+            <div class="field-content">${name}</div>
+        </div>
+        
+        <div class="field">
+            <span class="field-label">📧 联系邮箱：</span>
+            <div class="field-content">${email}</div>
+        </div>
+        
+        <div class="field">
+            <span class="field-label">💭 反馈内容：</span>
+            <div class="field-content message-content">${message}</div>
+        </div>
+        
+        <div class="footer">
+            <p>此邮件由 EchoFlow 系统自动生成</p>
+            <p>发送时间: ${new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}</p>
+        </div>
+    </div>
+</body>
+</html>
+            `,
+            text: `
+EchoFlow 用户反馈
+==================
+
+用户姓名：${name}
+联系邮箱：${email}
+
+反馈内容：
+${message}
+
+==================
+此邮件由 EchoFlow 系统自动生成
+发送时间: ${new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}
+            `
+        };
+        
+        // 发送反馈邮件到指定邮箱
+        const recipientEmail = 'sheazuzu@hotmail.com';
+        logger('EMAIL', `📧 准备发送用户反馈 - 发件人: ${name} (${email})`);
+        const result = await emailService.sendEmail(emailTransporter, recipientEmail, feedbackEmailContent);
+        
+        if (result.success) {
+            logger('EMAIL', `✅ 反馈邮件发送成功 - MessageID: ${result.messageId}`);
+            res.json({ 
+                success: true, 
+                message: '感谢您的反馈！我们已收到您的消息，会尽快回复。' 
+            });
+        } else {
+            logger('ERROR', `❌ 反馈邮件发送失败`);
+            logger('ERROR', `错误详情: ${result.error} (代码: ${result.code || '无'})`);
+            
+            // 根据错误类型提供更友好的提示
+            let userMessage = '反馈发送失败，请稍后重试';
+            if (result.code === 'EAUTH') {
+                userMessage = '邮件服务器认证失败，请联系管理员';
+            } else if (result.code === 'ECONNECTION' || result.code === 'ETIMEDOUT') {
+                userMessage = '网络连接失败，请稍后重试';
+            } else if (result.error) {
+                userMessage = `发送失败: ${result.error}`;
+            }
+            
+            res.status(500).json({ 
+                success: false, 
+                message: userMessage
+            });
+        }
+    } catch (error) {
+        logger('ERROR', `❌ 反馈邮件发送异常`);
+        logger('ERROR', `异常信息: ${error.message}`);
+        logger('ERROR', `异常堆栈: ${error.stack}`);
+        res.status(500).json({ 
+            success: false,
+            message: '发送过程中发生异常，请稍后重试' 
         });
     }
 });

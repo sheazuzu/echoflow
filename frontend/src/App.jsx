@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, FileAudio, CheckCircle, Clock, Download, Settings, Cpu, Loader2, RefreshCw, CloudUpload, Mic, Mail, Copy, Check } from 'lucide-react';
+import { Upload, FileAudio, CheckCircle, Clock, Download, Settings, Cpu, Loader2, RefreshCw, CloudUpload, Mic, Mail, Copy, Check, Github, MessageCircle, X } from 'lucide-react';
 import './App.css';
 
 // 导入腾讯云logo
@@ -15,7 +15,6 @@ const App = () => {
     const [processingStatus, setProcessingStatus] = useState({ status: '', progress: 0 });
     const [currentFileId, setCurrentFileId] = useState('');
     const [isUploading, setIsUploading] = useState(false); // 新增：上传状态标识
-    const [meetingTopic, setMeetingTopic] = useState(''); // 会议主题（可选）
 
     // 录音功能相关状态
     const [isRecording, setIsRecording] = useState(false); // 是否正在录音
@@ -38,6 +37,12 @@ const App = () => {
     const [sendSuccess, setSendSuccess] = useState(false); // 邮件发送成功提示
     const [copiedTranscript, setCopiedTranscript] = useState(false); // 转录文本复制成功提示
     const emailInputRef = useRef(null); // 邮箱输入框引用
+
+    // Contact表单状态
+    const [showContactModal, setShowContactModal] = useState(false);
+    const [contactForm, setContactForm] = useState({ name: '', email: '', message: '' });
+    const [contactSubmitting, setContactSubmitting] = useState(false);
+    const [contactMessage, setContactMessage] = useState({ type: '', text: '' });
 
     // 录音功能工具函数
     
@@ -463,9 +468,6 @@ const App = () => {
 
         const formData = new FormData();
         formData.append('file', fileObj);
-        if (meetingTopic.trim()) {
-            formData.append('meetingTopic', meetingTopic.trim());
-        }
 
         try {
             const response = await fetch('/api/upload', {
@@ -727,7 +729,69 @@ const App = () => {
         setProcessingStatus({ status: '', progress: 0 });
         setCurrentFileId('');
         setIsUploading(false); // 重置上传状态
-        setMeetingTopic(''); // 清空会议主题
+    };
+
+    // Contact表单处理函数
+    const handleContactSubmit = async (e) => {
+        e.preventDefault();
+        setContactMessage({ type: '', text: '' });
+        
+        // 验证表单
+        if (!contactForm.name.trim() || !contactForm.email.trim() || !contactForm.message.trim()) {
+            setContactMessage({ type: 'error', text: '请填写所有必需字段' });
+            return;
+        }
+        
+        // 验证邮箱格式
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(contactForm.email)) {
+            setContactMessage({ type: 'error', text: '请输入有效的邮箱地址' });
+            return;
+        }
+        
+        // 验证消息长度
+        if (contactForm.message.length < 10) {
+            setContactMessage({ type: 'error', text: '反馈内容至少需要10个字符' });
+            return;
+        }
+        
+        setContactSubmitting(true);
+        
+        try {
+            const response = await fetch('/api/send-feedback', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(contactForm),
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                setContactMessage({ type: 'success', text: data.message });
+                // 清空表单
+                setContactForm({ name: '', email: '', message: '' });
+                // 3秒后关闭弹窗
+                setTimeout(() => {
+                    setShowContactModal(false);
+                    setContactMessage({ type: '', text: '' });
+                }, 3000);
+            } else {
+                setContactMessage({ type: 'error', text: data.message || '发送失败，请稍后重试' });
+            }
+        } catch (error) {
+            console.error('发送反馈失败:', error);
+            setContactMessage({ type: 'error', text: '网络错误，请稍后重试' });
+        } finally {
+            setContactSubmitting(false);
+        }
+    };
+    
+    const handleContactClose = () => {
+        setShowContactModal(false);
+        setContactForm({ name: '', email: '', message: '' });
+        setContactMessage({ type: '', text: '' });
     };
 
     // 获取进度状态描述
@@ -892,8 +956,81 @@ const App = () => {
                     <img src={sheaWhiteLogo} alt="Shea Logo" style={{height: '48px', marginRight: '15px', filter: 'brightness(1.2)', transition: 'all 0.3s ease'}}/>
                     <span style={{fontSize: '1.8rem', fontWeight: '700', background: 'linear-gradient(135deg, #ffffff 0%, #e2e8f0 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', textShadow: '0 2px 4px rgba(0, 0, 0, 0.3)'}}>EchoFlow Pro</span>
                 </div>
-                <div className="partner-logo">
-                    <img src={tencentCloudLogo} alt="Tencent Cloud" style={{height: '40px', opacity: 0.95, transition: 'all 0.3s ease'}} />
+                <div style={{display: 'flex', alignItems: 'center', gap: '20px'}}>
+                    <button
+                        onClick={() => setShowContactModal(true)}
+                        className="contact-button"
+                        title="Contact Us"
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            padding: '10px 16px',
+                            background: 'rgba(16, 185, 129, 0.1)',
+                            border: '1px solid rgba(16, 185, 129, 0.3)',
+                            borderRadius: '12px',
+                            color: '#10b981',
+                            fontSize: '0.95rem',
+                            fontWeight: '500',
+                            transition: 'all 0.3s ease',
+                            cursor: 'pointer'
+                        }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.background = 'rgba(16, 185, 129, 0.15)';
+                            e.currentTarget.style.borderColor = 'rgba(16, 185, 129, 0.4)';
+                            e.currentTarget.style.transform = 'translateY(-2px)';
+                            e.currentTarget.style.boxShadow = '0 4px 12px rgba(16, 185, 129, 0.2)';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.background = 'rgba(16, 185, 129, 0.1)';
+                            e.currentTarget.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+                            e.currentTarget.style.transform = 'translateY(0)';
+                            e.currentTarget.style.boxShadow = 'none';
+                        }}
+                    >
+                        <MessageCircle size={20} />
+                        <span>Contact</span>
+                    </button>
+                    <a 
+                        href="https://github.com/sheazuzu/echoflow" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="github-link"
+                        title="View on GitHub"
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            padding: '10px 16px',
+                            background: 'rgba(255, 255, 255, 0.1)',
+                            border: '1px solid rgba(255, 255, 255, 0.2)',
+                            borderRadius: '12px',
+                            color: '#f1f5f9',
+                            textDecoration: 'none',
+                            fontSize: '0.95rem',
+                            fontWeight: '500',
+                            transition: 'all 0.3s ease',
+                            cursor: 'pointer'
+                        }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
+                            e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+                            e.currentTarget.style.transform = 'translateY(-2px)';
+                            e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.2)';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+                            e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+                            e.currentTarget.style.transform = 'translateY(0)';
+                            e.currentTarget.style.boxShadow = 'none';
+                        }}
+                    >
+                        <Github size={20} />
+                        <span>GitHub</span>
+                    </a>
+                    <div className="partner-logo">
+                        <img src={tencentCloudLogo} alt="Tencent Cloud" style={{height: '40px', opacity: 0.95, transition: 'all 0.3s ease'}} />
+                    </div>
                 </div>
             </header>
 
@@ -1087,126 +1224,83 @@ const App = () => {
                         </p>
                         {errorMsg && <p style={{color: '#ef4444', background: 'rgba(239, 68, 68, 0.1)', padding: '10px', borderRadius: '8px'}}>{errorMsg}</p>}
 
-
-
-                        {/* 文件上传区域 */}
-                        <div className="upload-section">
-                            {/* 会议主题输入框 */}
-                            <div style={{
-                                marginBottom: '20px',
-                                maxWidth: '600px',
-                                margin: '0 auto 20px auto'
-                            }}>
-                                <label style={{
-                                    display: 'block',
-                                    marginBottom: '8px',
-                                    color: '#94a3b8',
-                                    fontSize: '0.9rem',
-                                    fontWeight: '500'
-                                }}>
-                                    会议主题（可选）
-                                </label>
-                                <input
-                                    type="text"
-                                    value={meetingTopic}
-                                    onChange={(e) => setMeetingTopic(e.target.value)}
-                                    placeholder="例如：2024年第一季度产品规划会议"
-                                    disabled={isUploading || appState !== 'idle'}
-                                    style={{
-                                        width: '100%',
-                                        padding: '12px 16px',
-                                        background: 'rgba(30, 41, 59, 0.5)',
-                                        border: '1px solid rgba(148, 163, 184, 0.2)',
-                                        borderRadius: '8px',
-                                        color: '#e2e8f0',
-                                        fontSize: '1rem',
-                                        outline: 'none',
-                                        transition: 'all 0.3s ease',
-                                        opacity: isUploading || appState !== 'idle' ? 0.5 : 1,
-                                        cursor: isUploading || appState !== 'idle' ? 'not-allowed' : 'text'
-                                    }}
-                                    onFocus={(e) => {
-                                        if (appState === 'idle' && !isUploading) {
-                                            e.target.style.borderColor = '#818cf8';
-                                            e.target.style.background = 'rgba(30, 41, 59, 0.8)';
-                                        }
-                                    }}
-                                    onBlur={(e) => {
-                                        e.target.style.borderColor = 'rgba(148, 163, 184, 0.2)';
-                                        e.target.style.background = 'rgba(30, 41, 59, 0.5)';
-                                    }}
-                                />
-                                <p style={{
-                                    marginTop: '6px',
-                                    fontSize: '0.8rem',
-                                    color: '#64748b'
-                                }}>
-                                    💡 输入会议主题可以让文件名更规范，便于后续管理
-                                </p>
-                            </div>
-
-                            <div className={`upload-card ${isUploading ? 'uploading' : ''}`}>
-                                <input type="file" accept="audio/*" onChange={handleFileUpload} className="file-input" />
-                                <div className="upload-icon-wrapper" style={{background: 'rgba(99, 102, 241, 0.1)', width: '80px', height: '80px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', position: 'relative'}}>
-                                    <Upload size={40} color="#818cf8"/>
-                                    <div className="upload-pulse" style={{
-                                        position: 'absolute',
-                                        top: '-10px',
-                                        left: '-10px',
-                                        right: '-10px',
-                                        bottom: '-10px',
-                                        borderRadius: '50%',
-                                        border: '2px solid #818cf8',
-                                        animation: isUploading ? 'uploadPulse 1.5s infinite' : 'none',
-                                        opacity: isUploading ? 1 : 0
-                                    }}></div>
+                        {/* 功能模块容器 - 左右布局 */}
+                        <div className="features-container">
+                            {/* 左侧：文件上传模块 */}
+                            <div className="feature-module upload-module">
+                                <div className="upload-section">
+                                    <div className={`upload-card ${isUploading ? 'uploading' : ''}`}>
+                                        <input type="file" accept="audio/*" onChange={handleFileUpload} className="file-input" />
+                                        <div className="upload-icon-wrapper" style={{background: 'rgba(99, 102, 241, 0.1)', width: '80px', height: '80px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', position: 'relative'}}>
+                                            <Upload size={40} color="#818cf8"/>
+                                            <div className="upload-pulse" style={{
+                                                position: 'absolute',
+                                                top: '-10px',
+                                                left: '-10px',
+                                                right: '-10px',
+                                                bottom: '-10px',
+                                                borderRadius: '50%',
+                                                border: '2px solid #818cf8',
+                                                animation: isUploading ? 'uploadPulse 1.5s infinite' : 'none',
+                                                opacity: isUploading ? 1 : 0
+                                            }}></div>
+                                        </div>
+                                        <h3 style={{marginBottom: '10px'}}>
+                                            {isUploading ? '文件上传中...' : '点击或拖拽上传音频文件'}
+                                        </h3>
+                                        <p style={{ fontSize: '0.9rem', color: isUploading ? '#818cf8' : '#64748b' }}>
+                                            {isUploading ? '请稍候，正在上传您的音频文件...' : '支持 MP3 / M4A / WAV / WebM 等音频格式'}
+                                        </p>
+                                    </div>
                                 </div>
-                                <h3 style={{marginBottom: '10px'}}>
-                                    {isUploading ? '文件上传中...' : '点击或拖拽上传音频文件'}
-                                </h3>
-                                <p style={{ fontSize: '0.9rem', color: isUploading ? '#818cf8' : '#64748b' }}>
-                                    {isUploading ? '请稍候，正在上传您的音频文件...' : '支持 MP3 / M4A / WAV / WebM 等音频格式'}
-                                </p>
                             </div>
 
-                            {/* 录音按钮 */}
+                            {/* 右侧：录音模块 */}
                             {browserSupportsRecording && (
-                                <div style={{marginTop: '30px', textAlign: 'center'}}>
-                                    <div style={{margin: '20px 0', color: '#94a3b8', fontSize: '0.9rem'}}>或</div>
-                                    <button 
-                                        onClick={handleStartRecordingClick}
-                                        disabled={isUploading || appState !== 'idle'}
-                                        className="btn-recording"
-                                        style={{
-                                            padding: '15px 30px',
-                                            background: 'linear-gradient(135deg, #ec4899, #f43f5e)',
-                                            border: 'none',
-                                            borderRadius: '12px',
-                                            color: 'white',
-                                            fontSize: '1rem',
-                                            fontWeight: 'bold',
-                                            cursor: isUploading || appState !== 'idle' ? 'not-allowed' : 'pointer',
-                                            display: 'inline-flex',
-                                            alignItems: 'center',
-                                            gap: '10px',
-                                            transition: 'all 0.3s ease',
-                                            opacity: isUploading || appState !== 'idle' ? 0.5 : 1,
-                                            boxShadow: '0 4px 15px rgba(236, 72, 153, 0.3)'
-                                        }}
-                                        onMouseEnter={(e) => {
-                                            if (!isUploading && appState === 'idle') {
-                                                e.currentTarget.style.transform = 'translateY(-2px)';
-                                                e.currentTarget.style.boxShadow = '0 6px 20px rgba(236, 72, 153, 0.4)';
-                                            }
-                                        }}
-                                        onMouseLeave={(e) => {
-                                            e.currentTarget.style.transform = 'translateY(0)';
-                                            e.currentTarget.style.boxShadow = '0 4px 15px rgba(236, 72, 153, 0.3)';
-                                        }}
-                                    >
-                                        <Mic size={20} />
-                                        开始录音
-                                    </button>
+                                <div className="feature-module recording-module">
+                                    <div className="recording-section">
+                                        <div className="recording-icon-wrapper" style={{background: 'rgba(236, 72, 153, 0.1)', width: '80px', height: '80px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px'}}>
+                                            <Mic size={40} color="#ec4899"/>
+                                        </div>
+                                        <h3 style={{marginBottom: '20px'}}>实时录音转写</h3>
+                                        <p style={{ fontSize: '0.9rem', color: '#64748b', marginBottom: '30px' }}>
+                                            点击开始录音，实时转写会议内容
+                                        </p>
+                                        <button 
+                                            onClick={handleStartRecordingClick}
+                                            disabled={isUploading || appState !== 'idle'}
+                                            className="btn-recording"
+                                            style={{
+                                                padding: '15px 30px',
+                                                background: 'linear-gradient(135deg, #ec4899, #f43f5e)',
+                                                border: 'none',
+                                                borderRadius: '12px',
+                                                color: 'white',
+                                                fontSize: '1rem',
+                                                fontWeight: 'bold',
+                                                cursor: isUploading || appState !== 'idle' ? 'not-allowed' : 'pointer',
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '10px',
+                                                transition: 'all 0.3s ease',
+                                                opacity: isUploading || appState !== 'idle' ? 0.5 : 1,
+                                                boxShadow: '0 4px 15px rgba(236, 72, 153, 0.3)'
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                if (!isUploading && appState === 'idle') {
+                                                    e.currentTarget.style.transform = 'translateY(-2px)';
+                                                    e.currentTarget.style.boxShadow = '0 6px 20px rgba(236, 72, 153, 0.4)';
+                                                }
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                e.currentTarget.style.transform = 'translateY(0)';
+                                                e.currentTarget.style.boxShadow = '0 4px 15px rgba(236, 72, 153, 0.3)';
+                                            }}
+                                        >
+                                            <Mic size={20} />
+                                            开始录音
+                                        </button>
+                                    </div>
                                 </div>
                             )}
                         </div>
@@ -1947,6 +2041,290 @@ const App = () => {
                 </div>
             )}
 
+            {/* Contact反馈弹窗 */}
+            {showContactModal && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: 'rgba(0, 0, 0, 0.7)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 1000,
+                    backdropFilter: 'blur(5px)'
+                }}>
+                    <div style={{
+                        background: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)',
+                        borderRadius: '16px',
+                        padding: '40px',
+                        maxWidth: '500px',
+                        width: '90%',
+                        boxShadow: '0 20px 60px rgba(0, 0, 0, 0.5)',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        position: 'relative'
+                    }}>
+                        <button
+                            onClick={handleContactClose}
+                            style={{
+                                position: 'absolute',
+                                top: '15px',
+                                right: '15px',
+                                background: 'transparent',
+                                border: 'none',
+                                color: '#cbd5e1',
+                                cursor: 'pointer',
+                                padding: '5px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                borderRadius: '6px',
+                                transition: 'all 0.2s ease'
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+                                e.currentTarget.style.color = '#f1f5f9';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.background = 'transparent';
+                                e.currentTarget.style.color = '#cbd5e1';
+                            }}
+                        >
+                            <X size={24} />
+                        </button>
+
+                        <h2 style={{
+                            color: '#f1f5f9',
+                            marginBottom: '10px',
+                            fontSize: '1.8rem',
+                            fontWeight: 'bold',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '10px'
+                        }}>
+                            <MessageCircle size={28} color="#10b981" />
+                            联系我们
+                        </h2>
+                        <p style={{
+                            color: '#94a3b8',
+                            marginBottom: '30px',
+                            fontSize: '0.95rem'
+                        }}>
+                            有任何问题或建议？请告诉我们！
+                        </p>
+
+                        <form onSubmit={handleContactSubmit}>
+                            <div style={{marginBottom: '20px'}}>
+                                <label style={{
+                                    display: 'block',
+                                    color: '#cbd5e1',
+                                    marginBottom: '8px',
+                                    fontSize: '0.95rem',
+                                    fontWeight: '500'
+                                }}>
+                                    姓名 *
+                                </label>
+                                <input
+                                    type="text"
+                                    value={contactForm.name}
+                                    onChange={(e) => setContactForm({...contactForm, name: e.target.value})}
+                                    placeholder="请输入您的姓名"
+                                    required
+                                    style={{
+                                        width: '100%',
+                                        padding: '12px',
+                                        fontSize: '1rem',
+                                        borderRadius: '8px',
+                                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                                        color: '#f1f5f9',
+                                        outline: 'none',
+                                        transition: 'all 0.3s ease'
+                                    }}
+                                    onFocus={(e) => {
+                                        e.target.style.borderColor = '#10b981';
+                                        e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.08)';
+                                    }}
+                                    onBlur={(e) => {
+                                        e.target.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+                                        e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
+                                    }}
+                                />
+                            </div>
+
+                            <div style={{marginBottom: '20px'}}>
+                                <label style={{
+                                    display: 'block',
+                                    color: '#cbd5e1',
+                                    marginBottom: '8px',
+                                    fontSize: '0.95rem',
+                                    fontWeight: '500'
+                                }}>
+                                    邮箱 *
+                                </label>
+                                <input
+                                    type="email"
+                                    value={contactForm.email}
+                                    onChange={(e) => setContactForm({...contactForm, email: e.target.value})}
+                                    placeholder="your-email@example.com"
+                                    required
+                                    style={{
+                                        width: '100%',
+                                        padding: '12px',
+                                        fontSize: '1rem',
+                                        borderRadius: '8px',
+                                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                                        color: '#f1f5f9',
+                                        outline: 'none',
+                                        transition: 'all 0.3s ease'
+                                    }}
+                                    onFocus={(e) => {
+                                        e.target.style.borderColor = '#10b981';
+                                        e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.08)';
+                                    }}
+                                    onBlur={(e) => {
+                                        e.target.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+                                        e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
+                                    }}
+                                />
+                            </div>
+
+                            <div style={{marginBottom: '20px'}}>
+                                <label style={{
+                                    display: 'block',
+                                    color: '#cbd5e1',
+                                    marginBottom: '8px',
+                                    fontSize: '0.95rem',
+                                    fontWeight: '500'
+                                }}>
+                                    反馈内容 *
+                                </label>
+                                <textarea
+                                    value={contactForm.message}
+                                    onChange={(e) => setContactForm({...contactForm, message: e.target.value})}
+                                    placeholder="请输入您的问题、建议或反馈..."
+                                    required
+                                    rows={6}
+                                    style={{
+                                        width: '100%',
+                                        padding: '12px',
+                                        fontSize: '1rem',
+                                        borderRadius: '8px',
+                                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                                        color: '#f1f5f9',
+                                        outline: 'none',
+                                        resize: 'vertical',
+                                        fontFamily: 'inherit',
+                                        transition: 'all 0.3s ease'
+                                    }}
+                                    onFocus={(e) => {
+                                        e.target.style.borderColor = '#10b981';
+                                        e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.08)';
+                                    }}
+                                    onBlur={(e) => {
+                                        e.target.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+                                        e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
+                                    }}
+                                />
+                                <div style={{
+                                    color: '#64748b',
+                                    fontSize: '0.85rem',
+                                    marginTop: '5px',
+                                    textAlign: 'right'
+                                }}>
+                                    {contactForm.message.length} / 5000
+                                </div>
+                            </div>
+
+                            {contactMessage.text && (
+                                <div style={{
+                                    padding: '12px',
+                                    borderRadius: '8px',
+                                    marginBottom: '20px',
+                                    backgroundColor: contactMessage.type === 'success' 
+                                        ? 'rgba(16, 185, 129, 0.1)' 
+                                        : 'rgba(239, 68, 68, 0.1)',
+                                    border: `1px solid ${contactMessage.type === 'success' ? '#10b981' : '#ef4444'}`,
+                                    color: contactMessage.type === 'success' ? '#10b981' : '#ef4444',
+                                    fontSize: '0.95rem',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px'
+                                }}>
+                                    {contactMessage.type === 'success' ? <CheckCircle size={18} /> : '⚠️'}
+                                    {contactMessage.text}
+                                </div>
+                            )}
+
+                            <div style={{
+                                display: 'flex',
+                                gap: '12px',
+                                justifyContent: 'flex-end'
+                            }}>
+                                <button
+                                    type="button"
+                                    onClick={handleContactClose}
+                                    style={{
+                                        padding: '12px 24px',
+                                        fontSize: '1rem',
+                                        borderRadius: '8px',
+                                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                                        backgroundColor: 'transparent',
+                                        color: '#cbd5e1',
+                                        cursor: 'pointer',
+                                        fontWeight: '500',
+                                        transition: 'all 0.3s ease'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.target.style.backgroundColor = 'transparent';
+                                    }}
+                                >
+                                    取消
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={contactSubmitting}
+                                    style={{
+                                        padding: '12px 24px',
+                                        fontSize: '1rem',
+                                        borderRadius: '8px',
+                                        border: 'none',
+                                        background: contactSubmitting ? '#94a3b8' : 'linear-gradient(135deg, #10b981, #059669)',
+                                        color: 'white',
+                                        cursor: contactSubmitting ? 'not-allowed' : 'pointer',
+                                        fontWeight: 'bold',
+                                        transition: 'all 0.3s ease',
+                                        boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                                        opacity: contactSubmitting ? 0.7 : 1
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        if (!contactSubmitting) {
+                                            e.target.style.transform = 'translateY(-2px)';
+                                            e.target.style.boxShadow = '0 6px 12px rgba(16, 185, 129, 0.3)';
+                                        }
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        if (!contactSubmitting) {
+                                            e.target.style.transform = 'translateY(0)';
+                                            e.target.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
+                                        }
+                                    }}
+                                >
+                                    {contactSubmitting ? '发送中...' : '发送反馈'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
             {/* Footer */}
             <footer className="footer">
                 <div className="footer-content">
@@ -1955,6 +2333,38 @@ const App = () => {
                     </div>
                     <div className="footer-text">
                         Copyright © 1992-2025 Shea All Rights Reserved
+                    </div>
+                    <div className="footer-powered" style={{
+                        marginTop: '8px',
+                        fontSize: '0.85rem',
+                        color: 'rgba(255, 255, 255, 0.5)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px'
+                    }}>
+                        <span>Powered by</span>
+                        <a 
+                            href="https://cloud.tencent.com" 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            style={{
+                                color: 'rgba(99, 102, 241, 0.8)',
+                                textDecoration: 'none',
+                                fontWeight: '600',
+                                transition: 'all 0.3s ease'
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.color = '#6366f1';
+                                e.currentTarget.style.textDecoration = 'underline';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.color = 'rgba(99, 102, 241, 0.8)';
+                                e.currentTarget.style.textDecoration = 'none';
+                            }}
+                        >
+                            Tencent Cloud
+                        </a>
                     </div>
                 </div>
             </footer>

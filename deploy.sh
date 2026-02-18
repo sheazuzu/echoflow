@@ -1,9 +1,10 @@
 #!/bin/bash
 
-# MeetingMind 一键部署脚本
+# Echoflow 一键部署脚本
 
 
-echo "🚀 MeetingMind 容器化部署脚本"
+
+echo "🚀 Echoflow 容器化部署脚本"
 echo "================================"
 
 # 检查 Docker 是否安装
