@@ -15,6 +15,7 @@ const App = () => {
     const [processingStatus, setProcessingStatus] = useState({ status: '', progress: 0 });
     const [currentFileId, setCurrentFileId] = useState('');
     const [isUploading, setIsUploading] = useState(false); // 新增：上传状态标识
+    const [meetingTopic, setMeetingTopic] = useState(''); // 会议主题（可选）
 
     // 录音功能相关状态
     const [isRecording, setIsRecording] = useState(false); // 是否正在录音
@@ -462,6 +463,9 @@ const App = () => {
 
         const formData = new FormData();
         formData.append('file', fileObj);
+        if (meetingTopic.trim()) {
+            formData.append('meetingTopic', meetingTopic.trim());
+        }
 
         try {
             const response = await fetch('/api/upload', {
@@ -723,6 +727,7 @@ const App = () => {
         setProcessingStatus({ status: '', progress: 0 });
         setCurrentFileId('');
         setIsUploading(false); // 重置上传状态
+        setMeetingTopic(''); // 清空会议主题
     };
 
     // 获取进度状态描述
@@ -1086,6 +1091,60 @@ const App = () => {
 
                         {/* 文件上传区域 */}
                         <div className="upload-section">
+                            {/* 会议主题输入框 */}
+                            <div style={{
+                                marginBottom: '20px',
+                                maxWidth: '600px',
+                                margin: '0 auto 20px auto'
+                            }}>
+                                <label style={{
+                                    display: 'block',
+                                    marginBottom: '8px',
+                                    color: '#94a3b8',
+                                    fontSize: '0.9rem',
+                                    fontWeight: '500'
+                                }}>
+                                    会议主题（可选）
+                                </label>
+                                <input
+                                    type="text"
+                                    value={meetingTopic}
+                                    onChange={(e) => setMeetingTopic(e.target.value)}
+                                    placeholder="例如：2024年第一季度产品规划会议"
+                                    disabled={isUploading || appState !== 'idle'}
+                                    style={{
+                                        width: '100%',
+                                        padding: '12px 16px',
+                                        background: 'rgba(30, 41, 59, 0.5)',
+                                        border: '1px solid rgba(148, 163, 184, 0.2)',
+                                        borderRadius: '8px',
+                                        color: '#e2e8f0',
+                                        fontSize: '1rem',
+                                        outline: 'none',
+                                        transition: 'all 0.3s ease',
+                                        opacity: isUploading || appState !== 'idle' ? 0.5 : 1,
+                                        cursor: isUploading || appState !== 'idle' ? 'not-allowed' : 'text'
+                                    }}
+                                    onFocus={(e) => {
+                                        if (appState === 'idle' && !isUploading) {
+                                            e.target.style.borderColor = '#818cf8';
+                                            e.target.style.background = 'rgba(30, 41, 59, 0.8)';
+                                        }
+                                    }}
+                                    onBlur={(e) => {
+                                        e.target.style.borderColor = 'rgba(148, 163, 184, 0.2)';
+                                        e.target.style.background = 'rgba(30, 41, 59, 0.5)';
+                                    }}
+                                />
+                                <p style={{
+                                    marginTop: '6px',
+                                    fontSize: '0.8rem',
+                                    color: '#64748b'
+                                }}>
+                                    💡 输入会议主题可以让文件名更规范，便于后续管理
+                                </p>
+                            </div>
+
                             <div className={`upload-card ${isUploading ? 'uploading' : ''}`}>
                                 <input type="file" accept="audio/*" onChange={handleFileUpload} className="file-input" />
                                 <div className="upload-icon-wrapper" style={{background: 'rgba(99, 102, 241, 0.1)', width: '80px', height: '80px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', position: 'relative'}}>

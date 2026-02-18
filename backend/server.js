@@ -21,6 +21,31 @@ const logger = (stage, message) => {
     console.log(`[${timestamp}] [${stage}] ${message}`);
 };
 
+// 生成标准化文件名：YYYYMMDD_HHMMSS_会议主题.扩展名
+const generateStandardFileName = (originalName, meetingTopic = '') => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    
+    const timestamp = `${year}${month}${day}_${hours}${minutes}${seconds}`;
+    
+    // 获取文件扩展名
+    const ext = path.extname(originalName);
+    
+    // 清理会议主题：移除特殊字符，限制长度
+    let topic = meetingTopic || path.basename(originalName, ext);
+    topic = topic
+        .replace(/[\\/:*?"<>|]/g, '_')  // 替换文件系统不允许的字符
+        .replace(/\s+/g, '_')            // 空格替换为下划线
+        .substring(0, 50);                // 限制长度为50个字符
+    
+    return `${timestamp}_${topic}${ext}`;
+};
+
 // 配置 OpenAI
 // 1. 优先读取 .env 文件中的 OPENAI_API_KEY
 // 2. 如果没有，请在下方 "" 中填入 Key 用于测试，但不要包含中文！
@@ -493,8 +518,17 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
 
     const fileBuffer = req.file.buffer;
     const fileSizeMB = req.file.size / (1024 * 1024);
-    const fileId = Date.now() + '-' + req.file.originalname;
-    logger('UPLOAD', `接收文件: ${fileId}, 大小: ${fileSizeMB.toFixed(2)}MB`);
+    const meetingTopic = req.body.meetingTopic || ''; // 获取会议主题（可选）
+    
+    // 生成标准化文件名：YYYYMMDD_HHMMSS_会议主题.扩展名
+    const fileId = generateStandardFileName(req.file.originalname, meetingTopic);
+    
+    logger('UPLOAD', `接收文件: ${req.file.originalname}`);
+    logger('UPLOAD', `标准化文件名: ${fileId}`);
+    logger('UPLOAD', `文件大小: ${fileSizeMB.toFixed(2)}MB`);
+    if (meetingTopic) {
+        logger('UPLOAD', `会议主题: ${meetingTopic}`);
+    }
 
     // 立即返回响应，让前端可以开始轮询进度
     res.json({
