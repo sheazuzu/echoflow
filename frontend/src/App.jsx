@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, FileAudio, CheckCircle, Clock, Download, Settings, Cpu, Loader2, RefreshCw, CloudUpload } from 'lucide-react';
+import { Upload, FileAudio, CheckCircle, Clock, Download, Settings, Cpu, Loader2, RefreshCw, CloudUpload, Mic } from 'lucide-react';
 import './App.css';
 
 // 导入腾讯云logo
@@ -15,6 +15,424 @@ const App = () => {
     const [processingStatus, setProcessingStatus] = useState({ status: '', progress: 0 });
     const [currentFileId, setCurrentFileId] = useState('');
     const [isUploading, setIsUploading] = useState(false); // 新增：上传状态标识
+
+    // 录音功能相关状态
+    const [isRecording, setIsRecording] = useState(false); // 是否正在录音
+    const [recordingTime, setRecordingTime] = useState(0); // 录音时长（秒）
+    const [showAudioSourceSelector, setShowAudioSourceSelector] = useState(false); // 是否显示音频源选择对话框
+    const [availableAudioDevices, setAvailableAudioDevices] = useState([]); // 可用的音频设备列表
+    const [selectedAudioSources, setSelectedAudioSources] = useState([]); // 用户选择的音频源
+    const [audioStreams, setAudioStreams] = useState([]); // 当前活动的音频流
+    const [mediaRecorder, setMediaRecorder] = useState(null); // MediaRecorder实例
+    const [recordedChunks, setRecordedChunks] = useState([]); // 录音数据块
+    const [audioContext, setAudioContext] = useState(null); // Web Audio API上下文
+    const [recordingTimerInterval, setRecordingTimerInterval] = useState(null); // 录音计时器
+    const [browserSupportsRecording, setBrowserSupportsRecording] = useState(true); // 浏览器是否支持录音
+
+    // 录音功能工具函数
+    
+    // 检查浏览器是否支持录音功能
+    const checkBrowserSupport = () => {
+        const hasMediaRecorder = typeof MediaRecorder !== 'undefined';
+        const hasGetUserMedia = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+        const isSupported = hasMediaRecorder && hasGetUserMedia;
+        setBrowserSupportsRecording(isSupported);
+        return isSupported;
+    };
+
+    // 获取可用的音频设备列表
+    const getAudioDevices = async () => {
+        try {
+            // 首先请求权限以获取设备标签
+            await navigator.mediaDevices.getUserMedia({ audio: true });
+            
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const audioInputDevices = devices.filter(device => device.kind === 'audioinput');
+            
+            setAvailableAudioDevices(audioInputDevices);
+            return audioInputDevices;
+        } catch (error) {
+            console.error('获取音频设备失败:', error);
+            setErrorMsg('无法获取音频设备列表，请检查麦克风权限');
+            return [];
+        }
+    };
+
+    // 组件加载时检查浏览器支持，卸载时清理资源
+    useEffect(() => {
+        checkBrowserSupport();
+        
+        // 组件卸载时清理
+        return () => {
+            // 如果正在录音，停止录音
+            if (isRecording) {
+                if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                    mediaRecorder.stop();
+                }
+                
+                if (recordingTimerInterval) {
+                    clearInterval(recordingTimerInterval);
+                }
+                
+                audioStreams.forEach(stream => {
+                    stream.getTracks().forEach(track => track.stop());
+                });
+                
+                if (audioContext && audioContext.state !== 'closed') {
+                    audioContext.close();
+                }
+            }
+        };
+    }, [isRecording, mediaRecorder, recordingTimerInterval, audioStreams, audioContext]);
+
+    // 处理开始录音按钮点击
+    const handleStartRecordingClick = async () => {
+        if (!browserSupportsRecording) {
+            setErrorMsg('您的浏览器不支持录音功能，请使用Chrome、Edge或Firefox浏览器');
+            return;
+        }
+        
+        setErrorMsg('');
+        // 获取音频设备列表
+        await getAudioDevices();
+        // 显示音频源选择对话框
+        setShowAudioSourceSelector(true);
+    };
+
+    // 处理音频源选择变化
+    const handleAudioSourceToggle = (sourceId) => {
+        setSelectedAudioSources(prev => {
+            if (prev.includes(sourceId)) {
+                return prev.filter(id => id !== sourceId);
+            } else {
+                return [...prev, sourceId];
+            }
+        });
+    };
+
+    // 检查浏览器是否支持系统声音录制
+    const checkSystemAudioSupport = () => {
+        // getDisplayMedia API 用于捕获系统声音
+        return !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia);
+    };
+
+    // 请求麦克风权限并获取音频流
+    const requestMicrophonePermission = async (deviceId) => {
+        try {
+            const constraints = {
+                audio: deviceId ? { deviceId: { exact: deviceId } } : true
+            };
+            const stream = await navigator.mediaDevices.getUserMedia(constraints);
+            return stream;
+        } catch (error) {
+            console.error('麦克风权限请求失败:', error);
+            if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+                throw new Error('麦克风权限被拒绝，无法录音');
+            } else if (error.name === 'NotFoundError') {
+                throw new Error('未找到麦克风设备');
+            } else {
+                throw new Error('无法访问麦克风：' + error.message);
+            }
+        }
+    };
+
+    // 请求系统声音权限并获取音频流
+    const requestSystemAudioPermission = async () => {
+        try {
+            // 使用 getDisplayMedia 捕获系统音频
+            const stream = await navigator.mediaDevices.getDisplayMedia({
+                video: true, // 需要视频才能捕获音频
+                audio: true
+            });
+            
+            // 只保留音频轨道，移除视频轨道
+            const audioTracks = stream.getAudioTracks();
+            const videoTracks = stream.getVideoTracks();
+            
+            // 停止视频轨道
+            videoTracks.forEach(track => track.stop());
+            
+            if (audioTracks.length === 0) {
+                throw new Error('未能捕获系统音频，请确保在共享时选择了"共享音频"选项');
+            }
+            
+            // 创建只包含音频的新流
+            const audioOnlyStream = new MediaStream(audioTracks);
+            return audioOnlyStream;
+        } catch (error) {
+            console.error('系统声音权限请求失败:', error);
+            if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+                throw new Error('系统音频权限被拒绝');
+            } else {
+                throw new Error('无法捕获系统音频：' + error.message);
+            }
+        }
+    };
+
+    // 获取所有选中的音频流
+    const getAllSelectedAudioStreams = async () => {
+        const streams = [];
+        const errors = [];
+        
+        for (const sourceId of selectedAudioSources) {
+            try {
+                if (sourceId === 'system-audio') {
+                    const stream = await requestSystemAudioPermission();
+                    streams.push(stream);
+                } else {
+                    // 麦克风设备
+                    const stream = await requestMicrophonePermission(sourceId);
+                    streams.push(stream);
+                }
+            } catch (error) {
+                errors.push(error.message);
+            }
+        }
+        
+        if (streams.length === 0) {
+            throw new Error(errors.join('; '));
+        }
+        
+        return streams;
+    };
+
+    // 创建音频混音器，合并多个音频流
+    const createAudioMixer = (streams) => {
+        try {
+            // 创建 Web Audio API 上下文
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            setAudioContext(ctx);
+            
+            // 创建目标节点用于混音
+            const destination = ctx.createMediaStreamDestination();
+            
+            // 为每个音频流创建源节点并连接到目标
+            streams.forEach(stream => {
+                const source = ctx.createMediaStreamSource(stream);
+                
+                // 创建增益节点用于音量控制
+                const gainNode = ctx.createGain();
+                // 自动平衡音量：如果有多个源，降低每个源的音量
+                gainNode.gain.value = 1.0 / Math.sqrt(streams.length);
+                
+                // 连接：源 -> 增益 -> 目标
+                source.connect(gainNode);
+                gainNode.connect(destination);
+                
+                // 监听音频轨道结束事件
+                stream.getAudioTracks().forEach(track => {
+                    track.onended = () => {
+                        console.warn('音频源断开:', track.label);
+                        setErrorMsg(`警告：音频源 ${track.label} 已断开`);
+                    };
+                });
+            });
+            
+            // 返回混音后的流
+            return destination.stream;
+        } catch (error) {
+            console.error('创建音频混音器失败:', error);
+            throw new Error('无法创建音频混音器：' + error.message);
+        }
+    };
+
+    // 开始录音
+    const startRecording = (stream) => {
+        try {
+            // 检查支持的MIME类型
+            let mimeType = 'audio/webm;codecs=opus';
+            if (!MediaRecorder.isTypeSupported(mimeType)) {
+                mimeType = 'audio/webm';
+                if (!MediaRecorder.isTypeSupported(mimeType)) {
+                    mimeType = 'audio/wav';
+                }
+            }
+            
+            // 创建MediaRecorder实例
+            const recorder = new MediaRecorder(stream, { mimeType });
+            const chunks = [];
+            
+            // 监听数据可用事件
+            recorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    chunks.push(event.data);
+                }
+            };
+            
+            // 监听录音停止事件
+            recorder.onstop = () => {
+                setRecordedChunks(chunks);
+            };
+            
+            // 监听错误事件
+            recorder.onerror = (event) => {
+                console.error('录音错误:', event.error);
+                setErrorMsg('录音过程中出错：' + event.error.message);
+                stopRecording();
+            };
+            
+            // 开始录音
+            recorder.start(1000); // 每秒收集一次数据
+            setMediaRecorder(recorder);
+            setIsRecording(true);
+            setRecordingTime(0);
+            setRecordedChunks([]);
+            
+            // 启动计时器
+            const timer = setInterval(() => {
+                setRecordingTime(prev => {
+                    const newTime = prev + 1;
+                    // 检查是否超过2小时（7200秒）
+                    if (newTime >= 7200) {
+                        setErrorMsg('录音时长已达上限（2小时），自动停止录音');
+                        stopRecording();
+                    }
+                    return newTime;
+                });
+            }, 1000);
+            setRecordingTimerInterval(timer);
+            
+            console.log('录音已开始，MIME类型:', mimeType);
+        } catch (error) {
+            console.error('开始录音失败:', error);
+            setErrorMsg('无法开始录音：' + error.message);
+            throw error;
+        }
+    };
+
+    // 停止录音
+    const stopRecording = () => {
+        // 检查录音时长
+        if (recordingTime < 5 && recordingTime > 0) {
+            const confirmed = window.confirm('录音时长过短（少于5秒），确定要停止吗？');
+            if (!confirmed) {
+                return;
+            }
+        }
+        
+        // 停止MediaRecorder
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+            mediaRecorder.stop();
+        }
+        
+        // 停止计时器
+        if (recordingTimerInterval) {
+            clearInterval(recordingTimerInterval);
+            setRecordingTimerInterval(null);
+        }
+        
+        // 停止所有音频流
+        audioStreams.forEach(stream => {
+            stream.getTracks().forEach(track => track.stop());
+        });
+        
+        // 关闭AudioContext
+        if (audioContext && audioContext.state !== 'closed') {
+            audioContext.close();
+        }
+        
+        setIsRecording(false);
+        console.log('录音已停止');
+    };
+
+    // 取消录音
+    const cancelRecording = () => {
+        const confirmed = window.confirm('确定要取消录音吗？录音数据将被丢弃。');
+        if (!confirmed) {
+            return;
+        }
+        
+        // 停止MediaRecorder
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+            mediaRecorder.stop();
+        }
+        
+        // 停止计时器
+        if (recordingTimerInterval) {
+            clearInterval(recordingTimerInterval);
+            setRecordingTimerInterval(null);
+        }
+        
+        // 停止所有音频流
+        audioStreams.forEach(stream => {
+            stream.getTracks().forEach(track => track.stop());
+        });
+        
+        // 关闭AudioContext
+        if (audioContext && audioContext.state !== 'closed') {
+            audioContext.close();
+        }
+        
+        // 清空录音数据
+        setRecordedChunks([]);
+        setIsRecording(false);
+        setRecordingTime(0);
+        setAudioStreams([]);
+        setMediaRecorder(null);
+        setAudioContext(null);
+        
+        console.log('录音已取消');
+    };
+
+    // 格式化录音时长（MM:SS）
+    const formatRecordingTime = (seconds) => {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    };
+
+    // 生成音频文件
+    const generateAudioFile = async () => {
+        try {
+            if (recordedChunks.length === 0) {
+                throw new Error('没有录音数据');
+            }
+            
+            // 显示加载状态
+            setProcessingStatus({ status: 'uploading', progress: 0 });
+            setErrorMsg('正在生成音频文件...');
+            
+            // 确定MIME类型
+            let mimeType = 'audio/webm;codecs=opus';
+            if (recordedChunks[0] && recordedChunks[0].type) {
+                mimeType = recordedChunks[0].type;
+            }
+            
+            // 创建Blob
+            const audioBlob = new Blob(recordedChunks, { type: mimeType });
+            
+            // 生成文件名：recording_YYYYMMDD_HHMMSS.webm
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            
+            // 确定文件扩展名
+            let extension = 'webm';
+            if (mimeType.includes('wav')) {
+                extension = 'wav';
+            } else if (mimeType.includes('mp4')) {
+                extension = 'm4a';
+            }
+            
+            const fileName = `recording_${year}${month}${day}_${hours}${minutes}${seconds}.${extension}`;
+            
+            // 创建File对象
+            const audioFile = new File([audioBlob], fileName, { type: mimeType });
+            
+            console.log('音频文件生成成功:', fileName, '大小:', (audioBlob.size / 1024 / 1024).toFixed(2), 'MB');
+            
+            setErrorMsg('');
+            return audioFile;
+        } catch (error) {
+            console.error('生成音频文件失败:', error);
+            setErrorMsg('音频文件生成失败：' + error.message);
+            throw error;
+        }
+    };
 
     const handleFileUpload = (e) => {
         const selectedFile = e.target.files[0];
@@ -178,6 +596,30 @@ const App = () => {
             }
         };
     }, [appState, currentFileId]);
+
+    // 监听录音停止后生成文件并上传
+    useEffect(() => {
+        const handleRecordingComplete = async () => {
+            if (!isRecording && recordedChunks.length > 0) {
+                try {
+                    // 生成音频文件
+                    const audioFile = await generateAudioFile();
+                    
+                    // 自动上传并处理
+                    console.log('音频文件已生成，开始上传:', audioFile.name);
+                    await startProcessing(audioFile);
+                    
+                    // 清空录音数据
+                    setRecordedChunks([]);
+                } catch (error) {
+                    console.error('处理录音文件失败:', error);
+                    setAppState('idle');
+                }
+            }
+        };
+        
+        handleRecordingComplete();
+    }, [isRecording, recordedChunks]);
 
     const resetApp = () => {
         // 清理轮询interval
@@ -362,6 +804,187 @@ const App = () => {
                 </div>
             </header>
 
+            {/* 音频源选择对话框 */}
+            {showAudioSourceSelector && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: 'rgba(0, 0, 0, 0.7)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 1000,
+                    backdropFilter: 'blur(5px)'
+                }}>
+                    <div style={{
+                        background: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)',
+                        borderRadius: '16px',
+                        padding: '30px',
+                        maxWidth: '500px',
+                        width: '90%',
+                        boxShadow: '0 20px 60px rgba(0, 0, 0, 0.5)',
+                        border: '1px solid rgba(255, 255, 255, 0.1)'
+                    }}>
+                        <h2 style={{marginTop: 0, marginBottom: '20px', color: '#f1f5f9', fontSize: '1.5rem'}}>
+                            选择音频源
+                        </h2>
+                        
+                        <div style={{marginBottom: '25px'}}>
+                            <h3 style={{fontSize: '1rem', color: '#cbd5e1', marginBottom: '15px'}}>麦克风设备</h3>
+                            {availableAudioDevices.length === 0 ? (
+                                <p style={{color: '#94a3b8', fontSize: '0.9rem'}}>未检测到麦克风设备</p>
+                            ) : (
+                                availableAudioDevices.map(device => (
+                                    <label key={device.deviceId} style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        padding: '12px',
+                                        marginBottom: '10px',
+                                        background: 'rgba(255, 255, 255, 0.05)',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s ease',
+                                        border: selectedAudioSources.includes(device.deviceId) ? '2px solid #818cf8' : '2px solid transparent'
+                                    }}
+                                    onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'}
+                                    onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)'}
+                                    >
+                                        <input 
+                                            type="checkbox"
+                                            checked={selectedAudioSources.includes(device.deviceId)}
+                                            onChange={() => handleAudioSourceToggle(device.deviceId)}
+                                            style={{marginRight: '10px', width: '18px', height: '18px', cursor: 'pointer'}}
+                                        />
+                                        <span style={{color: '#f1f5f9', fontSize: '0.95rem'}}>
+                                            {device.label || `麦克风 ${device.deviceId.substring(0, 8)}`}
+                                        </span>
+                                    </label>
+                                ))
+                            )}
+                        </div>
+
+                        {checkSystemAudioSupport() && (
+                            <div style={{marginBottom: '25px'}}>
+                                <h3 style={{fontSize: '1rem', color: '#cbd5e1', marginBottom: '15px'}}>系统声音</h3>
+                                <label style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    padding: '12px',
+                                    background: 'rgba(255, 255, 255, 0.05)',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s ease',
+                                    border: selectedAudioSources.includes('system-audio') ? '2px solid #818cf8' : '2px solid transparent'
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'}
+                                onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)'}
+                                >
+                                    <input 
+                                        type="checkbox"
+                                        checked={selectedAudioSources.includes('system-audio')}
+                                        onChange={() => handleAudioSourceToggle('system-audio')}
+                                        style={{marginRight: '10px', width: '18px', height: '18px', cursor: 'pointer'}}
+                                    />
+                                    <span style={{color: '#f1f5f9', fontSize: '0.95rem'}}>
+                                        系统声音（屏幕共享音频）
+                                    </span>
+                                </label>
+                                <p style={{color: '#94a3b8', fontSize: '0.85rem', marginTop: '8px', marginLeft: '28px'}}>
+                                    注意：Safari浏览器不支持系统声音录制
+                                </p>
+                            </div>
+                        )}
+
+                        <div style={{display: 'flex', gap: '10px', marginTop: '25px'}}>
+                            <button
+                                onClick={() => {
+                                    setShowAudioSourceSelector(false);
+                                    setSelectedAudioSources([]);
+                                }}
+                                style={{
+                                    flex: 1,
+                                    padding: '12px',
+                                    background: 'rgba(255, 255, 255, 0.1)',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    color: '#f1f5f9',
+                                    fontSize: '1rem',
+                                    fontWeight: '600',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s ease'
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)'}
+                                onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'}
+                            >
+                                取消
+                            </button>
+                            <button
+                                onClick={async () => {
+                                    if (selectedAudioSources.length === 0) {
+                                        setErrorMsg('请至少选择一个音频源');
+                                        return;
+                                    }
+                                    
+                                    try {
+                                        setErrorMsg('');
+                                        // 获取所有选中的音频流
+                                        const streams = await getAllSelectedAudioStreams();
+                                        setAudioStreams(streams);
+                                        
+                                        // 创建混音流
+                                        let mixedStream;
+                                        if (streams.length > 1) {
+                                            // 多个音频源，需要混音
+                                            mixedStream = createAudioMixer(streams);
+                                        } else {
+                                            // 单个音频源，直接使用
+                                            mixedStream = streams[0];
+                                        }
+                                        
+                                        // 关闭对话框
+                                        setShowAudioSourceSelector(false);
+                                        
+                                        // 开始录音
+                                        startRecording(mixedStream);
+                                    } catch (error) {
+                                        setErrorMsg(error.message);
+                                    }
+                                }}
+                                disabled={selectedAudioSources.length === 0}
+                                style={{
+                                    flex: 1,
+                                    padding: '12px',
+                                    background: selectedAudioSources.length === 0 ? 'rgba(129, 140, 248, 0.3)' : 'linear-gradient(135deg, #818cf8, #6366f1)',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    color: 'white',
+                                    fontSize: '1rem',
+                                    fontWeight: '600',
+                                    cursor: selectedAudioSources.length === 0 ? 'not-allowed' : 'pointer',
+                                    transition: 'all 0.2s ease',
+                                    opacity: selectedAudioSources.length === 0 ? 0.5 : 1
+                                }}
+                                onMouseEnter={(e) => {
+                                    if (selectedAudioSources.length > 0) {
+                                        e.currentTarget.style.transform = 'translateY(-2px)';
+                                        e.currentTarget.style.boxShadow = '0 6px 20px rgba(129, 140, 248, 0.4)';
+                                    }
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.currentTarget.style.transform = 'translateY(0)';
+                                    e.currentTarget.style.boxShadow = 'none';
+                                }}
+                            >
+                                确认并开始录制
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <main>
                 {appState === 'idle' && (
                     <div className="hero-section">
@@ -398,7 +1021,227 @@ const App = () => {
                                     {isUploading ? '请稍候，正在上传您的音频文件...' : '支持 MP3 / M4A / WAV / WebM 等音频格式'}
                                 </p>
                             </div>
+
+                            {/* 录音按钮 */}
+                            {browserSupportsRecording && (
+                                <div style={{marginTop: '30px', textAlign: 'center'}}>
+                                    <div style={{margin: '20px 0', color: '#94a3b8', fontSize: '0.9rem'}}>或</div>
+                                    <button 
+                                        onClick={handleStartRecordingClick}
+                                        disabled={isUploading || appState !== 'idle'}
+                                        className="btn-recording"
+                                        style={{
+                                            padding: '15px 30px',
+                                            background: 'linear-gradient(135deg, #ec4899, #f43f5e)',
+                                            border: 'none',
+                                            borderRadius: '12px',
+                                            color: 'white',
+                                            fontSize: '1rem',
+                                            fontWeight: 'bold',
+                                            cursor: isUploading || appState !== 'idle' ? 'not-allowed' : 'pointer',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '10px',
+                                            transition: 'all 0.3s ease',
+                                            opacity: isUploading || appState !== 'idle' ? 0.5 : 1,
+                                            boxShadow: '0 4px 15px rgba(236, 72, 153, 0.3)'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            if (!isUploading && appState === 'idle') {
+                                                e.currentTarget.style.transform = 'translateY(-2px)';
+                                                e.currentTarget.style.boxShadow = '0 6px 20px rgba(236, 72, 153, 0.4)';
+                                            }
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.transform = 'translateY(0)';
+                                            e.currentTarget.style.boxShadow = '0 4px 15px rgba(236, 72, 153, 0.3)';
+                                        }}
+                                    >
+                                        <Mic size={20} />
+                                        开始录音
+                                    </button>
+                                </div>
+                            )}
                         </div>
+                    </div>
+                )}
+
+                {/* 录音中界面 */}
+                {isRecording && (
+                    <div className="recording-container" style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        minHeight: '400px',
+                        padding: '40px'
+                    }}>
+                        <div style={{
+                            background: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)',
+                            borderRadius: '20px',
+                            padding: '50px',
+                            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.5)',
+                            border: '1px solid rgba(255, 255, 255, 0.1)',
+                            textAlign: 'center',
+                            maxWidth: '600px',
+                            width: '100%'
+                        }}>
+                            {/* 录音图标动画 */}
+                            <div style={{
+                                width: '120px',
+                                height: '120px',
+                                margin: '0 auto 30px',
+                                background: 'linear-gradient(135deg, #ec4899, #f43f5e)',
+                                borderRadius: '50%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                position: 'relative',
+                                animation: 'recordingPulse 2s ease-in-out infinite'
+                            }}>
+                                <Mic size={60} color="white" />
+                                <div style={{
+                                    position: 'absolute',
+                                    top: '-10px',
+                                    left: '-10px',
+                                    right: '-10px',
+                                    bottom: '-10px',
+                                    borderRadius: '50%',
+                                    border: '3px solid #ec4899',
+                                    animation: 'recordingRipple 2s ease-out infinite'
+                                }}></div>
+                            </div>
+
+                            <h2 style={{color: '#f1f5f9', marginBottom: '10px', fontSize: '1.8rem'}}>
+                                正在录音...
+                            </h2>
+                            
+                            {/* 录音时长 */}
+                            <div style={{
+                                fontSize: '3rem',
+                                fontWeight: 'bold',
+                                color: '#ec4899',
+                                marginBottom: '30px',
+                                fontFamily: 'monospace',
+                                letterSpacing: '0.1em'
+                            }}>
+                                {formatRecordingTime(recordingTime)}
+                            </div>
+
+                            {/* 音量指示器（简化版） */}
+                            <div style={{
+                                width: '100%',
+                                height: '60px',
+                                background: 'rgba(0, 0, 0, 0.3)',
+                                borderRadius: '10px',
+                                marginBottom: '30px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '5px',
+                                padding: '0 20px'
+                            }}>
+                                {[...Array(20)].map((_, i) => (
+                                    <div key={i} style={{
+                                        width: '8px',
+                                        height: `${20 + Math.random() * 40}px`,
+                                        background: 'linear-gradient(to top, #ec4899, #f43f5e)',
+                                        borderRadius: '4px',
+                                        animation: `waveAnimation ${0.5 + Math.random() * 0.5}s ease-in-out infinite alternate`,
+                                        animationDelay: `${i * 0.05}s`
+                                    }}></div>
+                                ))}
+                            </div>
+
+                            {/* 控制按钮 */}
+                            <div style={{display: 'flex', gap: '15px', justifyContent: 'center'}}>
+                                <button
+                                    onClick={cancelRecording}
+                                    style={{
+                                        padding: '15px 40px',
+                                        background: 'rgba(255, 255, 255, 0.1)',
+                                        border: '2px solid rgba(255, 255, 255, 0.3)',
+                                        borderRadius: '12px',
+                                        color: 'white',
+                                        fontSize: '1.1rem',
+                                        fontWeight: 'bold',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.3s ease'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
+                                        e.currentTarget.style.transform = 'translateY(-2px)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+                                        e.currentTarget.style.transform = 'translateY(0)';
+                                    }}
+                                >
+                                    取消录音
+                                </button>
+                                <button
+                                    onClick={stopRecording}
+                                    style={{
+                                        padding: '15px 40px',
+                                        background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                                        border: 'none',
+                                        borderRadius: '12px',
+                                        color: 'white',
+                                        fontSize: '1.1rem',
+                                        fontWeight: 'bold',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.3s ease',
+                                        boxShadow: '0 4px 15px rgba(239, 68, 68, 0.3)'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.transform = 'translateY(-2px)';
+                                        e.currentTarget.style.boxShadow = '0 6px 20px rgba(239, 68, 68, 0.4)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.transform = 'translateY(0)';
+                                        e.currentTarget.style.boxShadow = '0 4px 15px rgba(239, 68, 68, 0.3)';
+                                    }}
+                                >
+                                    停止录音
+                                </button>
+                            </div>
+
+                            <p style={{color: '#94a3b8', fontSize: '0.9rem', marginTop: '20px'}}>
+                                录音将自动保存并处理为会议纪要
+                            </p>
+                        </div>
+
+                        {/* 添加动画样式 */}
+                        <style>{`
+                            @keyframes recordingPulse {
+                                0%, 100% {
+                                    transform: scale(1);
+                                    box-shadow: 0 0 0 0 rgba(236, 72, 153, 0.7);
+                                }
+                                50% {
+                                    transform: scale(1.05);
+                                    box-shadow: 0 0 0 20px rgba(236, 72, 153, 0);
+                                }
+                            }
+                            @keyframes recordingRipple {
+                                0% {
+                                    transform: scale(1);
+                                    opacity: 1;
+                                }
+                                100% {
+                                    transform: scale(1.5);
+                                    opacity: 0;
+                                }
+                            }
+                            @keyframes waveAnimation {
+                                0% {
+                                    height: 20px;
+                                }
+                                100% {
+                                    height: 50px;
+                                }
+                            }
+                        `}</style>
                     </div>
                 )}
 

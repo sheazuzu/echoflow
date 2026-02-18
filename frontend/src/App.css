@@ -666,3 +666,143 @@ button.btn-reset:hover {
     box-shadow: 0 0 0 8px rgba(129, 140, 248, 0);
   }
 }
+
+/* 录音功能样式 */
+.btn-recording {
+  transition: all 0.3s ease;
+}
+
+.btn-recording:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(236, 72, 153, 0.4);
+}
+
+.btn-recording:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+/* 录音界面响应式优化 */
+.recording-container {
+  padding: 20px;
+}
+
+@media (max-width: 768px) {
+  .recording-container {
+    padding: 15px;
+  }
+  
+  .recording-container > div {
+    padding: 30px 20px !important;
+  }
+  
+  .recording-container h2 {
+    font-size: 1.4rem !important;
+  }
+  
+  .recording-container button {
+    padding: 12px 30px !important;
+    font-size: 1rem !important;
+  }
+}
+
+/* 音频源选择对话框响应式 */
+@media (max-width: 768px) {
+  .audio-source-dialog {
+    width: 95% !important;
+    padding: 20px !important;
+  }
+  
+  .audio-source-dialog h2 {
+    font-size: 1.3rem !important;
+  }
+  
+  .audio-source-dialog button {
+    padding: 10px 20px !important;
+    font-size: 0.9rem !important;
+  }
+}
+
+/* 录音按钮在移动端的优化 */
+@media (max-width: 480px) {
+  .btn-recording {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .upload-section {
+    padding: 0 10px;
+  }
+}
+
+/* 录音动画优化 - 确保流畅性 */
+@keyframes recordingPulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(236, 72, 153, 0.7);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 0 0 20px rgba(236, 72, 153, 0);
+  }
+}
+
+@keyframes recordingRipple {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+@keyframes waveAnimation {
+  0% {
+    height: 20px;
+  }
+  100% {
+    height: 50px;
+  }
+}
+
+/* 提升性能 - 使用GPU加速 */
+.btn-recording,
+.recording-container,
+.audio-source-dialog {
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+/* 音频源选择项的悬停效果优化 */
+.audio-source-item {
+  transition: all 0.2s ease;
+}
+
+.audio-source-item:hover {
+  transform: translateX(5px);
+}
+
+/* 确保在小屏幕上文字不会溢出 */
+@media (max-width: 480px) {
+  .hero-section h1 {
+    font-size: 1.8rem;
+  }
+  
+  .hero-section p {
+    font-size: 0.95rem;
+  }
+  
+  .upload-card {
+    padding: 40px 20px;
+  }
+  
+  .header {
+    padding: 20px;
+  }
+  
+  .logo {
+    font-size: 1.4rem;
+  }
+}
