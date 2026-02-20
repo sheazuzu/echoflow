@@ -839,40 +839,105 @@ app.get('/api/progress/:fileId', (req, res) => {
 // 取消处理接口
 app.post('/api/cancel/:fileId', (req, res) => {
     const fileId = req.params.fileId;
+    
+    logger('CANCEL', `收到取消请求，fileId: ${fileId}`);
+    
     const status = processingStatus.get(fileId);
     
     if (!status) {
-        return res.status(404).json({ message: "文件处理状态未找到" });
+        logger('CANCEL', `文件处理状态未找到: ${fileId}`);
+        return res.status(404).json({ 
+            code: 404,
+            message: "文件处理状态未找到",
+            fileId: fileId
+        });
+    }
+    
+    // 检查是否已经完成或已取消
+    if (status.status === 'completed') {
+        logger('CANCEL', `文件处理已完成，无法取消: ${fileId}`);
+        return res.status(400).json({
+            code: 400,
+            message: "文件处理已完成，无法取消",
+            fileId: fileId
+        });
+    }
+    
+    if (status.status === 'cancelled') {
+        logger('CANCEL', `文件处理已经被取消: ${fileId}`);
+        return res.json({
+            code: 200,
+            message: "文件处理已经被取消",
+            fileId: fileId
+        });
     }
     
     // 标记为已取消
     processingStatus.set(fileId, { 
         status: 'cancelled', 
         progress: 0, 
-        error: '用户取消了处理'
+        error: '用户取消了处理',
+        cancelledAt: new Date().toISOString()
     });
+    
+    logger('CANCEL', `已标记为取消状态: ${fileId}`);
     
     // 强制终止正在运行的进程
     const activeProcess = activeProcesses.get(fileId);
     if (activeProcess) {
-        logger('CANCEL', `强制终止进程: ${fileId}，类型: ${activeProcess.type}`);
+        logger('CANCEL', `发现活动进程: ${fileId}，类型: ${activeProcess.type}`);
         
         if (activeProcess.process && activeProcess.process.kill) {
-            // 终止FFmpeg进程
-            activeProcess.process.kill('SIGTERM');
-            logger('CANCEL', `已发送终止信号给进程: ${fileId}`);
+            try {
+                // 终止进程（FFmpeg等）
+                activeProcess.process.kill('SIGTERM');
+                logger('CANCEL', `已发送 SIGTERM 信号给进程: ${fileId}`);
+                
+                // 如果进程在2秒内没有终止，强制杀死
+                setTimeout(() => {
+                    if (activeProcess.process && !activeProcess.process.killed) {
+                        activeProcess.process.kill('SIGKILL');
+                        logger('CANCEL', `已发送 SIGKILL 信号强制终止进程: ${fileId}`);
+                    }
+                }, 2000);
+            } catch (killError) {
+                logger('CANCEL', `终止进程失败: ${fileId}, 错误: ${killError.message}`);
+            }
         }
         
         // 清理进程跟踪
         activeProcesses.delete(fileId);
+        logger('CANCEL', `已清理进程跟踪: ${fileId}`);
+    } else {
+        logger('CANCEL', `没有找到活动进程: ${fileId}`);
     }
     
-    logger('CANCEL', `用户取消了文件处理: ${fileId}`);
+    // 清理临时文件（可选，根据需要）
+    try {
+        const uploadDir = path.join(__dirname, 'uploads');
+        const chunksDir = path.join(uploadDir, `${fileId}_chunks`);
+        
+        // 异步清理，不阻塞响应
+        if (fs.existsSync(chunksDir)) {
+            fs.rm(chunksDir, { recursive: true, force: true }, (err) => {
+                if (err) {
+                    logger('CANCEL', `清理临时文件失败: ${fileId}, 错误: ${err.message}`);
+                } else {
+                    logger('CANCEL', `已清理临时文件: ${fileId}`);
+                }
+            });
+        }
+    } catch (cleanupError) {
+        logger('CANCEL', `清理文件时出错: ${fileId}, 错误: ${cleanupError.message}`);
+    }
+    
+    logger('CANCEL', `用户成功取消了文件处理: ${fileId}`);
     
     res.json({
         code: 200,
         message: "处理已成功取消，正在终止相关进程",
-        fileId: fileId
+        fileId: fileId,
+        cancelledAt: new Date().toISOString()
     });
 });
 

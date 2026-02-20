@@ -2198,3 +2198,137 @@ button,
   z-index: 1000;
   pointer-events: none;
 }
+
+/* ==================== 语言选择器样式 ==================== */
+.language-switcher {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
+}
+
+.language-switcher-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: rgba(8, 20, 40, 0.8);
+  border: 1px solid rgba(0, 191, 255, 0.3);
+  border-radius: 12px;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.language-switcher-button:hover {
+  background: rgba(8, 20, 40, 0.95);
+  border-color: var(--accent-color);
+  box-shadow: 0 0 20px rgba(0, 191, 255, 0.4);
+  transform: translateY(-2px);
+}
+
+.language-switcher-button:active {
+  transform: translateY(0);
+}
+
+.language-switcher-label {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  letter-spacing: 0.02em;
+}
+
+.language-switcher-arrow {
+  transition: transform 0.3s ease;
+  color: var(--text-muted);
+}
+
+.language-switcher-arrow.open {
+  transform: rotate(180deg);
+}
+
+.language-switcher-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 140px;
+  background: rgba(8, 20, 40, 0.95);
+  border: 1px solid rgba(0, 191, 255, 0.3);
+  border-radius: 12px;
+  padding: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(20px);
+  animation: dropdownFadeIn 0.2s ease;
+}
+
+@keyframes dropdownFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.language-switcher-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 10px 14px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.language-switcher-option:hover:not(:disabled) {
+  background: rgba(0, 191, 255, 0.1);
+  color: var(--accent-color);
+}
+
+.language-switcher-option.active {
+  background: rgba(0, 191, 255, 0.15);
+  color: var(--accent-color);
+  cursor: default;
+}
+
+.language-switcher-option:disabled {
+  cursor: default;
+}
+
+.language-switcher-option-name {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  letter-spacing: 0.02em;
+}
+
+.language-switcher-check {
+  color: var(--accent-color);
+  flex-shrink: 0;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .language-switcher {
+    top: 16px;
+    right: 16px;
+  }
+  
+  .language-switcher-button {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+  
+  .language-switcher-label {
+    display: none;
+  }
+}

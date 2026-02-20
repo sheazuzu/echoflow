@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Upload, FileAudio, CheckCircle, Clock, Download, Settings, Cpu, Loader2, RefreshCw, CloudUpload, Mic, Mail, Copy, Check, Github, MessageCircle, X } from 'lucide-react';
 import './App.css';
+import { LanguageSwitcher } from './components/LanguageSwitcher.jsx';
+import { useTranslation, useDocumentLanguage, getCurrentLanguage } from './i18n/index.js';
 
 // 导入腾讯云logo
 import tencentCloudLogo from './assets/tencentcloud.png';
@@ -8,6 +10,11 @@ import tencentCloudLogo from './assets/tencentcloud.png';
 import sheaWhiteLogo from './assets/shea-white.png';
 
 const App = () => {
+    // 国际化
+    const { t } = useTranslation();
+    useDocumentLanguage(); // 自动更新文档语言属性
+    const currentLanguage = getCurrentLanguage(); // 获取当前语言
+    
     const [appState, setAppState] = useState('idle'); // idle, processing, completed
     const [minutesData, setMinutesData] = useState(null);
     const [transcript, setTranscript] = useState('');
@@ -393,6 +400,7 @@ const App = () => {
                         if (!chunks || chunks.length === 0) {
                             console.log('录音数据为空，不显示下载选项');
                             setErrorMsg('录音数据为空，请重新录音');
+                            setIsRecording(false); // 关闭录音界面
                             return;
                         }
                         
@@ -412,6 +420,7 @@ const App = () => {
                             console.error('生成的音频文件大小为0');
                             setIsGeneratingAudio(false);
                             setErrorMsg('录音文件生成失败，请重新录音');
+                            setIsRecording(false); // 关闭录音界面
                             return;
                         }
                         
@@ -457,6 +466,9 @@ const App = () => {
                         setRecordingDuration(recordingTime);
                         setRecordingSize(audioBlob.size);
                         setIsGeneratingAudio(false);
+                        
+                        // 先关闭录音界面，再显示下载选项
+                        setIsRecording(false);
                         setShowDownloadOption(true);
                         
                         console.log('录音文件已准备好下载:', fileName, '大小:', (audioBlob.size / 1024 / 1024).toFixed(2), 'MB');
@@ -464,6 +476,7 @@ const App = () => {
                         console.error('准备下载文件失败:', error);
                         setIsGeneratingAudio(false);
                         setErrorMsg('准备下载文件失败：' + error.message);
+                        setIsRecording(false); // 关闭录音界面
                     }
                 }, 100);
             };
@@ -535,8 +548,10 @@ const App = () => {
             audioContext.close();
         }
         
-        setIsRecording(false);
-        console.log('录音已停止');
+        // 不要立即设置 isRecording 为 false，等待 onstop 事件处理完成
+        // 这样可以避免页面在等待下载选项准备时变成空白
+        // setIsRecording(false);
+        console.log('录音已停止，等待处理...');
     };
 
     // 下载录音文件
@@ -1159,17 +1174,17 @@ const App = () => {
     // 获取进度状态描述
     const getStatusDescription = (status, progressData) => {
         const statusMap = {
-            'uploading': '上传文件中...',
-            'splitting': '音频文件切割中...',
+            'uploading': currentLanguage === 'en' ? 'Uploading file...' : '上传文件中...',
+            'splitting': currentLanguage === 'en' ? 'Splitting audio file...' : '音频文件切割中...',
             'transcribing': progressData?.currentChunk && progressData?.totalChunks 
-                ? `语音转录中... (${progressData.currentChunk}/${progressData.totalChunks})`
-                : '语音转录中...',
-            'generating_summary': '生成会议纪要中...',
-            'completed': '处理完成',
-            'error': '处理出错',
-            'cancelled': '处理已取消'
+                ? `${currentLanguage === 'en' ? 'Transcribing' : '语音转录中'}... (${progressData.currentChunk}/${progressData.totalChunks})`
+                : (currentLanguage === 'en' ? 'Transcribing...' : '语音转录中...'),
+            'generating_summary': currentLanguage === 'en' ? 'Generating meeting minutes...' : '生成会议纪要中...',
+            'completed': currentLanguage === 'en' ? 'Processing completed' : '处理完成',
+            'error': currentLanguage === 'en' ? 'Processing error' : '处理出错',
+            'cancelled': currentLanguage === 'en' ? 'Processing cancelled' : '处理已取消'
         };
-        return statusMap[status] || '处理中...';
+        return statusMap[status] || (currentLanguage === 'en' ? 'Processing...' : '处理中...');
     };
 
 
@@ -1245,10 +1260,10 @@ const App = () => {
                 const btn = document.getElementById(`btn-copy-${langTitle}`);
                 if(btn) {
                     // const originalText = btn.innerText; // 简单处理，不保存原始文本
-                    btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-check-circle"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> 已复制!';
+                    btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-check-circle"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> ' + (currentLanguage === 'en' ? 'Copied!' : '已复制!');
                     btn.style.background = '#4ade80';
                     setTimeout(() => {
-                        btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-refresh-cw" style="transform: rotate(0deg);"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg> 复制内容';
+                        btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-refresh-cw" style="transform: rotate(0deg);"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg> ' + (currentLanguage === 'en' ? 'Copy Content' : '复制内容');
                         btn.style.background = '#818cf8';
                     }, 2000);
                 }
@@ -1283,7 +1298,7 @@ const App = () => {
                         }}
                     >
                         <RefreshCw size={16} style={{transform: 'rotate(0deg)'}}/> 
-                        复制内容
+                        {t('minutes.copyContent')}
                     </button>
                 </div>
 
@@ -1313,10 +1328,41 @@ const App = () => {
 
     return (
         <div className="app-container">
+            {/* 语言选择器 */}
+            <LanguageSwitcher />
+            
             <header className="header">
                 <div className="logo">
-                    <img src={sheaWhiteLogo} alt="Shea Logo" style={{height: '48px', marginRight: '15px', filter: 'brightness(1.2)', transition: 'all 0.3s ease'}}/>
-                    <span style={{fontSize: '1.8rem', fontWeight: '700', background: 'linear-gradient(135deg, #ffffff 0%, #e2e8f0 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', textShadow: '0 2px 4px rgba(0, 0, 0, 0.3)'}}>EchoFlow Pro</span>
+                    <a 
+                        href="https://zhenyuxie.com" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        style={{
+                            display: 'inline-block',
+                            cursor: 'pointer',
+                            transition: 'opacity 0.2s ease'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
+                        onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+                    >
+                        <img src={sheaWhiteLogo} alt="Shea Logo" style={{height: '48px', marginRight: '15px', filter: 'brightness(1.2)', transition: 'all 0.3s ease'}}/>
+                    </a>
+                    <a 
+                        href="/" 
+                        onClick={(e) => {
+                            e.preventDefault();
+                            window.location.reload();
+                        }}
+                        style={{
+                            textDecoration: 'none',
+                            cursor: 'pointer',
+                            transition: 'opacity 0.2s ease'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
+                        onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+                    >
+                        <span style={{fontSize: '1.8rem', fontWeight: '700', background: 'linear-gradient(135deg, #ffffff 0%, #e2e8f0 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', textShadow: '0 2px 4px rgba(0, 0, 0, 0.3)'}}>EchoFlow Pro</span>
+                    </a>
                 </div>
                 <div style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
                     <button
@@ -1457,13 +1503,13 @@ const App = () => {
                         border: '1px solid rgba(255, 255, 255, 0.1)'
                     }}>
                         <h2 style={{marginTop: 0, marginBottom: '20px', color: '#f1f5f9', fontSize: '1.5rem'}}>
-                            选择音频源
+                            {t('recording.selectAudioSource')}
                         </h2>
                         
                         <div style={{marginBottom: '25px'}}>
-                            <h3 style={{fontSize: '1rem', color: '#cbd5e1', marginBottom: '15px'}}>麦克风设备</h3>
+                            <h3 style={{fontSize: '1rem', color: '#cbd5e1', marginBottom: '15px'}}>{t('recording.microphoneDevices')}</h3>
                             {availableAudioDevices.length === 0 ? (
-                                <p style={{color: '#94a3b8', fontSize: '0.9rem'}}>未检测到麦克风设备</p>
+                                <p style={{color: '#94a3b8', fontSize: '0.9rem'}}>{t('recording.noMicFound')}</p>
                             ) : (
                                 availableAudioDevices.map(device => (
                                     <label key={device.deviceId} style={{
@@ -1496,7 +1542,7 @@ const App = () => {
 
                         {checkSystemAudioSupport() && (
                             <div style={{marginBottom: '25px'}}>
-                                <h3 style={{fontSize: '1rem', color: '#cbd5e1', marginBottom: '15px'}}>系统声音</h3>
+                                <h3 style={{fontSize: '1rem', color: '#cbd5e1', marginBottom: '15px'}}>{t('recording.systemAudio')}</h3>
                                 <label style={{
                                     display: 'flex',
                                     alignItems: 'center',
@@ -1517,11 +1563,11 @@ const App = () => {
                                         style={{marginRight: '10px', width: '18px', height: '18px', cursor: 'pointer'}}
                                     />
                                     <span style={{color: '#f1f5f9', fontSize: '0.95rem'}}>
-                                        系统声音（屏幕共享音频）
+                                        {t('recording.systemAudioDescription')}
                                     </span>
                                 </label>
                                 <p style={{color: '#94a3b8', fontSize: '0.85rem', marginTop: '8px', marginLeft: '28px'}}>
-                                    注意：Safari浏览器不支持系统声音录制
+                                    {t('recording.safariNotSupported')}
                                 </p>
                             </div>
                         )}
@@ -1547,7 +1593,7 @@ const App = () => {
                                 onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)'}
                                 onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'}
                             >
-                                取消
+                                {t('common.buttons.cancel')}
                             </button>
                             <button
                                 onClick={async () => {
@@ -1606,7 +1652,7 @@ const App = () => {
                                     e.currentTarget.style.boxShadow = 'none';
                                 }}
                             >
-                                确认并开始录制
+                                {t('recording.confirmAndStart')}
                             </button>
                         </div>
                     </div>
@@ -1616,9 +1662,9 @@ const App = () => {
             <main>
                 {appState === 'idle' && (
                     <div className="hero-section">
-                        <h1>智能会议纪要生成</h1>
+                        <h1>{t('home.title')}</h1>
                         <p style={{ color: '#94a3b8', marginBottom: '40px', fontSize: '1.1rem' }}>
-                            企业级 AI 引擎 · 自动分片处理大文件 · 8点结构化输出
+                            {t('home.subtitle')}
                         </p>
                         {errorMsg && <p style={{color: '#ef4444', background: 'rgba(239, 68, 68, 0.1)', padding: '10px', borderRadius: '8px'}}>{errorMsg}</p>}
 
@@ -1644,10 +1690,10 @@ const App = () => {
                                             }}></div>
                                         </div>
                                         <h3 style={{marginBottom: '10px'}}>
-                                            {isUploading ? '文件上传中...' : '点击或拖拽上传音频文件'}
+                                            {isUploading ? t('upload.dragDropHintUploading') : t('upload.dragDropHint')}
                                         </h3>
                                         <p style={{ fontSize: '0.9rem', color: isUploading ? '#818cf8' : '#64748b' }}>
-                                            {isUploading ? '请稍候，正在上传您的音频文件...' : '支持 MP3 / M4A / WAV / WebM 等音频格式'}
+                                            {isUploading ? t('upload.supportedFormatsUploading') : t('upload.supportedFormats')}
                                         </p>
                                     </div>
                                 </div>
@@ -1660,9 +1706,9 @@ const App = () => {
                                         <div className="recording-icon-wrapper" style={{background: 'rgba(236, 72, 153, 0.1)', width: '80px', height: '80px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px'}}>
                                             <Mic size={40} color="#ec4899"/>
                                         </div>
-                                        <h3 style={{marginBottom: '20px'}}>实时录音转写</h3>
+                                        <h3 style={{marginBottom: '20px'}}>{t('recording.title')}</h3>
                                         <p style={{ fontSize: '0.9rem', color: '#64748b', marginBottom: '30px' }}>
-                                            点击开始录音，实时转写会议内容
+                                            {t('recording.subtitle')}
                                         </p>
                                         <button 
                                             onClick={handleStartRecordingClick}
@@ -1696,7 +1742,7 @@ const App = () => {
                                             }}
                                         >
                                             <Mic size={20} />
-                                            开始录音
+                                            {t('recording.startRecording')}
                                         </button>
                                     </div>
                                 </div>
@@ -1725,129 +1771,154 @@ const App = () => {
                             maxWidth: '600px',
                             width: '100%'
                         }}>
-                            {/* 录音图标动画 */}
-                            <div style={{
-                                width: '120px',
-                                height: '120px',
-                                margin: '0 auto 30px',
-                                background: 'linear-gradient(135deg, #ec4899, #f43f5e)',
-                                borderRadius: '50%',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                position: 'relative',
-                                animation: 'recordingPulse 2s ease-in-out infinite'
-                            }}>
-                                <Mic size={60} color="white" />
-                                <div style={{
-                                    position: 'absolute',
-                                    top: '-10px',
-                                    left: '-10px',
-                                    right: '-10px',
-                                    bottom: '-10px',
-                                    borderRadius: '50%',
-                                    border: '3px solid #ec4899',
-                                    animation: 'recordingRipple 2s ease-out infinite'
-                                }}></div>
-                            </div>
+                            {isGeneratingAudio ? (
+                                // 正在保存录音的加载状态
+                                <>
+                                    <div style={{
+                                        width: '120px',
+                                        height: '120px',
+                                        margin: '0 auto 30px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center'
+                                    }}>
+                                        <Loader2 size={80} className="spin-icon" color="#818cf8" />
+                                    </div>
+                                    <h2 style={{color: '#f1f5f9', marginBottom: '10px', fontSize: '1.8rem'}}>
+                                        {currentLanguage === 'en' ? 'Saving Recording...' : '正在保存录音...'}
+                                    </h2>
+                                    <p style={{color: '#94a3b8', fontSize: '1rem', marginTop: '20px'}}>
+                                        {currentLanguage === 'en' ? 'Converting to WAV format for better compatibility' : '正在转换为 WAV 格式，以获得更好的兼容性'}
+                                    </p>
+                                </>
+                            ) : (
+                                // 正常录音界面
+                                <>
+                                    {/* 录音图标动画 */}
+                                    <div style={{
+                                        width: '120px',
+                                        height: '120px',
+                                        margin: '0 auto 30px',
+                                        background: 'linear-gradient(135deg, #ec4899, #f43f5e)',
+                                        borderRadius: '50%',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        position: 'relative',
+                                        animation: 'recordingPulse 2s ease-in-out infinite'
+                                    }}>
+                                        <Mic size={60} color="white" />
+                                        <div style={{
+                                            position: 'absolute',
+                                            top: '-10px',
+                                            left: '-10px',
+                                            right: '-10px',
+                                            bottom: '-10px',
+                                            borderRadius: '50%',
+                                            border: '3px solid #ec4899',
+                                            animation: 'recordingRipple 2s ease-out infinite'
+                                        }}></div>
+                                    </div>
 
-                            <h2 style={{color: '#f1f5f9', marginBottom: '10px', fontSize: '1.8rem'}}>
-                                正在录音...
-                            </h2>
-                            
-                            {/* 录音时长 */}
-                            <div style={{
-                                fontSize: '3rem',
-                                fontWeight: 'bold',
-                                color: '#ec4899',
-                                marginBottom: '30px',
-                                fontFamily: 'monospace',
-                                letterSpacing: '0.1em'
-                            }}>
-                                {formatRecordingTime(recordingTime)}
-                            </div>
-
-                            {/* 音量指示器（简化版） */}
-                            <div style={{
-                                width: '100%',
-                                height: '60px',
-                                background: 'rgba(0, 0, 0, 0.3)',
-                                borderRadius: '10px',
-                                marginBottom: '30px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                gap: '5px',
-                                padding: '0 20px'
-                            }}>
-                                {[...Array(20)].map((_, i) => (
-                                    <div key={i} style={{
-                                        width: '8px',
-                                        height: `${20 + Math.random() * 40}px`,
-                                        background: 'linear-gradient(to top, #ec4899, #f43f5e)',
-                                        borderRadius: '4px',
-                                        animation: `waveAnimation ${0.5 + Math.random() * 0.5}s ease-in-out infinite alternate`,
-                                        animationDelay: `${i * 0.05}s`
-                                    }}></div>
-                                ))}
-                            </div>
-
-                            {/* 控制按钮 */}
-                            <div style={{display: 'flex', gap: '15px', justifyContent: 'center'}}>
-                                <button
-                                    onClick={cancelRecording}
-                                    style={{
-                                        padding: '15px 40px',
-                                        background: 'rgba(255, 255, 255, 0.1)',
-                                        border: '2px solid rgba(255, 255, 255, 0.3)',
-                                        borderRadius: '12px',
-                                        color: 'white',
-                                        fontSize: '1.1rem',
+                                    <h2 style={{color: '#f1f5f9', marginBottom: '10px', fontSize: '1.8rem'}}>
+                                        {t('recording.recording')}
+                                    </h2>
+                                    
+                                    {/* 录音时长 */}
+                                    <div style={{
+                                        fontSize: '3rem',
                                         fontWeight: 'bold',
-                                        cursor: 'pointer',
-                                        transition: 'all 0.3s ease'
-                                    }}
-                                    onMouseEnter={(e) => {
-                                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
-                                        e.currentTarget.style.transform = 'translateY(-2px)';
-                                    }}
-                                    onMouseLeave={(e) => {
-                                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
-                                        e.currentTarget.style.transform = 'translateY(0)';
-                                    }}
-                                >
-                                    取消录音
-                                </button>
-                                <button
-                                    onClick={stopRecording}
-                                    style={{
-                                        padding: '15px 40px',
-                                        background: 'linear-gradient(135deg, #ef4444, #dc2626)',
-                                        border: 'none',
-                                        borderRadius: '12px',
-                                        color: 'white',
-                                        fontSize: '1.1rem',
-                                        fontWeight: 'bold',
-                                        cursor: 'pointer',
-                                        transition: 'all 0.3s ease',
-                                        boxShadow: '0 4px 15px rgba(239, 68, 68, 0.3)'
-                                    }}
-                                    onMouseEnter={(e) => {
-                                        e.currentTarget.style.transform = 'translateY(-2px)';
-                                        e.currentTarget.style.boxShadow = '0 6px 20px rgba(239, 68, 68, 0.4)';
-                                    }}
-                                    onMouseLeave={(e) => {
-                                        e.currentTarget.style.transform = 'translateY(0)';
-                                        e.currentTarget.style.boxShadow = '0 4px 15px rgba(239, 68, 68, 0.3)';
-                                    }}
-                                >
-                                    停止录音
-                                </button>
-                            </div>
+                                        color: '#ec4899',
+                                        marginBottom: '30px',
+                                        fontFamily: 'monospace',
+                                        letterSpacing: '0.1em'
+                                    }}>
+                                        {formatRecordingTime(recordingTime)}
+                                    </div>
 
-                            <p style={{color: '#94a3b8', fontSize: '0.9rem', marginTop: '20px'}}>
-                                录音将自动保存并处理为会议纪要
-                            </p>
+                                    {/* 音量指示器（简化版） */}
+                                    <div style={{
+                                        width: '100%',
+                                        height: '60px',
+                                        background: 'rgba(0, 0, 0, 0.3)',
+                                        borderRadius: '10px',
+                                        marginBottom: '30px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: '5px',
+                                        padding: '0 20px'
+                                    }}>
+                                        {[...Array(20)].map((_, i) => (
+                                            <div key={i} style={{
+                                                width: '8px',
+                                                height: `${20 + Math.random() * 40}px`,
+                                                background: 'linear-gradient(to top, #ec4899, #f43f5e)',
+                                                borderRadius: '4px',
+                                                animation: `waveAnimation ${0.5 + Math.random() * 0.5}s ease-in-out infinite alternate`,
+                                                animationDelay: `${i * 0.05}s`
+                                            }}></div>
+                                        ))}
+                                    </div>
+
+                                    {/* 控制按钮 */}
+                                    <div style={{display: 'flex', gap: '15px', justifyContent: 'center'}}>
+                                        <button
+                                            onClick={cancelRecording}
+                                            style={{
+                                                padding: '15px 40px',
+                                                background: 'rgba(255, 255, 255, 0.1)',
+                                                border: '2px solid rgba(255, 255, 255, 0.3)',
+                                                borderRadius: '12px',
+                                                color: 'white',
+                                                fontSize: '1.1rem',
+                                                fontWeight: 'bold',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.3s ease'
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
+                                                e.currentTarget.style.transform = 'translateY(-2px)';
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+                                                e.currentTarget.style.transform = 'translateY(0)';
+                                            }}
+                                        >
+                                            {t('recording.cancelRecording')}
+                                        </button>
+                                        <button
+                                            onClick={stopRecording}
+                                            style={{
+                                                padding: '15px 40px',
+                                                background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                                                border: 'none',
+                                                borderRadius: '12px',
+                                                color: 'white',
+                                                fontSize: '1.1rem',
+                                                fontWeight: 'bold',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.3s ease',
+                                                boxShadow: '0 4px 15px rgba(239, 68, 68, 0.3)'
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                e.currentTarget.style.transform = 'translateY(-2px)';
+                                                e.currentTarget.style.boxShadow = '0 6px 20px rgba(239, 68, 68, 0.4)';
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                e.currentTarget.style.transform = 'translateY(0)';
+                                                e.currentTarget.style.boxShadow = '0 4px 15px rgba(239, 68, 68, 0.3)';
+                                            }}
+                                        >
+                                            {t('recording.stopRecording')}
+                                        </button>
+                                    </div>
+
+                                    <p style={{color: '#94a3b8', fontSize: '0.9rem', marginTop: '20px'}}>
+                                        {t('recording.autoSaveHint')}
+                                    </p>
+                                </>
+                            )}
                         </div>
 
                         {/* 添加动画样式 */}
@@ -1892,12 +1963,12 @@ const App = () => {
                             <button
                                 onClick={() => setIsDownloadMinimized(true)}
                                 className="download-minimize-btn"
-                                title="最小化"
+                                title={t('common.buttons.minimize')}
                             >
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                     <line x1="5" y1="12" x2="19" y2="12"></line>
                                 </svg>
-                                <span className="minimize-text">最小化</span>
+                                <span className="minimize-text">{t('common.buttons.minimize')}</span>
                             </button>
                             
                             {isGeneratingAudio ? (
@@ -1915,28 +1986,28 @@ const App = () => {
                                     </div>
                                     
                                     <h2 style={{color: '#f1f5f9', marginBottom: '10px', fontSize: '1.8rem'}}>
-                                        录音完成！
+                                        {t('recording.recordingCompleted')}
                                     </h2>
                                     
                                     <p style={{color: '#94a3b8', fontSize: '1rem', marginBottom: '30px'}}>
-                                        您可以下载录音文件作为备份
+                                        {t('recording.downloadBackupHint')}
                                     </p>
                                     
                                     {/* 文件信息 */}
                                     <div className="file-info-box">
                                         <div className="file-info-item">
                                             <FileAudio size={20} color="#818cf8" />
-                                            <span className="file-info-label">文件名：</span>
+                                            <span className="file-info-label">{t('upload.fileName')}：</span>
                                             <span className="file-info-value">{downloadFileName}</span>
                                         </div>
                                         <div className="file-info-item">
                                             <Clock size={20} color="#818cf8" />
-                                            <span className="file-info-label">时长：</span>
+                                            <span className="file-info-label">{t('upload.duration')}：</span>
                                             <span className="file-info-value">{formatDuration(recordingDuration)}</span>
                                         </div>
                                         <div className="file-info-item">
                                             <Settings size={20} color="#818cf8" />
-                                            <span className="file-info-label">大小：</span>
+                                            <span className="file-info-label">{t('upload.fileSize')}：</span>
                                             <span className="file-info-value">{formatFileSize(recordingSize)}</span>
                                         </div>
                                     </div>
@@ -1948,7 +2019,7 @@ const App = () => {
                                             className="download-btn primary"
                                         >
                                             <Download size={20} />
-                                            下载录音文件
+                                            {t('recording.downloadRecording')}
                                         </button>
                                     </div>
                                 </>
@@ -1961,54 +2032,81 @@ const App = () => {
                 {showDownloadOption && isDownloadMinimized && (
                     <div className="download-floating-btn" onClick={() => setIsDownloadMinimized(false)}>
                         <Download size={24} color="#fff" />
-                        <span>下载录音</span>
+                        <span>{t('recording.downloadMinimized')}</span>
                     </div>
                 )}
 
                 {appState === 'processing' && (
                     <div className="processing-container">
                         <div className="processing-header">
-                            <h2>AI 正在处理您的会议录音</h2>
+                            <h2>{t('processing.title')}</h2>
                             <button 
-                                onClick={async () => {
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    
+                                    console.log('=== 取消处理按钮被点击 ===');
+                                    
+                                    // 确认取消
+                                    const confirmed = window.confirm(
+                                        currentLanguage === 'en' 
+                                            ? 'Are you sure you want to cancel the processing? This action cannot be undone.' 
+                                            : '确定要取消处理吗？此操作无法撤销。'
+                                    );
+                                    
+                                    if (!confirmed) {
+                                        console.log('用户取消了取消操作');
+                                        return;
+                                    }
+                                    
+                                    console.log('✅ 用户确认取消处理');
+                                    
+                                    // 保存当前的fileId（在刷新之前发送取消请求）
+                                    const fileIdToCancel = currentFileId;
+                                    
                                     // 停止进度轮询
                                     if (window.progressInterval) {
                                         clearInterval(window.progressInterval);
+                                        window.progressInterval = null;
+                                        console.log('✅ 已停止进度轮询');
                                     }
                                     
-                                    // 发送取消请求到后端
-                                    if (currentFileId) {
-                                        try {
-                                            await fetch(`/api/cancel/${currentFileId}`, { 
-                                                method: 'POST' 
-                                            });
-                                            console.log('取消请求发送成功');
-                                        } catch (err) {
-                                            console.log('取消请求发送失败:', err);
-                                        }
+                                    // 发送取消请求到后端（不等待响应）
+                                    if (fileIdToCancel) {
+                                        console.log('📡 发送取消请求到后端，fileId:', fileIdToCancel);
+                                        fetch(`/api/cancel/${fileIdToCancel}`, { 
+                                            method: 'POST',
+                                            headers: {
+                                                'Content-Type': 'application/json'
+                                            }
+                                        }).catch(err => {
+                                            console.error('❌ 取消请求失败:', err);
+                                        });
                                     }
                                     
-                                    // 重置应用状态回到首页
-                                    resetApp();
+                                    // 强制刷新页面，回到初始状态
+                                    console.log('🔄 刷新页面...');
+                                    window.location.reload();
                                 }}
                                 className="btn-cancel"
+                                style={{ pointerEvents: 'auto' }}
                             >
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                     <circle cx="12" cy="12" r="10"></circle>
                                     <line x1="15" y1="9" x2="9" y2="15"></line>
                                     <line x1="9" y1="9" x2="15" y2="15"></line>
                                 </svg>
-                                取消处理
+                                {t('processing.cancelProcessing')}
                             </button>
                         </div>
                         
                         <div className="steps-container">
                             {['uploading', 'splitting', 'transcribing', 'generating_summary'].map((stepId, index) => {
                                 const steps = [
-                                    { id: 'uploading', label: '上传文件中', icon: Upload },
-                                    { id: 'splitting', label: '智能音频分片', icon: FileAudio },
-                                    { id: 'transcribing', label: 'AI 语音转录', icon: Cpu },
-                                    { id: 'generating_summary', label: 'AI 生成结构化纪要', icon: Loader2 },
+                                    { id: 'uploading', label: t('processing.steps.uploading'), icon: Upload },
+                                    { id: 'splitting', label: t('processing.steps.splitting'), icon: FileAudio },
+                                    { id: 'transcribing', label: t('processing.steps.transcribing'), icon: Cpu },
+                                    { id: 'generating_summary', label: t('processing.steps.generating_summary'), icon: Loader2 },
                                 ];
                                 const step = steps[index];
                                 const currentStatus = processingStatus.status;
@@ -2213,11 +2311,11 @@ const App = () => {
                         <div className="result-header">
                             <div style={{display:'flex', alignItems:'center', gap:'15px'}}>
                                 <CheckCircle size={20} color="#4ade80" />
-                                <span style={{fontSize:'1.1rem', fontWeight:'bold'}}>会议纪要生成完成</span>
+                                <span style={{fontSize:'1.1rem', fontWeight:'bold'}}>{t('minutes.completed')}</span>
                             </div>
                             <div>
                                 <button onClick={resetApp} className="btn-reset" style={{ marginRight: '15px' }}>
-                                    <RefreshCw size={16} style={{marginRight:'5px', verticalAlign:'middle'}}/> 新会议
+                                    <RefreshCw size={16} style={{marginRight:'5px', verticalAlign:'middle'}}/> {t('minutes.newMeeting')}
                                 </button>
                                 <button 
                                     onClick={() => setShowEmailDialog(true)}
@@ -2241,7 +2339,7 @@ const App = () => {
                                         e.target.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
                                     }}
                                 >
-                                    <Mail size={16} style={{marginRight:'5px', verticalAlign:'middle'}}/> 发送邮件
+                                    <Mail size={16} style={{marginRight:'5px', verticalAlign:'middle'}}/> {t('minutes.actions.sendEmail')}
                                 </button>
                             </div>
                         </div>
@@ -2260,7 +2358,7 @@ const App = () => {
                                 <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '15px'}}>
                                     <div style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
                                         <FileAudio size={20} color="#818cf8"/>
-                                        <h3 style={{margin: 0, fontSize: '1.2rem', color: '#f1f5f9'}}>原始转录文本 (Transcript)</h3>
+                                        <h3 style={{margin: 0, fontSize: '1.2rem', color: '#f1f5f9'}}>{t('minutes.originalTranscript')} (Transcript)</h3>
                                     </div>
                                     <button
                                         onClick={() => {
@@ -2303,12 +2401,12 @@ const App = () => {
                                         {copiedTranscript ? (
                                             <>
                                                 <Check size={16} />
-                                                <span>已复制</span>
+                                                <span>{t('common.buttons.copied')}</span>
                                             </>
                                         ) : (
                                             <>
                                                 <Copy size={16} />
-                                                <span>复制文本</span>
+                                                <span>{t('minutes.actions.copyTranscript')}</span>
                                             </>
                                         )}
                                     </button>
