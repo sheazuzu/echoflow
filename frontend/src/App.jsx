@@ -1318,30 +1318,32 @@ const App = () => {
                     <img src={sheaWhiteLogo} alt="Shea Logo" style={{height: '48px', marginRight: '15px', filter: 'brightness(1.2)', transition: 'all 0.3s ease'}}/>
                     <span style={{fontSize: '1.8rem', fontWeight: '700', background: 'linear-gradient(135deg, #ffffff 0%, #e2e8f0 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', textShadow: '0 2px 4px rgba(0, 0, 0, 0.3)'}}>EchoFlow Pro</span>
                 </div>
-                <div style={{display: 'flex', alignItems: 'center', gap: '20px'}}>
+                <div style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
                     <button
                         onClick={() => setShowContactModal(true)}
-                        className="contact-button"
+                        className="contact-button square-icon-btn"
                         title="Contact Us"
                         style={{
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '8px',
-                            padding: '10px 16px',
+                            justifyContent: 'center',
+                            width: '40px',
+                            height: '40px',
+                            padding: '0',
                             background: 'rgba(16, 185, 129, 0.1)',
                             border: '1px solid rgba(16, 185, 129, 0.3)',
-                            borderRadius: '12px',
+                            borderRadius: '8px',
                             color: '#10b981',
-                            fontSize: '0.95rem',
-                            fontWeight: '500',
                             transition: 'all 0.3s ease',
-                            cursor: 'pointer'
+                            cursor: 'pointer',
+                            position: 'relative',
+                            overflow: 'hidden'
                         }}
                         onMouseEnter={(e) => {
-                            e.currentTarget.style.background = 'rgba(16, 185, 129, 0.15)';
-                            e.currentTarget.style.borderColor = 'rgba(16, 185, 129, 0.4)';
+                            e.currentTarget.style.background = 'rgba(16, 185, 129, 0.2)';
+                            e.currentTarget.style.borderColor = 'rgba(16, 185, 129, 0.5)';
                             e.currentTarget.style.transform = 'translateY(-2px)';
-                            e.currentTarget.style.boxShadow = '0 4px 12px rgba(16, 185, 129, 0.2)';
+                            e.currentTarget.style.boxShadow = '0 4px 12px rgba(16, 185, 129, 0.3), 0 0 20px rgba(16, 185, 129, 0.2)';
                         }}
                         onMouseLeave={(e) => {
                             e.currentTarget.style.background = 'rgba(16, 185, 129, 0.1)';
@@ -1351,48 +1353,82 @@ const App = () => {
                         }}
                     >
                         <MessageCircle size={20} />
-                        <span>Contact</span>
                     </button>
                     <a 
                         href="https://github.com/sheazuzu/echoflow" 
                         target="_blank" 
                         rel="noopener noreferrer"
-                        className="github-link"
+                        className="github-link square-icon-btn"
                         title="View on GitHub"
                         style={{
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '8px',
-                            padding: '10px 16px',
-                            background: 'rgba(255, 255, 255, 0.1)',
-                            border: '1px solid rgba(255, 255, 255, 0.2)',
-                            borderRadius: '12px',
-                            color: '#f1f5f9',
+                            justifyContent: 'center',
+                            width: '40px',
+                            height: '40px',
+                            padding: '0',
+                            background: 'rgba(139, 92, 246, 0.1)',
+                            border: '1px solid rgba(139, 92, 246, 0.3)',
+                            borderRadius: '8px',
+                            color: '#a78bfa',
                             textDecoration: 'none',
-                            fontSize: '0.95rem',
-                            fontWeight: '500',
                             transition: 'all 0.3s ease',
-                            cursor: 'pointer'
+                            cursor: 'pointer',
+                            position: 'relative',
+                            overflow: 'hidden'
                         }}
                         onMouseEnter={(e) => {
-                            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
-                            e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+                            e.currentTarget.style.background = 'rgba(139, 92, 246, 0.2)';
+                            e.currentTarget.style.borderColor = 'rgba(139, 92, 246, 0.5)';
                             e.currentTarget.style.transform = 'translateY(-2px)';
-                            e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.2)';
+                            e.currentTarget.style.boxShadow = '0 4px 12px rgba(139, 92, 246, 0.3), 0 0 20px rgba(139, 92, 246, 0.2)';
                         }}
                         onMouseLeave={(e) => {
-                            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
-                            e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+                            e.currentTarget.style.background = 'rgba(139, 92, 246, 0.1)';
+                            e.currentTarget.style.borderColor = 'rgba(139, 92, 246, 0.3)';
                             e.currentTarget.style.transform = 'translateY(0)';
                             e.currentTarget.style.boxShadow = 'none';
                         }}
                     >
                         <Github size={20} />
-                        <span>GitHub</span>
                     </a>
-                    <div className="partner-logo">
-                        <img src={tencentCloudLogo} alt="Tencent Cloud" style={{height: '40px', opacity: 0.95, transition: 'all 0.3s ease'}} />
-                    </div>
+                    <a 
+                        href="https://cloud.tencent.com" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="tencent-cloud-link square-icon-btn"
+                        title="Powered by Tencent Cloud"
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: '40px',
+                            height: '40px',
+                            padding: '0',
+                            background: 'rgba(59, 130, 246, 0.1)',
+                            border: '1px solid rgba(59, 130, 246, 0.3)',
+                            borderRadius: '8px',
+                            textDecoration: 'none',
+                            transition: 'all 0.3s ease',
+                            cursor: 'pointer',
+                            position: 'relative',
+                            overflow: 'hidden'
+                        }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.background = 'rgba(59, 130, 246, 0.2)';
+                            e.currentTarget.style.borderColor = 'rgba(59, 130, 246, 0.5)';
+                            e.currentTarget.style.transform = 'translateY(-2px)';
+                            e.currentTarget.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.3), 0 0 20px rgba(59, 130, 246, 0.2)';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.background = 'rgba(59, 130, 246, 0.1)';
+                            e.currentTarget.style.borderColor = 'rgba(59, 130, 246, 0.3)';
+                            e.currentTarget.style.transform = 'translateY(0)';
+                            e.currentTarget.style.boxShadow = 'none';
+                        }}
+                    >
+                        <img src={tencentCloudLogo} alt="Tencent Cloud" style={{height: '22px', width: 'auto', opacity: 0.9, transition: 'all 0.3s ease'}} />
+                    </a>
                 </div>
             </header>
 
@@ -2994,7 +3030,7 @@ const App = () => {
                         <img src={sheaWhiteLogo} alt="Shea Logo" style={{height: '24px', marginRight: '10px', opacity: 0.9}}/>
                     </div>
                     <div className="footer-text">
-                        Copyright © 1992-2025 Shea All Rights Reserved
+                        Copyright © 1993-2026 Shea All Rights Reserved
                     </div>
                     <div className="footer-powered" style={{
                         marginTop: '8px',
