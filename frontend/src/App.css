@@ -422,6 +422,222 @@ a:hover {
   backdrop-filter: blur(15px);
 }
 
+/* 下载选项容器 */
+.download-option-container {
+  text-align: center;
+  padding: 80px 40px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 24px;
+  margin-top: 40px;
+  backdrop-filter: blur(15px);
+  animation: fadeInUp 0.5s ease-out;
+}
+
+.download-option-content {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.generating-audio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.download-icon {
+  width: 120px;
+  height: 120px;
+  margin: 0 auto 30px;
+  background: linear-gradient(135deg, #818cf8, #6366f1);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: downloadPulse 2s ease-in-out infinite;
+  box-shadow: 0 8px 32px rgba(129, 140, 248, 0.3);
+}
+
+@keyframes downloadPulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 8px 32px rgba(129, 140, 248, 0.3);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 12px 40px rgba(129, 140, 248, 0.5);
+  }
+}
+
+/* 文件信息框 */
+.file-info-box {
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.file-info-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #f1f5f9;
+  font-size: 0.95rem;
+}
+
+.file-info-label {
+  color: #94a3b8;
+  min-width: 60px;
+}
+
+.file-info-value {
+  color: #f1f5f9;
+  font-weight: 500;
+  word-break: break-all;
+}
+
+/* 下载操作按钮 */
+.download-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.download-btn {
+  padding: 16px 32px;
+  border: none;
+  border-radius: 12px;
+  font-size: 1.1rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 56px;
+}
+
+.download-btn.primary {
+  background: linear-gradient(135deg, #818cf8, #6366f1);
+  color: white;
+  box-shadow: 0 4px 15px rgba(129, 140, 248, 0.3);
+}
+
+.download-btn.primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(129, 140, 248, 0.4);
+}
+
+.download-btn.secondary {
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  color: white;
+}
+
+.download-btn.secondary:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: translateY(-2px);
+}
+
+/* 最小化按钮 */
+.download-minimize-btn {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 48px;
+  height: 48px;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  color: #f1f5f9;
+  font-size: 1.5rem;
+  font-weight: bold;
+  z-index: 10;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.download-minimize-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.6);
+  color: #ffffff;
+  transform: scale(1.1);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+}
+
+/* 浮动下载按钮（最小化后显示） */
+.download-floating-btn {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  background: linear-gradient(135deg, #818cf8, #6366f1);
+  color: white;
+  padding: 16px 24px;
+  border-radius: 50px;
+  box-shadow: 0 8px 24px rgba(129, 140, 248, 0.4);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: bold;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  animation: floatIn 0.5s ease-out, floatPulse 2s ease-in-out infinite 1s;
+  z-index: 1000;
+}
+
+.download-floating-btn:hover {
+  transform: translateY(-4px) scale(1.05);
+  box-shadow: 0 12px 32px rgba(129, 140, 248, 0.6);
+}
+
+@keyframes floatIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes floatPulse {
+  0%, 100% {
+    box-shadow: 0 8px 24px rgba(129, 140, 248, 0.4);
+  }
+  50% {
+    box-shadow: 0 12px 32px rgba(129, 140, 248, 0.6);
+  }
+}
+
+/* 下载选项容器需要相对定位以支持绝对定位的最小化按钮 */
+.download-option-container {
+  position: relative;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .progress-bar-bg {
   width: 60%;
   height: 8px;
@@ -1178,5 +1394,71 @@ button,
   }
   50% {
     transform: scale(1.05);
+  }
+}
+
+/* 下载选项响应式设计 */
+@media (max-width: 768px) {
+  .download-option-container {
+    padding: 60px 30px;
+  }
+  
+  .download-icon {
+    width: 100px;
+    height: 100px;
+  }
+  
+  .file-info-box {
+    padding: 20px;
+  }
+  
+  .file-info-item {
+    font-size: 0.9rem;
+  }
+  
+  .download-btn {
+    font-size: 1rem;
+    padding: 14px 28px;
+    min-height: 52px;
+  }
+}
+
+@media (max-width: 480px) {
+  .download-option-container {
+    padding: 40px 20px;
+  }
+  
+  .download-icon {
+    width: 80px;
+    height: 80px;
+  }
+  
+  .download-icon svg {
+    width: 40px;
+    height: 40px;
+  }
+  
+  .file-info-box {
+    padding: 16px;
+    gap: 12px;
+  }
+  
+  .file-info-item {
+    font-size: 0.85rem;
+    flex-wrap: wrap;
+  }
+  
+  .file-info-label {
+    min-width: 50px;
+  }
+  
+  .download-btn {
+    font-size: 0.95rem;
+    padding: 12px 24px;
+    min-height: 48px;
+  }
+  
+  .countdown-hint {
+    font-size: 0.85rem;
   }
 }

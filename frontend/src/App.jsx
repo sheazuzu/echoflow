@@ -29,9 +29,19 @@ const App = () => {
     const [recordingTimerInterval, setRecordingTimerInterval] = useState(null); // 录音计时器
     const [browserSupportsRecording, setBrowserSupportsRecording] = useState(true); // 浏览器是否支持录音
 
+    // 录音下载相关状态
+    const [showDownloadOption, setShowDownloadOption] = useState(false); // 是否显示下载选项
+    const [isDownloadMinimized, setIsDownloadMinimized] = useState(false); // 下载窗口是否最小化
+    const [downloadBlob, setDownloadBlob] = useState(null); // 录音文件的Blob对象
+    const [downloadFileName, setDownloadFileName] = useState(''); // 下载文件名
+    const [recordingDuration, setRecordingDuration] = useState(0); // 录音时长（秒）
+    const [recordingSize, setRecordingSize] = useState(0); // 录音文件大小（字节）
+    const [isGeneratingAudio, setIsGeneratingAudio] = useState(false); // 是否正在生成音频文件
+
     // 邮件发送相关状态
     const [showEmailDialog, setShowEmailDialog] = useState(false); // 是否显示邮箱输入对话框
-    const [recipientEmail, setRecipientEmail] = useState(''); // 收件人邮箱地址
+    const [meetingRecipients, setMeetingRecipients] = useState([]); // 会议纪要收件人邮箱列表
+    const [meetingRecipientInput, setMeetingRecipientInput] = useState(''); // 当前输入的会议纪要收件人邮箱
     const [emailError, setEmailError] = useState(''); // 邮箱验证错误信息
     const [isSendingEmail, setIsSendingEmail] = useState(false); // 是否正在发送邮件
     const [sendSuccess, setSendSuccess] = useState(false); // 邮件发送成功提示
@@ -40,11 +50,107 @@ const App = () => {
 
     // Contact表单状态
     const [showContactModal, setShowContactModal] = useState(false);
-    const [contactForm, setContactForm] = useState({ name: '', email: '', message: '' });
+    const [contactForm, setContactForm] = useState({ name: '', email: '', message: '', recipients: [] });
     const [contactSubmitting, setContactSubmitting] = useState(false);
     const [contactMessage, setContactMessage] = useState({ type: '', text: '' });
+    const [recipientInput, setRecipientInput] = useState(''); // 当前输入的收件人邮箱
 
     // 录音功能工具函数
+    
+    // 格式化文件大小（字节转换为易读格式）
+    const formatFileSize = (bytes) => {
+        if (bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    };
+
+    // 格式化时长（秒数转换为时间格式 mm:ss）
+    const formatDuration = (seconds) => {
+        if (!seconds || isNaN(seconds)) return '00:00';
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    };
+
+    // 将 WebM/其他格式的音频 Blob 转换为 WAV 格式
+    const convertToWav = async (audioBlob) => {
+        try {
+            console.log('开始转换音频为 WAV 格式...');
+            
+            // 创建 AudioContext
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            
+            // 将 Blob 转换为 ArrayBuffer
+            const arrayBuffer = await audioBlob.arrayBuffer();
+            
+            // 解码音频数据
+            const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+            
+            // 获取音频参数
+            const numberOfChannels = audioBuffer.numberOfChannels;
+            const sampleRate = audioBuffer.sampleRate;
+            const length = audioBuffer.length * numberOfChannels * 2; // 16-bit samples
+            
+            // 创建 WAV 文件的 ArrayBuffer
+            const wavBuffer = new ArrayBuffer(44 + length);
+            const view = new DataView(wavBuffer);
+            
+            // 写入 WAV 文件头
+            const writeString = (offset, string) => {
+                for (let i = 0; i < string.length; i++) {
+                    view.setUint8(offset + i, string.charCodeAt(i));
+                }
+            };
+            
+            // RIFF chunk descriptor
+            writeString(0, 'RIFF');
+            view.setUint32(4, 36 + length, true);
+            writeString(8, 'WAVE');
+            
+            // fmt sub-chunk
+            writeString(12, 'fmt ');
+            view.setUint32(16, 16, true); // fmt chunk size
+            view.setUint16(20, 1, true); // audio format (1 = PCM)
+            view.setUint16(22, numberOfChannels, true);
+            view.setUint32(24, sampleRate, true);
+            view.setUint32(28, sampleRate * numberOfChannels * 2, true); // byte rate
+            view.setUint16(32, numberOfChannels * 2, true); // block align
+            view.setUint16(34, 16, true); // bits per sample
+            
+            // data sub-chunk
+            writeString(36, 'data');
+            view.setUint32(40, length, true);
+            
+            // 写入音频数据
+            const offset = 44;
+            let index = offset;
+            
+            for (let i = 0; i < audioBuffer.length; i++) {
+                for (let channel = 0; channel < numberOfChannels; channel++) {
+                    const sample = audioBuffer.getChannelData(channel)[i];
+                    // 将浮点数样本 (-1.0 到 1.0) 转换为 16-bit 整数
+                    const int16 = Math.max(-32768, Math.min(32767, Math.floor(sample * 32768)));
+                    view.setInt16(index, int16, true);
+                    index += 2;
+                }
+            }
+            
+            // 关闭 AudioContext
+            await audioContext.close();
+            
+            // 创建 WAV Blob
+            const wavBlob = new Blob([wavBuffer], { type: 'audio/wav' });
+            
+            console.log('WAV 转换成功，大小:', (wavBlob.size / 1024 / 1024).toFixed(2), 'MB');
+            
+            return wavBlob;
+        } catch (error) {
+            console.error('转换为 WAV 格式失败:', error);
+            throw new Error('音频格式转换失败：' + error.message);
+        }
+    };
     
     // 检查浏览器是否支持录音功能
     const checkBrowserSupport = () => {
@@ -99,6 +205,8 @@ const App = () => {
             }
         };
     }, [isRecording, mediaRecorder, recordingTimerInterval, audioStreams, audioContext]);
+
+    // 注意：已移除自动倒计时功能，下载窗口将持续显示直到用户手动操作
 
     // 处理开始录音按钮点击
     const handleStartRecordingClick = async () => {
@@ -277,6 +385,87 @@ const App = () => {
             // 监听录音停止事件
             recorder.onstop = () => {
                 setRecordedChunks(chunks);
+                
+                // 生成音频文件并显示下载选项
+                setTimeout(async () => {
+                    try {
+                        // 检查录音数据是否为空
+                        if (!chunks || chunks.length === 0) {
+                            console.log('录音数据为空，不显示下载选项');
+                            setErrorMsg('录音数据为空，请重新录音');
+                            return;
+                        }
+                        
+                        setIsGeneratingAudio(true);
+                        
+                        // 确定MIME类型
+                        let mimeType = 'audio/webm;codecs=opus';
+                        if (chunks[0] && chunks[0].type) {
+                            mimeType = chunks[0].type;
+                        }
+                        
+                        // 创建原始 Blob
+                        const originalBlob = new Blob(chunks, { type: mimeType });
+                        
+                        // 检查Blob大小
+                        if (originalBlob.size === 0) {
+                            console.error('生成的音频文件大小为0');
+                            setIsGeneratingAudio(false);
+                            setErrorMsg('录音文件生成失败，请重新录音');
+                            return;
+                        }
+                        
+                        console.log('原始音频格式:', mimeType, '大小:', (originalBlob.size / 1024 / 1024).toFixed(2), 'MB');
+                        
+                        // 转换为 WAV 格式
+                        let audioBlob;
+                        try {
+                            audioBlob = await convertToWav(originalBlob);
+                        } catch (convertError) {
+                            console.warn('WAV 转换失败，使用原始格式:', convertError);
+                            // 如果转换失败，使用原始格式
+                            audioBlob = originalBlob;
+                        }
+                        
+                        // 生成文件名
+                        const now = new Date();
+                        const year = now.getFullYear();
+                        const month = String(now.getMonth() + 1).padStart(2, '0');
+                        const day = String(now.getDate()).padStart(2, '0');
+                        const hours = String(now.getHours()).padStart(2, '0');
+                        const minutes = String(now.getMinutes()).padStart(2, '0');
+                        const seconds = String(now.getSeconds()).padStart(2, '0');
+                        
+                        // 确定文件扩展名
+                        let extension = 'wav'; // 默认使用 WAV
+                        if (audioBlob === originalBlob) {
+                            // 如果使用原始格式，根据 MIME 类型确定扩展名
+                            if (mimeType.includes('wav')) {
+                                extension = 'wav';
+                            } else if (mimeType.includes('mp4')) {
+                                extension = 'm4a';
+                            } else {
+                                extension = 'webm';
+                            }
+                        }
+                        
+                        const fileName = `recording_${year}${month}${day}_${hours}${minutes}${seconds}.${extension}`;
+                        
+                        // 保存下载信息到状态
+                        setDownloadBlob(audioBlob);
+                        setDownloadFileName(fileName);
+                        setRecordingDuration(recordingTime);
+                        setRecordingSize(audioBlob.size);
+                        setIsGeneratingAudio(false);
+                        setShowDownloadOption(true);
+                        
+                        console.log('录音文件已准备好下载:', fileName, '大小:', (audioBlob.size / 1024 / 1024).toFixed(2), 'MB');
+                    } catch (error) {
+                        console.error('准备下载文件失败:', error);
+                        setIsGeneratingAudio(false);
+                        setErrorMsg('准备下载文件失败：' + error.message);
+                    }
+                }, 100);
             };
             
             // 监听错误事件
@@ -350,6 +539,93 @@ const App = () => {
         console.log('录音已停止');
     };
 
+    // 下载录音文件
+    const handleDownloadRecording = () => {
+        try {
+            if (!downloadBlob || !downloadFileName) {
+                setErrorMsg('下载文件不可用');
+                return;
+            }
+            
+            // 检查浏览器是否支持 URL.createObjectURL
+            if (typeof URL.createObjectURL !== 'function') {
+                setErrorMsg('您的浏览器不支持文件下载功能，请升级浏览器');
+                return;
+            }
+            
+            // 创建临时下载链接
+            const url = URL.createObjectURL(downloadBlob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = downloadFileName;
+            document.body.appendChild(a);
+            a.click();
+            
+            // 清理
+            setTimeout(() => {
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }, 100);
+            
+            console.log('录音文件下载成功:', downloadFileName);
+            setErrorMsg('下载成功！正在开始处理...');
+            
+            // 下载完成后立即开始处理
+            setTimeout(() => {
+                handleSkipDownload();
+            }, 1000);
+            
+        } catch (error) {
+            console.error('下载录音文件失败:', error);
+            setErrorMsg('下载失败，请重试');
+        }
+    };
+
+    // 跳过下载并开始处理
+    const handleSkipDownload = async () => {
+        try {
+            // 隐藏下载选项
+            setShowDownloadOption(false);
+            
+            // 检查是否有录音数据
+            if (!recordedChunks || recordedChunks.length === 0) {
+                setErrorMsg('没有可处理的录音数据');
+                return;
+            }
+            
+            // 开始处理录音文件
+            const audioFile = await generateAudioFile();
+            
+            // 检查文件是否生成成功
+            if (!audioFile) {
+                setErrorMsg('音频文件生成失败，请重新录音');
+                return;
+            }
+            
+            // 检查文件大小
+            if (audioFile.size === 0) {
+                setErrorMsg('音频文件大小为0，请重新录音');
+                return;
+            }
+            
+            // 上传并处理文件
+            await handleFileUpload(audioFile);
+            
+            // 清理下载相关状态
+            setDownloadBlob(null);
+            setDownloadFileName('');
+            setRecordingDuration(0);
+            setRecordingSize(0);
+            
+        } catch (error) {
+            console.error('处理录音文件失败:', error);
+            setErrorMsg('处理失败：' + error.message);
+            
+            // 发生错误时恢复下载选项显示
+            setShowDownloadOption(true);
+        }
+    };
+
     // 取消录音
     const cancelRecording = () => {
         const confirmed = window.confirm('确定要取消录音吗？录音数据将被丢弃。');
@@ -386,6 +662,14 @@ const App = () => {
         setMediaRecorder(null);
         setAudioContext(null);
         
+        // 清理下载相关状态
+        setShowDownloadOption(false);
+        setDownloadBlob(null);
+        setDownloadFileName('');
+        setRecordingDuration(0);
+        setRecordingSize(0);
+        setIsGeneratingAudio(false);
+        
         console.log('录音已取消');
     };
 
@@ -413,10 +697,22 @@ const App = () => {
                 mimeType = recordedChunks[0].type;
             }
             
-            // 创建Blob
-            const audioBlob = new Blob(recordedChunks, { type: mimeType });
+            // 创建原始 Blob
+            const originalBlob = new Blob(recordedChunks, { type: mimeType });
             
-            // 生成文件名：recording_YYYYMMDD_HHMMSS.webm
+            console.log('原始音频格式:', mimeType, '大小:', (originalBlob.size / 1024 / 1024).toFixed(2), 'MB');
+            
+            // 转换为 WAV 格式
+            let audioBlob;
+            try {
+                audioBlob = await convertToWav(originalBlob);
+            } catch (convertError) {
+                console.warn('WAV 转换失败，使用原始格式:', convertError);
+                // 如果转换失败，使用原始格式
+                audioBlob = originalBlob;
+            }
+            
+            // 生成文件名：recording_YYYYMMDD_HHMMSS.wav
             const now = new Date();
             const year = now.getFullYear();
             const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -426,17 +722,24 @@ const App = () => {
             const seconds = String(now.getSeconds()).padStart(2, '0');
             
             // 确定文件扩展名
-            let extension = 'webm';
-            if (mimeType.includes('wav')) {
-                extension = 'wav';
-            } else if (mimeType.includes('mp4')) {
-                extension = 'm4a';
+            let extension = 'wav'; // 默认使用 WAV
+            let finalMimeType = 'audio/wav';
+            if (audioBlob === originalBlob) {
+                // 如果使用原始格式，根据 MIME 类型确定扩展名
+                finalMimeType = mimeType;
+                if (mimeType.includes('wav')) {
+                    extension = 'wav';
+                } else if (mimeType.includes('mp4')) {
+                    extension = 'm4a';
+                } else {
+                    extension = 'webm';
+                }
             }
             
             const fileName = `recording_${year}${month}${day}_${hours}${minutes}${seconds}.${extension}`;
             
             // 创建File对象
-            const audioFile = new File([audioBlob], fileName, { type: mimeType });
+            const audioFile = new File([audioBlob], fileName, { type: finalMimeType });
             
             console.log('音频文件生成成功:', fileName, '大小:', (audioBlob.size / 1024 / 1024).toFixed(2), 'MB');
             
@@ -460,6 +763,14 @@ const App = () => {
     };
 
     const startProcessing = async (fileObj) => {
+        // 清理下载相关状态
+        setShowDownloadOption(false);
+        setDownloadBlob(null);
+        setDownloadFileName('');
+        setRecordingDuration(0);
+        setRecordingSize(0);
+        setIsGeneratingAudio(false);
+        
         setAppState('processing');
         setErrorMsg('');
         setIsUploading(true); // 开始上传，显示加载状态
@@ -662,12 +973,48 @@ const App = () => {
         return { valid: true, error: '' };
     };
 
+    // 添加会议纪要收件人
+    const handleAddMeetingRecipient = () => {
+        const email = meetingRecipientInput.trim();
+        if (!email) return;
+        
+        // 验证邮箱格式
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            setEmailError('请输入有效的收件人邮箱地址');
+            return;
+        }
+        
+        // 检查是否已存在
+        if (meetingRecipients.includes(email)) {
+            setEmailError('该邮箱已添加');
+            return;
+        }
+        
+        // 添加到收件人列表
+        setMeetingRecipients([...meetingRecipients, email]);
+        setMeetingRecipientInput('');
+        setEmailError('');
+    };
+    
+    // 删除会议纪要收件人
+    const handleRemoveMeetingRecipient = (emailToRemove) => {
+        setMeetingRecipients(meetingRecipients.filter(email => email !== emailToRemove));
+    };
+    
+    // 处理会议纪要收件人输入框的回车键
+    const handleMeetingRecipientKeyPress = (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            handleAddMeetingRecipient();
+        }
+    };
+
     // 处理发送邮件按钮点击
     const handleSendEmailClick = () => {
-        const validation = validateEmail(recipientEmail);
-        
-        if (!validation.valid) {
-            setEmailError(validation.error);
+        // 验证是否至少有一个收件人
+        if (meetingRecipients.length === 0) {
+            setEmailError('请至少添加一个收件人邮箱');
             return;
         }
         
@@ -690,7 +1037,7 @@ const App = () => {
                 },
                 body: JSON.stringify({
                     fileId: currentFileId,
-                    recipientEmail: recipientEmail,
+                    recipients: meetingRecipients, // 发送多个收件人
                 }),
             });
 
@@ -700,7 +1047,8 @@ const App = () => {
                 // 发送成功
                 setSendSuccess(true);
                 setShowEmailDialog(false);
-                setRecipientEmail('');
+                setMeetingRecipients([]);
+                setMeetingRecipientInput('');
                 
                 // 3秒后隐藏成功提示
                 setTimeout(() => {
@@ -725,6 +1073,15 @@ const App = () => {
             window.progressInterval = null;
         }
         
+        // 清理下载相关状态
+        setShowDownloadOption(false);
+        setDownloadBlob(null);
+        setDownloadFileName('');
+        setRecordingDuration(0);
+        setRecordingSize(0);
+        setAutoProcessCountdown(5);
+        setIsGeneratingAudio(false);
+        
         setAppState('idle');
         setMinutesData(null);
         setTranscript('');
@@ -745,10 +1102,16 @@ const App = () => {
             return;
         }
         
-        // 验证邮箱格式
+        // 验证发件人邮箱格式
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(contactForm.email)) {
             setContactMessage({ type: 'error', text: '请输入有效的邮箱地址' });
+            return;
+        }
+        
+        // 验证至少有一个收件人
+        if (contactForm.recipients.length === 0) {
+            setContactMessage({ type: 'error', text: '请至少添加一个收件人邮箱' });
             return;
         }
         
@@ -774,7 +1137,8 @@ const App = () => {
             if (data.success) {
                 setContactMessage({ type: 'success', text: data.message });
                 // 清空表单
-                setContactForm({ name: '', email: '', message: '' });
+                setContactForm({ name: '', email: '', message: '', recipients: [] });
+                setRecipientInput('');
                 // 3秒后关闭弹窗
                 setTimeout(() => {
                     setShowContactModal(false);
@@ -793,8 +1157,52 @@ const App = () => {
     
     const handleContactClose = () => {
         setShowContactModal(false);
-        setContactForm({ name: '', email: '', message: '' });
+        setContactForm({ name: '', email: '', message: '', recipients: [] });
         setContactMessage({ type: '', text: '' });
+        setRecipientInput('');
+    };
+    
+    // 添加收件人邮箱
+    const handleAddRecipient = () => {
+        const email = recipientInput.trim();
+        if (!email) return;
+        
+        // 验证邮箱格式
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            setContactMessage({ type: 'error', text: '请输入有效的收件人邮箱地址' });
+            return;
+        }
+        
+        // 检查是否已存在
+        if (contactForm.recipients.includes(email)) {
+            setContactMessage({ type: 'error', text: '该邮箱已添加' });
+            return;
+        }
+        
+        // 添加到收件人列表
+        setContactForm({
+            ...contactForm,
+            recipients: [...contactForm.recipients, email]
+        });
+        setRecipientInput('');
+        setContactMessage({ type: '', text: '' });
+    };
+    
+    // 删除收件人邮箱
+    const handleRemoveRecipient = (emailToRemove) => {
+        setContactForm({
+            ...contactForm,
+            recipients: contactForm.recipients.filter(email => email !== emailToRemove)
+        });
+    };
+    
+    // 处理收件人输入框的回车键
+    const handleRecipientKeyPress = (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            handleAddRecipient();
+        }
     };
 
     // 获取进度状态描述
@@ -1489,6 +1897,92 @@ const App = () => {
                     </div>
                 )}
 
+                {/* 录音下载选项界面 */}
+                {showDownloadOption && !isDownloadMinimized && (
+                    <div className="download-option-container">
+                        <div className="download-option-content">
+                            {/* 关闭/最小化按钮 */}
+                            <button
+                                onClick={() => setIsDownloadMinimized(true)}
+                                className="download-minimize-btn"
+                                title="最小化"
+                            >
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                                </svg>
+                            </button>
+                            
+                            {isGeneratingAudio ? (
+                                <div className="generating-audio">
+                                    <Loader2 size={60} className="spin-icon" color="#818cf8" />
+                                    <h2 style={{color: '#f1f5f9', marginTop: '20px'}}>正在转换为 WAV 格式...</h2>
+                                    <p style={{color: '#94a3b8', fontSize: '0.9rem', marginTop: '10px'}}>
+                                        WAV 格式兼容性更好，所有设备都能播放
+                                    </p>
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="download-icon">
+                                        <Download size={60} color="#818cf8" />
+                                    </div>
+                                    
+                                    <h2 style={{color: '#f1f5f9', marginBottom: '10px', fontSize: '1.8rem'}}>
+                                        录音完成！
+                                    </h2>
+                                    
+                                    <p style={{color: '#94a3b8', fontSize: '1rem', marginBottom: '30px'}}>
+                                        您可以下载录音文件作为备份
+                                    </p>
+                                    
+                                    {/* 文件信息 */}
+                                    <div className="file-info-box">
+                                        <div className="file-info-item">
+                                            <FileAudio size={20} color="#818cf8" />
+                                            <span className="file-info-label">文件名：</span>
+                                            <span className="file-info-value">{downloadFileName}</span>
+                                        </div>
+                                        <div className="file-info-item">
+                                            <Clock size={20} color="#818cf8" />
+                                            <span className="file-info-label">时长：</span>
+                                            <span className="file-info-value">{formatDuration(recordingDuration)}</span>
+                                        </div>
+                                        <div className="file-info-item">
+                                            <Settings size={20} color="#818cf8" />
+                                            <span className="file-info-label">大小：</span>
+                                            <span className="file-info-value">{formatFileSize(recordingSize)}</span>
+                                        </div>
+                                    </div>
+                                    
+                                    {/* 操作按钮 */}
+                                    <div className="download-actions">
+                                        <button
+                                            onClick={handleDownloadRecording}
+                                            className="download-btn primary"
+                                        >
+                                            <Download size={20} />
+                                            下载录音文件
+                                        </button>
+                                        <button
+                                            onClick={handleSkipDownload}
+                                            className="download-btn secondary"
+                                        >
+                                            跳过并开始处理
+                                        </button>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    </div>
+                )}
+                
+                {/* 最小化后的浮动按钮 */}
+                {showDownloadOption && isDownloadMinimized && (
+                    <div className="download-floating-btn" onClick={() => setIsDownloadMinimized(false)}>
+                        <Download size={24} color="#fff" />
+                        <span>下载录音</span>
+                    </div>
+                )}
+
                 {appState === 'processing' && (
                     <div className="processing-container">
                         <div className="processing-header">
@@ -1910,38 +2404,131 @@ const App = () => {
                         </h2>
                         
                         <div style={{ marginBottom: '20px' }}>
-                            <input
-                                ref={emailInputRef}
-                                type="email"
-                                value={recipientEmail}
-                                onChange={(e) => {
-                                    setRecipientEmail(e.target.value);
-                                    setEmailError(''); // 清除错误提示
-                                }}
-                                placeholder="请输入收件人邮箱地址"
-                                style={{
-                                    width: '100%',
-                                    padding: '12px 16px',
-                                    fontSize: '1rem',
+                            <label style={{
+                                display: 'block',
+                                color: '#cbd5e1',
+                                marginBottom: '8px',
+                                fontSize: '0.95rem',
+                                fontWeight: '500'
+                            }}>
+                                收件人邮箱 * <span style={{color: '#64748b', fontSize: '0.85rem', fontWeight: 'normal'}}>(可添加多个)</span>
+                            </label>
+                            
+                            {meetingRecipients.length > 0 && (
+                                <div style={{
+                                    display: 'flex',
+                                    flexWrap: 'wrap',
+                                    gap: '8px',
+                                    marginBottom: '10px',
+                                    padding: '10px',
+                                    backgroundColor: 'rgba(255, 255, 255, 0.03)',
                                     borderRadius: '8px',
-                                    border: emailError ? '2px solid #ef4444' : '1px solid rgba(255, 255, 255, 0.1)',
-                                    backgroundColor: 'rgba(15, 23, 42, 0.6)',
-                                    color: '#f1f5f9',
-                                    outline: 'none',
-                                    boxSizing: 'border-box',
-                                    transition: 'border-color 0.3s ease'
-                                }}
-                                onFocus={(e) => {
-                                    if (!emailError) {
+                                    border: '1px solid rgba(255, 255, 255, 0.1)'
+                                }}>
+                                    {meetingRecipients.map((email, index) => (
+                                        <div key={index} style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '6px',
+                                            padding: '6px 12px',
+                                            backgroundColor: 'rgba(99, 102, 241, 0.15)',
+                                            border: '1px solid rgba(99, 102, 241, 0.3)',
+                                            borderRadius: '6px',
+                                            color: '#818cf8',
+                                            fontSize: '0.9rem'
+                                        }}>
+                                            <Mail size={14} />
+                                            <span>{email}</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleRemoveMeetingRecipient(email)}
+                                                style={{
+                                                    background: 'none',
+                                                    border: 'none',
+                                                    color: '#818cf8',
+                                                    cursor: 'pointer',
+                                                    padding: '2px',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    opacity: 0.7,
+                                                    transition: 'opacity 0.2s'
+                                                }}
+                                                onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                                                onMouseLeave={(e) => e.currentTarget.style.opacity = '0.7'}
+                                            >
+                                                <X size={14} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                            
+                            <div style={{display: 'flex', gap: '8px', marginBottom: '8px'}}>
+                                <input
+                                    ref={emailInputRef}
+                                    type="email"
+                                    value={meetingRecipientInput}
+                                    onChange={(e) => {
+                                        setMeetingRecipientInput(e.target.value);
+                                        setEmailError(''); // 清除错误提示
+                                    }}
+                                    onKeyPress={handleMeetingRecipientKeyPress}
+                                    placeholder="输入收件人邮箱，按回车添加"
+                                    style={{
+                                        flex: 1,
+                                        padding: '12px 16px',
+                                        fontSize: '1rem',
+                                        borderRadius: '8px',
+                                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                                        color: '#f1f5f9',
+                                        outline: 'none',
+                                        boxSizing: 'border-box',
+                                        transition: 'all 0.3s ease'
+                                    }}
+                                    onFocus={(e) => {
                                         e.target.style.borderColor = '#6366f1';
-                                    }
-                                }}
-                                onBlur={(e) => {
-                                    if (!emailError) {
-                                        e.target.style.borderColor = 'rgba(255, 255, 255, 0.1)';
-                                    }
-                                }}
-                            />
+                                        e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.08)';
+                                    }}
+                                    onBlur={(e) => {
+                                        e.target.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+                                        e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
+                                    }}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={handleAddMeetingRecipient}
+                                    style={{
+                                        padding: '12px 20px',
+                                        fontSize: '1rem',
+                                        borderRadius: '8px',
+                                        border: 'none',
+                                        background: 'linear-gradient(135deg, #6366f1, #a855f7)',
+                                        color: 'white',
+                                        cursor: 'pointer',
+                                        fontWeight: '500',
+                                        transition: 'all 0.3s ease',
+                                        whiteSpace: 'nowrap'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        e.target.style.transform = 'translateY(-2px)';
+                                        e.target.style.boxShadow = '0 4px 12px rgba(99, 102, 241, 0.3)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.target.style.transform = 'translateY(0)';
+                                        e.target.style.boxShadow = 'none';
+                                    }}
+                                >
+                                    添加
+                                </button>
+                            </div>
+                            <div style={{
+                                color: '#64748b',
+                                fontSize: '0.85rem',
+                                marginBottom: emailError ? '5px' : '0'
+                            }}>
+                                已添加 {meetingRecipients.length} 个收件人
+                            </div>
                             {emailError && (
                                 <div style={{
                                     marginTop: '8px',
@@ -1961,7 +2548,8 @@ const App = () => {
                             <button
                                 onClick={() => {
                                     setShowEmailDialog(false);
-                                    setRecipientEmail('');
+                                    setMeetingRecipients([]);
+                                    setMeetingRecipientInput('');
                                     setEmailError('');
                                 }}
                                 style={{
@@ -2165,7 +2753,7 @@ const App = () => {
                                     fontSize: '0.95rem',
                                     fontWeight: '500'
                                 }}>
-                                    邮箱 *
+                                    您的邮箱 *
                                 </label>
                                 <input
                                     type="email"
@@ -2193,6 +2781,131 @@ const App = () => {
                                         e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
                                     }}
                                 />
+                            </div>
+
+                            <div style={{marginBottom: '20px'}}>
+                                <label style={{
+                                    display: 'block',
+                                    color: '#cbd5e1',
+                                    marginBottom: '8px',
+                                    fontSize: '0.95rem',
+                                    fontWeight: '500'
+                                }}>
+                                    收件人邮箱 * <span style={{color: '#64748b', fontSize: '0.85rem', fontWeight: 'normal'}}>(可添加多个)</span>
+                                </label>
+                                
+                                {/* 收件人标签列表 */}
+                                {contactForm.recipients.length > 0 && (
+                                    <div style={{
+                                        display: 'flex',
+                                        flexWrap: 'wrap',
+                                        gap: '8px',
+                                        marginBottom: '10px',
+                                        padding: '10px',
+                                        backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                                        borderRadius: '8px',
+                                        border: '1px solid rgba(255, 255, 255, 0.1)'
+                                    }}>
+                                        {contactForm.recipients.map((email, index) => (
+                                            <div key={index} style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '6px',
+                                                padding: '6px 12px',
+                                                backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                                                border: '1px solid rgba(16, 185, 129, 0.3)',
+                                                borderRadius: '6px',
+                                                color: '#10b981',
+                                                fontSize: '0.9rem'
+                                            }}>
+                                                <Mail size={14} />
+                                                <span>{email}</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleRemoveRecipient(email)}
+                                                    style={{
+                                                        background: 'none',
+                                                        border: 'none',
+                                                        color: '#10b981',
+                                                        cursor: 'pointer',
+                                                        padding: '2px',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        opacity: 0.7,
+                                                        transition: 'opacity 0.2s'
+                                                    }}
+                                                    onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                                                    onMouseLeave={(e) => e.currentTarget.style.opacity = '0.7'}
+                                                >
+                                                    <X size={14} />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                                
+                                {/* 添加收件人输入框 */}
+                                <div style={{display: 'flex', gap: '8px'}}>
+                                    <input
+                                        type="email"
+                                        value={recipientInput}
+                                        onChange={(e) => setRecipientInput(e.target.value)}
+                                        onKeyPress={handleRecipientKeyPress}
+                                        placeholder="输入收件人邮箱，按回车添加"
+                                        style={{
+                                            flex: 1,
+                                            padding: '12px',
+                                            fontSize: '1rem',
+                                            borderRadius: '8px',
+                                            border: '1px solid rgba(255, 255, 255, 0.2)',
+                                            backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                                            color: '#f1f5f9',
+                                            outline: 'none',
+                                            transition: 'all 0.3s ease'
+                                        }}
+                                        onFocus={(e) => {
+                                            e.target.style.borderColor = '#10b981';
+                                            e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.08)';
+                                        }}
+                                        onBlur={(e) => {
+                                            e.target.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+                                            e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
+                                        }}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={handleAddRecipient}
+                                        style={{
+                                            padding: '12px 20px',
+                                            fontSize: '1rem',
+                                            borderRadius: '8px',
+                                            border: 'none',
+                                            background: 'linear-gradient(135deg, #10b981, #059669)',
+                                            color: 'white',
+                                            cursor: 'pointer',
+                                            fontWeight: '500',
+                                            transition: 'all 0.3s ease',
+                                            whiteSpace: 'nowrap'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.target.style.transform = 'translateY(-2px)';
+                                            e.target.style.boxShadow = '0 4px 12px rgba(16, 185, 129, 0.3)';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.target.style.transform = 'translateY(0)';
+                                            e.target.style.boxShadow = 'none';
+                                        }}
+                                    >
+                                        添加
+                                    </button>
+                                </div>
+                                <div style={{
+                                    color: '#64748b',
+                                    fontSize: '0.85rem',
+                                    marginTop: '5px'
+                                }}>
+                                    已添加 {contactForm.recipients.length} 个收件人
+                                </div>
                             </div>
 
                             <div style={{marginBottom: '20px'}}>

@@ -186,17 +186,62 @@ const downloadFromCOS = (cosKey) => {
     });
 };
 
-// 辅助函数：获取音频文件时长
+// 辅助函数：获取音频文件时长（增强版，支持webm等格式）
 const getAudioDuration = (filePath) => {
     return new Promise((resolve, reject) => {
+        // 检查文件是否存在
+        if (!fs.existsSync(filePath)) {
+            logger('ERROR', `文件不存在: ${filePath}`);
+            resolve(600); // 默认10分钟
+            return;
+        }
+
+        // 获取文件大小，用于估算时长
+        const fileSizeBytes = fs.statSync(filePath).size;
+        const fileSizeMB = fileSizeBytes / (1024 * 1024);
+        
+        // 方案1: 使用 ffprobe
         ffmpeg.ffprobe(filePath, (err, metadata) => {
             if (err) {
-                logger('WARN', `无法获取音频时长，使用默认值: ${err.message}`);
-                resolve(600); // 默认10分钟
+                logger('WARN', `ffprobe获取时长失败: ${err.message}`);
+                
+                // 方案2: 使用命令行 ffprobe（对webm格式更可靠）
+                const { exec } = require('child_process');
+                exec(`ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${filePath}"`, 
+                    (error, stdout, stderr) => {
+                        if (error || !stdout.trim()) {
+                            logger('WARN', `命令行ffprobe也失败，使用文件大小估算时长`);
+                            // 方案3: 根据文件大小估算（假设平均码率 128kbps）
+                            const estimatedDuration = Math.ceil((fileSizeMB * 8 * 1024) / 128);
+                            logger('INFO', `文件大小 ${fileSizeMB.toFixed(2)}MB，估算时长 ${Math.round(estimatedDuration/60)} 分钟`);
+                            resolve(Math.max(estimatedDuration, 600)); // 至少10分钟
+                        } else {
+                            const duration = parseFloat(stdout.trim());
+                            if (isNaN(duration) || duration <= 0) {
+                                logger('WARN', `解析时长失败，使用文件大小估算`);
+                                const estimatedDuration = Math.ceil((fileSizeMB * 8 * 1024) / 128);
+                                resolve(Math.max(estimatedDuration, 600));
+                            } else {
+                                logger('INFO', `成功获取文件时长: ${Math.round(duration/60)} 分钟`);
+                                resolve(duration);
+                            }
+                        }
+                    }
+                );
                 return;
             }
-            const duration = metadata.format.duration || 600;
-            resolve(duration);
+            
+            // 成功获取元数据
+            const duration = metadata?.format?.duration;
+            if (!duration || isNaN(duration) || duration <= 0) {
+                logger('WARN', `元数据中时长无效: ${duration}，使用文件大小估算`);
+                const estimatedDuration = Math.ceil((fileSizeMB * 8 * 1024) / 128);
+                logger('INFO', `文件大小 ${fileSizeMB.toFixed(2)}MB，估算时长 ${Math.round(estimatedDuration/60)} 分钟`);
+                resolve(Math.max(estimatedDuration, 600));
+            } else {
+                logger('INFO', `成功获取文件时长: ${Math.round(duration/60)} 分钟`);
+                resolve(duration);
+            }
         });
     });
 };
@@ -575,8 +620,23 @@ async function processFile(fileId, cosKey, fileSizeMB) {
             // 动态计算切片时间：目标每个切片接近25MB但不超过
             const targetChunkSizeMB = 24; // 目标切片大小，留1MB缓冲
             const estimatedChunkCount = Math.ceil(fileSizeMB / targetChunkSizeMB);
-            const fileDuration = await getAudioDuration(localFilePath);
-            const segmentTime = Math.ceil(fileDuration / estimatedChunkCount);
+            let fileDuration = await getAudioDuration(localFilePath);
+            
+            // 安全检查：确保时长有效
+            if (!fileDuration || isNaN(fileDuration) || fileDuration <= 0) {
+                logger('WARN', `文件时长无效 (${fileDuration})，使用文件大小估算`);
+                // 根据文件大小估算时长（假设平均码率 128kbps）
+                fileDuration = Math.ceil((fileSizeMB * 8 * 1024) / 128);
+                logger('INFO', `估算时长: ${Math.round(fileDuration/60)} 分钟`);
+            }
+            
+            let segmentTime = Math.ceil(fileDuration / estimatedChunkCount);
+            
+            // 安全检查：确保切片时间有效
+            if (!segmentTime || isNaN(segmentTime) || segmentTime <= 0) {
+                logger('WARN', `切片时间无效 (${segmentTime})，使用默认值 600 秒`);
+                segmentTime = 600; // 默认10分钟
+            }
             
             logger('PROCESS', `文件时长约${Math.round(fileDuration/60)}分钟，预计切成${estimatedChunkCount}个切片，每段${Math.round(segmentTime/60)}分钟`);
             
@@ -890,22 +950,31 @@ app.get('/api/transcript/:fileId', async (req, res) => {
 
 // 邮件发送API端点
 app.post('/api/send-email', async (req, res) => {
-    const { fileId, recipientEmail } = req.body;
+    const { fileId, recipients } = req.body;
     
     // 验证参数
-    if (!fileId || !recipientEmail) {
+    if (!fileId || !recipients) {
         return res.status(400).json({ 
             success: false, 
-            message: '缺少必需参数：fileId 或 recipientEmail' 
+            message: '缺少必需参数：fileId 或 recipients' 
         });
     }
     
-    // 验证邮箱格式
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(recipientEmail)) {
+    // 验证recipients是数组且不为空
+    if (!Array.isArray(recipients) || recipients.length === 0) {
         return res.status(400).json({ 
             success: false, 
-            message: '邮箱地址格式无效' 
+            message: '收件人列表必须是非空数组' 
+        });
+    }
+    
+    // 验证所有邮箱格式
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const invalidEmails = recipients.filter(email => !emailRegex.test(email));
+    if (invalidEmails.length > 0) {
+        return res.status(400).json({ 
+            success: false, 
+            message: `以下邮箱地址格式无效: ${invalidEmails.join(', ')}` 
         });
     }
     
@@ -950,37 +1019,64 @@ app.post('/api/send-email', async (req, res) => {
         // 生成邮件内容
         const emailContent = emailService.generateEmailContent(minutesData);
         
-        // 发送邮件
-        logger('EMAIL', `📧 准备发送会议纪要 - 收件人: ${recipientEmail}, 会议ID: ${fileId}`);
-        const result = await emailService.sendEmail(emailTransporter, recipientEmail, emailContent);
+        // 批量发送邮件
+        logger('EMAIL', `📧 准备发送会议纪要 - 收件人数量: ${recipients.length}, 会议ID: ${fileId}`);
+        logger('EMAIL', `收件人列表: ${recipients.join(', ')}`);
         
-        if (result.success) {
-            logger('EMAIL', `✅ 邮件发送成功 - 收件人: ${recipientEmail}, MessageID: ${result.messageId}`);
+        const sendResults = [];
+        let successCount = 0;
+        let failCount = 0;
+        
+        // 逐个发送邮件
+        for (const recipientEmail of recipients) {
+            try {
+                logger('EMAIL', `📤 正在发送给: ${recipientEmail}`);
+                const result = await emailService.sendEmail(emailTransporter, recipientEmail, emailContent);
+                
+                if (result.success) {
+                    logger('EMAIL', `✅ 发送成功 - 收件人: ${recipientEmail}, MessageID: ${result.messageId}`);
+                    sendResults.push({ email: recipientEmail, success: true });
+                    successCount++;
+                } else {
+                    logger('ERROR', `❌ 发送失败 - 收件人: ${recipientEmail}, 错误: ${result.error}`);
+                    sendResults.push({ email: recipientEmail, success: false, error: result.error });
+                    failCount++;
+                }
+            } catch (error) {
+                logger('ERROR', `❌ 发送异常 - 收件人: ${recipientEmail}, 异常: ${error.message}`);
+                sendResults.push({ email: recipientEmail, success: false, error: error.message });
+                failCount++;
+            }
+        }
+        
+        // 返回发送结果
+        logger('EMAIL', `📊 发送完成 - 成功: ${successCount}, 失败: ${failCount}, 总计: ${recipients.length}`);
+        
+        if (successCount === recipients.length) {
+            // 全部成功
             res.json({ 
                 success: true, 
-                message: '邮件发送成功！会议纪要已发送到指定邮箱' 
+                message: `邮件发送成功！会议纪要已发送到 ${successCount} 个邮箱`,
+                results: sendResults
+            });
+        } else if (successCount > 0) {
+            // 部分成功
+            const failedEmails = sendResults.filter(r => !r.success).map(r => r.email);
+            res.json({ 
+                success: true, 
+                message: `部分邮件发送成功：${successCount} 个成功，${failCount} 个失败。失败的邮箱: ${failedEmails.join(', ')}`,
+                results: sendResults
             });
         } else {
-            logger('ERROR', `❌ 邮件发送失败 - 收件人: ${recipientEmail}`);
-            logger('ERROR', `错误详情: ${result.error} (代码: ${result.code || '无'})`);
-            
-            // 根据错误类型提供更友好的提示
-            let userMessage = '邮件发送失败';
-            if (result.code === 'EAUTH') {
-                userMessage = '邮件服务器认证失败，请检查SMTP用户名和密码配置';
-            } else if (result.code === 'ECONNECTION' || result.code === 'ETIMEDOUT') {
-                userMessage = '无法连接到邮件服务器，请检查网络和SMTP服务器配置';
-            } else if (result.error) {
-                userMessage = `邮件发送失败: ${result.error}`;
-            }
-            
+            // 全部失败
             res.status(500).json({ 
                 success: false, 
-                message: userMessage
+                message: '所有邮件发送失败，请检查邮箱地址或稍后重试',
+                results: sendResults
             });
         }
     } catch (error) {
-        logger('ERROR', `❌ 邮件发送异常 - 收件人: ${recipientEmail}, 会议ID: ${fileId}`);
+        logger('ERROR', `❌ 邮件发送异常 - 会议ID: ${fileId}`);
         logger('ERROR', `异常信息: ${error.message}`);
         logger('ERROR', `异常堆栈: ${error.stack}`);
         res.status(500).json({ 
@@ -992,7 +1088,7 @@ app.post('/api/send-email', async (req, res) => {
 
 // 用户反馈API端点
 app.post('/api/send-feedback', async (req, res) => {
-    const { name, email, message } = req.body;
+    const { name, email, message, recipients } = req.body;
     
     // 验证参数
     if (!name || !email || !message) {
@@ -1002,13 +1098,31 @@ app.post('/api/send-feedback', async (req, res) => {
         });
     }
     
-    // 验证邮箱格式
+    // 验证发件人邮箱格式
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
         return res.status(400).json({ 
             success: false, 
-            message: '邮箱地址格式无效' 
+            message: '发件人邮箱地址格式无效' 
         });
+    }
+    
+    // 验证收件人列表
+    if (!recipients || !Array.isArray(recipients) || recipients.length === 0) {
+        return res.status(400).json({ 
+            success: false, 
+            message: '请至少添加一个收件人邮箱' 
+        });
+    }
+    
+    // 验证所有收件人邮箱格式
+    for (const recipientEmail of recipients) {
+        if (!emailRegex.test(recipientEmail)) {
+            return res.status(400).json({ 
+                success: false, 
+                message: `收件人邮箱地址格式无效: ${recipientEmail}` 
+            });
+        }
     }
     
     // 验证消息长度
@@ -1148,29 +1262,52 @@ ${message}
             `
         };
         
-        // 发送反馈邮件到指定邮箱
-        const recipientEmail = 'sheazuzu@hotmail.com';
-        logger('EMAIL', `📧 准备发送用户反馈 - 发件人: ${name} (${email})`);
-        const result = await emailService.sendEmail(emailTransporter, recipientEmail, feedbackEmailContent);
+        // 发送反馈邮件到所有收件人
+        logger('EMAIL', `📧 准备发送用户反馈 - 发件人: ${name} (${email}), 收件人: ${recipients.join(', ')}`);
         
-        if (result.success) {
-            logger('EMAIL', `✅ 反馈邮件发送成功 - MessageID: ${result.messageId}`);
+        const sendResults = [];
+        let successCount = 0;
+        let failCount = 0;
+        
+        // 逐个发送给每个收件人
+        for (const recipientEmail of recipients) {
+            const result = await emailService.sendEmail(emailTransporter, recipientEmail, feedbackEmailContent);
+            sendResults.push({ email: recipientEmail, ...result });
+            
+            if (result.success) {
+                successCount++;
+                logger('EMAIL', `✅ 反馈邮件发送成功 - 收件人: ${recipientEmail}, MessageID: ${result.messageId}`);
+            } else {
+                failCount++;
+                logger('ERROR', `❌ 反馈邮件发送失败 - 收件人: ${recipientEmail}`);
+                logger('ERROR', `错误详情: ${result.error} (代码: ${result.code || '无'})`);
+            }
+        }
+        
+        // 根据发送结果返回响应
+        if (successCount === recipients.length) {
+            // 全部成功
             res.json({ 
                 success: true, 
-                message: '感谢您的反馈！我们已收到您的消息，会尽快回复。' 
+                message: `感谢您的反馈！邮件已成功发送给 ${successCount} 位收件人。` 
+            });
+        } else if (successCount > 0) {
+            // 部分成功
+            const failedEmails = sendResults.filter(r => !r.success).map(r => r.email).join(', ');
+            res.json({ 
+                success: true, 
+                message: `邮件已发送给 ${successCount} 位收件人，但发送给以下收件人失败：${failedEmails}` 
             });
         } else {
-            logger('ERROR', `❌ 反馈邮件发送失败`);
-            logger('ERROR', `错误详情: ${result.error} (代码: ${result.code || '无'})`);
-            
-            // 根据错误类型提供更友好的提示
+            // 全部失败
+            const firstError = sendResults[0];
             let userMessage = '反馈发送失败，请稍后重试';
-            if (result.code === 'EAUTH') {
+            if (firstError.code === 'EAUTH') {
                 userMessage = '邮件服务器认证失败，请联系管理员';
-            } else if (result.code === 'ECONNECTION' || result.code === 'ETIMEDOUT') {
+            } else if (firstError.code === 'ECONNECTION' || firstError.code === 'ETIMEDOUT') {
                 userMessage = '网络连接失败，请稍后重试';
-            } else if (result.error) {
-                userMessage = `发送失败: ${result.error}`;
+            } else if (firstError.error) {
+                userMessage = `发送失败: ${firstError.error}`;
             }
             
             res.status(500).json({ 
