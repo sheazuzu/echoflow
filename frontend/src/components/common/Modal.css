@@ -1,0 +1,148 @@
+/* Modal 组件样式 */
+
+.modal__overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  animation: modal-fade-in 0.2s ease-out;
+}
+
+.modal__content {
+  position: relative;
+  background-color: white;
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  animation: modal-slide-up 0.3s ease-out;
+}
+
+.modal__content--small {
+  width: 90%;
+  max-width: 400px;
+}
+
+.modal__content--medium {
+  width: 90%;
+  max-width: 600px;
+}
+
+.modal__content--large {
+  width: 90%;
+  max-width: 900px;
+}
+
+.modal__content:focus {
+  outline: none;
+}
+
+.modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.modal__title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: #333;
+}
+
+.modal__close {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: #999;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.modal__close:hover {
+  background-color: #f5f5f5;
+  color: #666;
+}
+
+.modal__close:focus-visible {
+  outline: 2px solid #4CAF50;
+  outline-offset: 2px;
+}
+
+.modal__close svg {
+  width: 20px;
+  height: 20px;
+}
+
+.modal__body {
+  flex: 1;
+  padding: 24px;
+  overflow-y: auto;
+}
+
+.modal__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 24px;
+  border-top: 1px solid #e0e0e0;
+}
+
+/* 动画 */
+@keyframes modal-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modal-slide-up {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+  .modal__content {
+    width: 95%;
+    max-height: 95vh;
+  }
+
+  .modal__header {
+    padding: 16px 20px;
+  }
+
+  .modal__title {
+    font-size: 18px;
+  }
+
+  .modal__body {
+    padding: 20px;
+  }
+
+  .modal__footer {
+    padding: 12px 20px;
+  }
+}

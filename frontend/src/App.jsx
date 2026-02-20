@@ -568,12 +568,6 @@ const App = () => {
             }, 100);
             
             console.log('录音文件下载成功:', downloadFileName);
-            setErrorMsg('下载成功！正在开始处理...');
-            
-            // 下载完成后立即开始处理
-            setTimeout(() => {
-                handleSkipDownload();
-            }, 1000);
             
         } catch (error) {
             console.error('下载录音文件失败:', error);
@@ -581,50 +575,7 @@ const App = () => {
         }
     };
 
-    // 跳过下载并开始处理
-    const handleSkipDownload = async () => {
-        try {
-            // 隐藏下载选项
-            setShowDownloadOption(false);
-            
-            // 检查是否有录音数据
-            if (!recordedChunks || recordedChunks.length === 0) {
-                setErrorMsg('没有可处理的录音数据');
-                return;
-            }
-            
-            // 开始处理录音文件
-            const audioFile = await generateAudioFile();
-            
-            // 检查文件是否生成成功
-            if (!audioFile) {
-                setErrorMsg('音频文件生成失败，请重新录音');
-                return;
-            }
-            
-            // 检查文件大小
-            if (audioFile.size === 0) {
-                setErrorMsg('音频文件大小为0，请重新录音');
-                return;
-            }
-            
-            // 上传并处理文件
-            await handleFileUpload(audioFile);
-            
-            // 清理下载相关状态
-            setDownloadBlob(null);
-            setDownloadFileName('');
-            setRecordingDuration(0);
-            setRecordingSize(0);
-            
-        } catch (error) {
-            console.error('处理录音文件失败:', error);
-            setErrorMsg('处理失败：' + error.message);
-            
-            // 发生错误时恢复下载选项显示
-            setShowDownloadOption(true);
-        }
-    };
+
 
     // 取消录音
     const cancelRecording = () => {
@@ -1910,6 +1861,7 @@ const App = () => {
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                     <line x1="5" y1="12" x2="19" y2="12"></line>
                                 </svg>
+                                <span className="minimize-text">最小化</span>
                             </button>
                             
                             {isGeneratingAudio ? (
@@ -1961,12 +1913,6 @@ const App = () => {
                                         >
                                             <Download size={20} />
                                             下载录音文件
-                                        </button>
-                                        <button
-                                            onClick={handleSkipDownload}
-                                            className="download-btn secondary"
-                                        >
-                                            跳过并开始处理
                                         </button>
                                     </div>
                                 </>

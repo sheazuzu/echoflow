@@ -1,0 +1,139 @@
+/* Notification 组件样式 */
+
+.notification-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 400px;
+  pointer-events: none;
+}
+
+.notification {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  pointer-events: auto;
+  animation: notification-slide-in 0.3s ease-out;
+}
+
+.notification__icon-wrapper {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+}
+
+.notification__icon {
+  width: 100%;
+  height: 100%;
+}
+
+.notification__content {
+  flex: 1;
+  min-width: 0;
+}
+
+.notification__message {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #333;
+  word-wrap: break-word;
+}
+
+.notification__close {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: #999;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.notification__close:hover {
+  color: #666;
+}
+
+.notification__close:focus-visible {
+  outline: 2px solid #4CAF50;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.notification__close svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* 类型变体 */
+.notification--success {
+  border-left: 4px solid #4CAF50;
+}
+
+.notification--success .notification__icon-wrapper {
+  color: #4CAF50;
+}
+
+.notification--error {
+  border-left: 4px solid #f44336;
+}
+
+.notification--error .notification__icon-wrapper {
+  color: #f44336;
+}
+
+.notification--warning {
+  border-left: 4px solid #ff9800;
+}
+
+.notification--warning .notification__icon-wrapper {
+  color: #ff9800;
+}
+
+.notification--info {
+  border-left: 4px solid #2196F3;
+}
+
+.notification--info .notification__icon-wrapper {
+  color: #2196F3;
+}
+
+/* 动画 */
+@keyframes notification-slide-in {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+  .notification-container {
+    top: 10px;
+    right: 10px;
+    left: 10px;
+    max-width: none;
+  }
+
+  .notification {
+    padding: 12px;
+  }
+
+  .notification__message {
+    font-size: 13px;
+  }
+}
