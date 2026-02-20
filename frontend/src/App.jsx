@@ -453,7 +453,10 @@ const App = () => {
         const selectedFile = e.target.files[0];
         if (selectedFile) {
             // 处理文件上传逻辑
+            startProcessing(selectedFile);
         }
+        // 重置input的value，允许重复上传同一个文件
+        e.target.value = '';
     };
 
     const startProcessing = async (fileObj) => {
