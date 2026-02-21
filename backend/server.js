@@ -67,7 +67,29 @@ if (!cosConfig.SecretId || !cosConfig.SecretKey || !cosConfig.Bucket || !cosConf
 // 初始化邮件传输器
 const emailTransporter = emailService.createTransporter();
 
-app.use(cors({ origin: 'http://localhost:5173' }));
+// CORS 配置 - 支持多个来源
+const allowedOrigins = [
+    'http://localhost:5173',  // 开发环境
+    'https://localhost',       // 生产环境（Traefik 反向代理）
+    'http://localhost'         // 生产环境（HTTP）
+];
+
+app.use(cors({
+    origin: function (origin, callback) {
+        // 允许没有 origin 的请求（如 Postman、服务器到服务器的请求）
+        if (!origin) return callback(null, true);
+        
+        if (allowedOrigins.indexOf(origin) !== -1) {
+            callback(null, true);
+        } else {
+            console.warn(`⚠️ CORS 阻止了来自 ${origin} 的请求`);
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
+    credentials: true,  // 允许携带凭证
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(express.json());
 
 // 确保存储目录存在（用于临时处理和切片）
@@ -87,6 +109,194 @@ app.get('/api/health', (req, res) => {
         timestamp: new Date().toISOString(),
         service: 'MeetingMind Backend'
     });
+});
+
+// 实时转录API端点
+app.post('/api/transcribe/stream', upload.single('audio'), async (req, res) => {
+    const requestId = `REQ-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+    
+    // 记录请求来源
+    const origin = req.headers.origin || req.headers.referer || 'unknown';
+    logger('TRANSCRIBE', `[${requestId}] 收到转录请求，来源: ${origin}`);
+    
+    if (!req.file) {
+        logger('TRANSCRIBE', `[${requestId}] ❌ 失败：未收到音频文件`);
+        return res.status(400).json({ 
+            success: false,
+            message: "未上传音频文件",
+            requestId
+        });
+    }
+
+    const audioBuffer = req.file.buffer;
+    const audioSize = (req.file.size / 1024).toFixed(2); // KB
+    const language = req.body.language || 'auto'; // 支持语言参数
+    
+    logger('TRANSCRIBE', `[${requestId}] 📥 接收音频段: ${audioSize}KB, 语言: ${language}, MIME类型: ${req.file.mimetype}`);
+
+    try {
+        // 将音频buffer写入临时文件
+        const tempFileName = `temp_${Date.now()}_${Math.random().toString(36).substring(7)}.webm`;
+        const tempFilePath = path.join(uploadDir, tempFileName);
+        
+        logger('TRANSCRIBE', `[${requestId}] 💾 写入临时文件: ${tempFileName}`);
+        fs.writeFileSync(tempFilePath, audioBuffer);
+        
+        // 调用 Whisper API 进行转录
+        const transcriptionParams = {
+            file: fs.createReadStream(tempFilePath),
+            model: "whisper-1",
+        };
+        
+        // 如果指定了语言（非自动检测），添加语言参数
+        if (language && language !== 'auto') {
+            transcriptionParams.language = language;
+        }
+        
+        logger('TRANSCRIBE', `[${requestId}] 🔄 调用 Whisper API...`);
+        const startTime = Date.now();
+        const transcription = await openai.audio.transcriptions.create(transcriptionParams);
+        const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+        
+        // 清理临时文件
+        fs.unlinkSync(tempFilePath);
+        logger('TRANSCRIBE', `[${requestId}] 🗑️ 已清理临时文件`);
+        
+        const textPreview = transcription.text.length > 50 
+            ? transcription.text.substring(0, 50) + '...' 
+            : transcription.text;
+        logger('TRANSCRIBE', `[${requestId}] ✅ 转录完成: "${textPreview}", 耗时: ${duration}s`);
+        
+        res.json({
+            success: true,
+            text: transcription.text,
+            language: language,
+            duration: parseFloat(duration),
+            requestId
+        });
+        
+    } catch (error) {
+        logger('ERROR', `[${requestId}] ❌ 实时转录失败: ${error.message}`);
+        console.error(`[${requestId}] 详细错误信息:`, error);
+        
+        // 记录更详细的错误信息
+        if (error.response) {
+            logger('ERROR', `[${requestId}] API 响应错误: ${JSON.stringify(error.response.data)}`);
+        }
+        if (error.code) {
+            logger('ERROR', `[${requestId}] 错误代码: ${error.code}`);
+        }
+        
+        // 清理可能存在的临时文件
+        try {
+            const tempFiles = fs.readdirSync(uploadDir).filter(f => f.startsWith('temp_'));
+            tempFiles.forEach(f => {
+                const filePath = path.join(uploadDir, f);
+                const stats = fs.statSync(filePath);
+                // 删除超过5分钟的临时文件
+                if (Date.now() - stats.mtimeMs > 5 * 60 * 1000) {
+                    fs.unlinkSync(filePath);
+                    logger('TRANSCRIBE', `[${requestId}] 🗑️ 清理过期临时文件: ${f}`);
+                }
+            });
+        } catch (cleanupError) {
+            logger('WARN', `[${requestId}] ⚠️ 清理临时文件失败: ${cleanupError.message}`);
+        }
+        
+        res.status(500).json({
+            success: false,
+            message: "转录失败",
+            error: error.message,
+            errorCode: error.code || 'UNKNOWN_ERROR',
+            requestId
+        });
+    }
+});
+
+// 生成会议记录API端点
+app.post('/api/generate-meeting-summary', express.json(), async (req, res) => {
+    const { transcript } = req.body;
+
+    if (!transcript) {
+        logger('SUMMARY', '失败：未提供转录文字');
+        return res.status(400).json({
+            success: false,
+            message: "未提供转录文字"
+        });
+    }
+
+    if (transcript.length < 100) {
+        logger('SUMMARY', '失败：转录文字太短');
+        return res.status(400).json({
+            success: false,
+            message: "转录文字太短，无法生成有效的会议记录"
+        });
+    }
+
+    logger('SUMMARY', `开始生成会议记录，转录文字长度: ${transcript.length} 字符`);
+
+    try {
+        const systemPrompt = `You are a professional bilingual meeting assistant specializing in detailed meeting documentation.
+
+Your task is to take raw transcripts and create comprehensive, structured meeting minutes in BOTH English and Chinese.
+
+Output MUST be a valid JSON object with the following structure:
+{
+  "english": {
+    "title": "Meeting Title",
+    "date": "Date (YYYY-MM-DD)",
+    "attendees": ["Name 1", "Name 2"],
+    "summary": "comprehensive overview covering all major discussion topics",
+    "key_discussion_points": ["Point 1 with context", "Point 2 with details"],
+    "decisions_made": ["Decision 1 with rationale", "Decision 2 with implementation details"],
+    "action_items": [{"task": "Specific task description", "assignee": "Name", "deadline": "Specific date"}],
+    "risks_issues": ["Risk 1 with impact assessment", "Issue 1 with proposed solutions"]
+  },
+  "chinese": {
+    "title": "会议标题",
+    "date": "日期 (YYYY-MM-DD)",
+    "attendees": ["姓名1", "姓名2"],
+    "summary": "全面概述，涵盖所有主要讨论议题",
+    "key_discussion_points": ["讨论重点1（含背景）", "讨论重点2（含细节）"],
+    "decisions_made": ["决策1（含决策依据）", "决策2（含实施细节）"],
+    "action_items": [{"task": "具体任务描述", "assignee": "负责人", "deadline": "具体日期"}],
+    "risks_issues": ["风险1（含影响评估）", "问题1（含解决方案）"]
+  }
+}`;
+
+        const userPrompt = `Please create a meeting summary from the following transcript:\n\n${transcript}`;
+
+        const startTime = Date.now();
+        const completion = await openai.chat.completions.create({
+            messages: [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: userPrompt }
+            ],
+            model: "gpt-4-turbo",
+            response_format: { type: "json_object" }
+        });
+
+        const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+        const summary = JSON.parse(completion.choices[0].message.content);
+
+        logger('SUMMARY', `会议记录生成完成，耗时: ${duration}s`);
+
+        res.json({
+            success: true,
+            summary: summary,
+            duration: parseFloat(duration)
+        });
+
+    } catch (error) {
+        logger('ERROR', `生成会议记录失败: ${error.message}`);
+        console.error(error);
+
+        res.status(500).json({
+            success: false,
+            message: "生成会议记录失败",
+            error: error.message
+        });
+    }
 });
 
 // COS辅助函数：上传文件到COS桶

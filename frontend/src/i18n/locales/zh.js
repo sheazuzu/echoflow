@@ -324,4 +324,11 @@ export default {
     processingInProgress: '处理进行中，请勿关闭页面',
     micPermissionRequired: '请允许浏览器访问麦克风',
   },
+
+  // 实时转录
+  realtimeTranscription: {
+    title: '实时转录',
+    subtitle: '录音同时实时转录为文字',
+    startButton: '开始实时转录',
+  },
 };

@@ -324,4 +324,11 @@ export default {
     processingInProgress: 'Processing in progress, please do not close the page',
     micPermissionRequired: 'Please allow browser to access microphone',
   },
+
+  // Real-time Transcription
+  realtimeTranscription: {
+    title: 'Real-time Transcription',
+    subtitle: 'Record and transcribe to text simultaneously',
+    startButton: 'Start Real-time Transcription',
+  },
 };

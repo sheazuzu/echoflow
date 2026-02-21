@@ -3,6 +3,7 @@ import { Upload, FileAudio, CheckCircle, Clock, Download, Settings, Cpu, Loader2
 import './App.css';
 import { LanguageSwitcher } from './components/LanguageSwitcher.jsx';
 import { useTranslation, useDocumentLanguage, getCurrentLanguage } from './i18n/index.js';
+import { RecordingWithTranscription } from './components/audio/RecordingWithTranscription.jsx';
 
 // 导入腾讯云logo
 import tencentCloudLogo from './assets/tencentcloud.png';
@@ -61,6 +62,9 @@ const App = () => {
     const [contactSubmitting, setContactSubmitting] = useState(false);
     const [contactMessage, setContactMessage] = useState({ type: '', text: '' });
     const [recipientInput, setRecipientInput] = useState(''); // 当前输入的收件人邮箱
+
+    // 实时转录功能状态
+    const [showRealtimeTranscription, setShowRealtimeTranscription] = useState(false);
 
     // 录音功能工具函数
     
@@ -1747,6 +1751,70 @@ const App = () => {
                                     </div>
                                 </div>
                             )}
+
+                            {/* 实时转录模块 */}
+                            {browserSupportsRecording && (
+                                <div className="feature-module realtime-transcription-module">
+                                    <div className="recording-section">
+                                        <div className="recording-icon-wrapper" style={{background: 'rgba(102, 126, 234, 0.1)', width: '80px', height: '80px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px'}}>
+                                            <FileAudio size={40} color="#667eea"/>
+                                        </div>
+                                        <h3 style={{marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'}}>
+                                            {t('realtimeTranscription.title')}
+                                            <span style={{
+                                                display: 'inline-block',
+                                                padding: '2px 8px',
+                                                fontSize: '0.65rem',
+                                                fontWeight: '700',
+                                                color: 'white',
+                                                background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
+                                                borderRadius: '4px',
+                                                textTransform: 'uppercase',
+                                                letterSpacing: '0.5px',
+                                                boxShadow: '0 2px 4px rgba(239, 68, 68, 0.3)',
+                                                animation: 'pulse 2s ease-in-out infinite'
+                                            }}>BETA</span>
+                                        </h3>
+                                        <p style={{ fontSize: '0.9rem', color: '#64748b', marginBottom: '30px' }}>
+                                            {t('realtimeTranscription.subtitle')}
+                                        </p>
+                                        <button 
+                                            onClick={() => setShowRealtimeTranscription(true)}
+                                            disabled={isUploading || appState !== 'idle'}
+                                            className="btn-realtime-transcription"
+                                            style={{
+                                                padding: '15px 30px',
+                                                background: 'linear-gradient(135deg, #667eea, #764ba2)',
+                                                border: 'none',
+                                                borderRadius: '12px',
+                                                color: 'white',
+                                                fontSize: '1rem',
+                                                fontWeight: 'bold',
+                                                cursor: isUploading || appState !== 'idle' ? 'not-allowed' : 'pointer',
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '10px',
+                                                transition: 'all 0.3s ease',
+                                                opacity: isUploading || appState !== 'idle' ? 0.5 : 1,
+                                                boxShadow: '0 4px 15px rgba(102, 126, 234, 0.3)'
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                if (!isUploading && appState === 'idle') {
+                                                    e.currentTarget.style.transform = 'translateY(-2px)';
+                                                    e.currentTarget.style.boxShadow = '0 6px 20px rgba(102, 126, 234, 0.4)';
+                                                }
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                e.currentTarget.style.transform = 'translateY(0)';
+                                                e.currentTarget.style.boxShadow = '0 4px 15px rgba(102, 126, 234, 0.3)';
+                                            }}
+                                        >
+                                            <FileAudio size={20} />
+                                            {t('realtimeTranscription.startButton')}
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}
@@ -3117,6 +3185,88 @@ const App = () => {
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* 实时转录模态窗口 */}
+            {showRealtimeTranscription && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: 'rgba(0, 0, 0, 0.8)',
+                    backdropFilter: 'blur(10px)',
+                    zIndex: 10000,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '20px'
+                }}>
+                    <div style={{
+                        background: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)',
+                        borderRadius: '20px',
+                        width: '100%',
+                        maxWidth: '1400px',
+                        height: '90vh',
+                        maxHeight: '900px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        boxShadow: '0 25px 50px rgba(0, 0, 0, 0.5)',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        overflow: 'hidden'
+                    }}>
+                        {/* 标题栏 */}
+                        <div style={{
+                            padding: '20px 30px',
+                            borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            background: 'rgba(0, 0, 0, 0.2)'
+                        }}>
+                            <h2 style={{
+                                margin: 0,
+                                color: 'white',
+                                fontSize: '1.5rem',
+                                fontWeight: '600'
+                            }}>
+                                🎙️ 实时转录
+                            </h2>
+                            <button
+                                onClick={() => setShowRealtimeTranscription(false)}
+                                style={{
+                                    background: 'rgba(239, 68, 68, 0.2)',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    padding: '8px 16px',
+                                    color: '#ef4444',
+                                    cursor: 'pointer',
+                                    fontSize: '0.9rem',
+                                    fontWeight: '500',
+                                    transition: 'all 0.3s ease'
+                                }}
+                                onMouseEnter={(e) => {
+                                    e.target.style.background = 'rgba(239, 68, 68, 0.3)';
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.target.style.background = 'rgba(239, 68, 68, 0.2)';
+                                }}
+                            >
+                                ✕ {t('close')}
+                            </button>
+                        </div>
+
+                        {/* 内容区域 */}
+                        <div style={{
+                            flex: 1,
+                            padding: '30px',
+                            overflow: 'auto'
+                        }}>
+                            <RecordingWithTranscription uiLanguage={currentLanguage} />
+                        </div>
                     </div>
                 </div>
             )}

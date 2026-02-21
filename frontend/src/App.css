@@ -478,6 +478,13 @@ a:hover {
   filter: brightness(1.2);
 }
 
+/* 平板端布局优化 */
+@media (max-width: 1024px) {
+  .features-container {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
 /* 移动端GitHub链接优化 */
 @media (max-width: 768px) {
   .github-link {
@@ -518,7 +525,7 @@ a:hover {
 /* 功能模块容器 - 左右布局 */
 .features-container {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 24px;
   margin-top: 40px;
   width: 100%;

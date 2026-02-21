@@ -1,0 +1,316 @@
+/**
+ * RealtimeTranscription Component Styles
+ * 实时转录组件样式
+ */
+
+.realtime-transcription {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  color: white;
+}
+
+/* 标题栏 */
+.transcription-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.transcription-title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* BETA 标识 */
+.beta-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: white;
+  background: linear-gradient(135deg, #f59e0b, #ef4444);
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 4px rgba(239, 68, 68, 0.3);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(0.95);
+  }
+}
+
+.transcription-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.status-indicator {
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+}
+
+.status-indicator.listening {
+  background: rgba(34, 197, 94, 0.3);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.status-indicator.paused {
+  background: rgba(251, 191, 36, 0.3);
+}
+
+.status-indicator.processing {
+  background: rgba(59, 130, 246, 0.3);
+  animation: processing 1.5s ease-in-out infinite;
+}
+
+.status-indicator.error {
+  background: rgba(239, 68, 68, 0.3);
+}
+
+.connection-indicator {
+  padding: 4px 10px;
+  border-radius: 16px;
+  font-size: 0.85rem;
+  background: rgba(34, 197, 94, 0.2);
+}
+
+/* 转录内容区域 */
+.transcription-content {
+  flex: 1;
+  position: relative;
+  margin-bottom: 16px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.95);
+}
+
+.transcription-text {
+  width: 100%;
+  height: 100%;
+  padding: 16px;
+  border: none;
+  outline: none;
+  resize: none;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif;
+  font-size: 1rem;
+  line-height: 1.6;
+  color: #1f2937;
+  background: transparent;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+}
+
+.transcription-text::placeholder {
+  color: #9ca3af;
+  font-style: italic;
+}
+
+.transcription-text::-webkit-scrollbar {
+  width: 8px;
+}
+
+.transcription-text::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 4px;
+}
+
+.transcription-text::-webkit-scrollbar-thumb {
+  background: rgba(102, 126, 234, 0.5);
+  border-radius: 4px;
+  transition: background 0.3s ease;
+}
+
+.transcription-text::-webkit-scrollbar-thumb:hover {
+  background: rgba(102, 126, 234, 0.8);
+}
+
+/* 滚动提示 */
+.scroll-hint {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 16px;
+  background: rgba(102, 126, 234, 0.9);
+  color: white;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  transition: all 0.3s ease;
+  animation: slideUp 0.3s ease;
+}
+
+.scroll-hint:hover {
+  background: rgba(102, 126, 234, 1);
+  transform: translateX(-50%) translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+}
+
+/* 底部工具栏 */
+.transcription-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 12px;
+  border-top: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.char-count {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.8);
+  font-weight: 500;
+}
+
+.transcription-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.action-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  backdrop-filter: blur(10px);
+}
+
+.action-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.action-btn:active {
+  transform: translateY(0);
+}
+
+.copy-btn:hover {
+  background: rgba(34, 197, 94, 0.3);
+}
+
+.download-btn:hover {
+  background: rgba(59, 130, 246, 0.3);
+}
+
+.clear-btn:hover {
+  background: rgba(239, 68, 68, 0.3);
+}
+
+.summary-btn:hover {
+  background: rgba(139, 92, 246, 0.3);
+}
+
+.email-btn:hover {
+  background: rgba(236, 72, 153, 0.3);
+}
+
+/* 动画 */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+@keyframes processing {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .realtime-transcription {
+    padding: 16px;
+  }
+
+  .transcription-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .transcription-title {
+    font-size: 1.25rem;
+  }
+
+  .transcription-status {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .transcription-footer {
+    flex-direction: column;
+    gap: 12px;
+    align-items: stretch;
+  }
+
+  .transcription-actions {
+    justify-content: center;
+  }
+
+  .action-btn {
+    flex: 1;
+  }
+}
+
+@media (max-width: 480px) {
+  .transcription-text {
+    font-size: 0.9rem;
+    padding: 12px;
+  }
+
+  .action-btn {
+    padding: 6px 12px;
+    font-size: 0.85rem;
+  }
+}
