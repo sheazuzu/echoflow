@@ -1,0 +1,317 @@
+/* ==================== 企业级页脚样式 ==================== */
+
+.enterprise-footer {
+  background: var(--color-bg-dark);
+  color: var(--color-text-muted);
+  padding: var(--spacing-3xl) 0 var(--spacing-xl);
+  margin-top: var(--spacing-4xl);
+}
+
+.footer-container {
+  max-width: var(--container-max-width);
+  margin: 0 auto;
+  padding: 0 var(--container-padding);
+}
+
+/* ==================== 主要内容区域 ==================== */
+
+.footer-main {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: var(--spacing-3xl);
+  padding-bottom: var(--spacing-3xl);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* ==================== 公司信息栏 ==================== */
+
+.footer-company {
+  max-width: 400px;
+}
+
+.footer-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+}
+
+.footer-logo {
+  height: 32px;
+  width: auto;
+  object-fit: contain;
+  transition: var(--transition-base);
+}
+
+.footer-brand-name {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-light);
+  margin: 0;
+  display: flex;
+  align-items: center;
+}
+
+.footer-brand-text-primary {
+  color: var(--color-primary);
+  transition: var(--transition-base);
+}
+
+.footer-brand-text-accent {
+  color: #87CEEB;
+  transition: var(--transition-base);
+}
+
+.footer-brand:hover .footer-brand-text-primary {
+  color: var(--color-primary-hover);
+}
+
+.footer-brand:hover .footer-brand-text-accent {
+  color: var(--color-primary-light);
+}
+
+.footer-description {
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+  color: var(--color-text-muted);
+  margin-bottom: var(--spacing-lg);
+}
+
+/* ==================== 社交媒体链接 ==================== */
+
+.footer-social {
+  display: flex;
+  gap: var(--spacing-md);
+}
+
+.social-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--color-text-light);
+  text-decoration: none;
+  transition: var(--transition-base);
+}
+
+.social-link:hover {
+  background: var(--color-primary);
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-hover);
+}
+
+.social-link:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 4px;
+}
+
+.social-icon {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+}
+
+/* ==================== 链接栏 ==================== */
+
+.footer-column {
+  display: flex;
+  flex-direction: column;
+}
+
+.footer-column-title {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-light);
+  margin: 0 0 var(--spacing-md) 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.footer-links {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.footer-link {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  text-decoration: none;
+  transition: var(--transition-base);
+  display: inline-block;
+}
+
+.footer-link:hover {
+  color: var(--color-text-light);
+  transform: translateX(4px);
+}
+
+.footer-link:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 4px;
+  border-radius: var(--radius-sm);
+}
+
+/* ==================== 底部版权区域 ==================== */
+
+.footer-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: var(--spacing-xl);
+  flex-wrap: wrap;
+  gap: var(--spacing-md);
+}
+
+.footer-copyright {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.footer-copyright p {
+  margin: 0;
+}
+
+.footer-bottom-links {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.footer-bottom-link {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  text-decoration: none;
+  transition: var(--transition-base);
+}
+
+.footer-bottom-link:hover {
+  color: var(--color-text-light);
+}
+
+.footer-bottom-link:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 4px;
+  border-radius: var(--radius-sm);
+}
+
+.footer-divider {
+  color: rgba(255, 255, 255, 0.2);
+}
+
+/* ==================== 响应式设计 ==================== */
+
+/* 平板端 */
+@media (max-width: 1024px) {
+  .footer-main {
+    grid-template-columns: 1fr 1fr;
+    gap: var(--spacing-2xl);
+  }
+  
+  .footer-company {
+    grid-column: 1 / -1;
+    max-width: 100%;
+  }
+}
+
+/* 移动端 */
+@media (max-width: 768px) {
+  .enterprise-footer {
+    padding: var(--spacing-2xl) 0 var(--spacing-lg);
+  }
+  
+  .footer-main {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-xl);
+    padding-bottom: var(--spacing-2xl);
+  }
+  
+  .footer-company {
+    grid-column: 1;
+  }
+  
+  .footer-bottom {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-md);
+  }
+  
+  .footer-bottom-links {
+    flex-wrap: wrap;
+  }
+}
+
+/* 小屏幕移动端 */
+@media (max-width: 480px) {
+  .footer-container {
+    padding: 0 var(--spacing-md);
+  }
+  
+  .footer-brand {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .footer-social {
+    flex-wrap: wrap;
+  }
+  
+  .social-link {
+    width: 36px;
+    height: 36px;
+  }
+  
+  .footer-column-title {
+    font-size: var(--font-size-sm);
+  }
+  
+  .footer-link {
+    font-size: var(--font-size-xs);
+  }
+  
+  .footer-copyright {
+    font-size: var(--font-size-xs);
+  }
+  
+  .footer-bottom-link {
+    font-size: var(--font-size-xs);
+  }
+}
+
+/* ==================== 可访问性增强 ==================== */
+
+/* 键盘导航焦点样式 */
+.footer-link:focus-visible,
+.social-link:focus-visible,
+.footer-bottom-link:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 4px;
+  border-radius: var(--radius-sm);
+}
+
+/* 减少动画（用户偏好） */
+@media (prefers-reduced-motion: reduce) {
+  .footer-link,
+  .social-link,
+  .footer-bottom-link {
+    transition: none;
+  }
+}
+
+/* 高对比度模式支持 */
+@media (prefers-contrast: high) {
+  .enterprise-footer {
+    border-top: 2px solid var(--color-text-light);
+  }
+  
+  .footer-link,
+  .social-link,
+  .footer-bottom-link {
+    text-decoration: underline;
+  }
+}

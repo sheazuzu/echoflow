@@ -104,8 +104,38 @@ export const useRealtimeTranscription = (options = {}) => {
       console.log(`[${requestId}] 📄 解析响应:`, result);
       
       if (result.success && result.text) {
-        console.log(`[${requestId}] ✅ 转录成功: "${result.text.substring(0, 50)}..."`);
-        appendTranscriptionText(result.text);
+        // 过滤不相关的文本
+        let filteredText = result.text;
+        
+        // 移除常见的转录服务水印和无关文本
+        const unwantedPatterns = [
+          /Transcribed by https?:\/\/otter\.ai/gi,
+          /Thank you so much for watching\s*!?/gi,
+          /ご視聴ありがとうございました/gi,
+          /Thank you\.?$/gi,
+          /字幕由.*制作/gi,
+          /Subtitles by/gi,
+          /\[Music\]/gi,
+          /\[Applause\]/gi,
+          /\[Laughter\]/gi
+        ];
+        
+        unwantedPatterns.forEach(pattern => {
+          filteredText = filteredText.replace(pattern, '');
+        });
+        
+        // 清理多余的空格和换行
+        filteredText = filteredText.trim().replace(/\s+/g, ' ');
+        
+        // 如果过滤后文本为空，跳过此段
+        if (!filteredText) {
+          console.log(`[${requestId}] ⚠️ 过滤后文本为空，跳过此段`);
+          setTranscriptionStatus('listening');
+          return;
+        }
+        
+        console.log(`[${requestId}] ✅ 转录成功（已过滤）: "${filteredText.substring(0, 50)}..."`);
+        appendTranscriptionText(filteredText);
         setIsConnected(true);
         setConnectionError(null);
         setRetryCount(0);

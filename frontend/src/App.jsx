@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Upload, FileAudio, CheckCircle, Clock, Download, Settings, Cpu, Loader2, RefreshCw, CloudUpload, Mic, Mail, Copy, Check, Github, MessageCircle, X } from 'lucide-react';
 import './App.css';
-import { LanguageSwitcher } from './components/LanguageSwitcher.jsx';
 import { useTranslation, useDocumentLanguage, getCurrentLanguage } from './i18n/index.js';
 import { RecordingWithTranscription } from './components/audio/RecordingWithTranscription.jsx';
+import Header from './components/layout/Header.jsx';
+import Footer from './components/layout/Footer.jsx';
 
 // 导入腾讯云logo
 import tencentCloudLogo from './assets/tencentcloud.png';
 // 导入新的白色logo作为主logo
-import sheaWhiteLogo from './assets/shea-white.png';
+import sheaWhiteLogo from './assets/logo.png';
 
 const App = () => {
     // 国际化
@@ -1332,155 +1333,8 @@ const App = () => {
 
     return (
         <div className="app-container">
-            {/* 语言选择器 */}
-            <LanguageSwitcher />
-            
-            <header className="header">
-                <div className="logo">
-                    <a 
-                        href="https://zhenyuxie.com" 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        style={{
-                            display: 'inline-block',
-                            cursor: 'pointer',
-                            transition: 'opacity 0.2s ease'
-                        }}
-                        onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
-                        onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
-                    >
-                        <img src={sheaWhiteLogo} alt="Shea Logo" style={{height: '48px', marginRight: '15px', filter: 'brightness(1.2)', transition: 'all 0.3s ease'}}/>
-                    </a>
-                    <a 
-                        href="/" 
-                        onClick={(e) => {
-                            e.preventDefault();
-                            window.location.reload();
-                        }}
-                        style={{
-                            textDecoration: 'none',
-                            cursor: 'pointer',
-                            transition: 'opacity 0.2s ease'
-                        }}
-                        onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
-                        onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
-                    >
-                        <span style={{fontSize: '1.8rem', fontWeight: '700', background: 'linear-gradient(135deg, #ffffff 0%, #e2e8f0 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', textShadow: '0 2px 4px rgba(0, 0, 0, 0.3)'}}>EchoFlow Pro</span>
-                    </a>
-                </div>
-                <div style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
-                    <button
-                        onClick={() => setShowContactModal(true)}
-                        className="contact-button square-icon-btn"
-                        title="Contact Us"
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            width: '40px',
-                            height: '40px',
-                            padding: '0',
-                            background: 'rgba(16, 185, 129, 0.1)',
-                            border: '1px solid rgba(16, 185, 129, 0.3)',
-                            borderRadius: '8px',
-                            color: '#10b981',
-                            transition: 'all 0.3s ease',
-                            cursor: 'pointer',
-                            position: 'relative',
-                            overflow: 'hidden'
-                        }}
-                        onMouseEnter={(e) => {
-                            e.currentTarget.style.background = 'rgba(16, 185, 129, 0.2)';
-                            e.currentTarget.style.borderColor = 'rgba(16, 185, 129, 0.5)';
-                            e.currentTarget.style.transform = 'translateY(-2px)';
-                            e.currentTarget.style.boxShadow = '0 4px 12px rgba(16, 185, 129, 0.3), 0 0 20px rgba(16, 185, 129, 0.2)';
-                        }}
-                        onMouseLeave={(e) => {
-                            e.currentTarget.style.background = 'rgba(16, 185, 129, 0.1)';
-                            e.currentTarget.style.borderColor = 'rgba(16, 185, 129, 0.3)';
-                            e.currentTarget.style.transform = 'translateY(0)';
-                            e.currentTarget.style.boxShadow = 'none';
-                        }}
-                    >
-                        <MessageCircle size={20} />
-                    </button>
-                    <a 
-                        href="https://github.com/sheazuzu/echoflow" 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="github-link square-icon-btn"
-                        title="View on GitHub"
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            width: '40px',
-                            height: '40px',
-                            padding: '0',
-                            background: 'rgba(139, 92, 246, 0.1)',
-                            border: '1px solid rgba(139, 92, 246, 0.3)',
-                            borderRadius: '8px',
-                            color: '#a78bfa',
-                            textDecoration: 'none',
-                            transition: 'all 0.3s ease',
-                            cursor: 'pointer',
-                            position: 'relative',
-                            overflow: 'hidden'
-                        }}
-                        onMouseEnter={(e) => {
-                            e.currentTarget.style.background = 'rgba(139, 92, 246, 0.2)';
-                            e.currentTarget.style.borderColor = 'rgba(139, 92, 246, 0.5)';
-                            e.currentTarget.style.transform = 'translateY(-2px)';
-                            e.currentTarget.style.boxShadow = '0 4px 12px rgba(139, 92, 246, 0.3), 0 0 20px rgba(139, 92, 246, 0.2)';
-                        }}
-                        onMouseLeave={(e) => {
-                            e.currentTarget.style.background = 'rgba(139, 92, 246, 0.1)';
-                            e.currentTarget.style.borderColor = 'rgba(139, 92, 246, 0.3)';
-                            e.currentTarget.style.transform = 'translateY(0)';
-                            e.currentTarget.style.boxShadow = 'none';
-                        }}
-                    >
-                        <Github size={20} />
-                    </a>
-                    <a 
-                        href="https://cloud.tencent.com" 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="tencent-cloud-link square-icon-btn"
-                        title="Powered by Tencent Cloud"
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            width: '40px',
-                            height: '40px',
-                            padding: '0',
-                            background: 'rgba(59, 130, 246, 0.1)',
-                            border: '1px solid rgba(59, 130, 246, 0.3)',
-                            borderRadius: '8px',
-                            textDecoration: 'none',
-                            transition: 'all 0.3s ease',
-                            cursor: 'pointer',
-                            position: 'relative',
-                            overflow: 'hidden'
-                        }}
-                        onMouseEnter={(e) => {
-                            e.currentTarget.style.background = 'rgba(59, 130, 246, 0.2)';
-                            e.currentTarget.style.borderColor = 'rgba(59, 130, 246, 0.5)';
-                            e.currentTarget.style.transform = 'translateY(-2px)';
-                            e.currentTarget.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.3), 0 0 20px rgba(59, 130, 246, 0.2)';
-                        }}
-                        onMouseLeave={(e) => {
-                            e.currentTarget.style.background = 'rgba(59, 130, 246, 0.1)';
-                            e.currentTarget.style.borderColor = 'rgba(59, 130, 246, 0.3)';
-                            e.currentTarget.style.transform = 'translateY(0)';
-                            e.currentTarget.style.boxShadow = 'none';
-                        }}
-                    >
-                        <img src={tencentCloudLogo} alt="Tencent Cloud" style={{height: '22px', width: 'auto', opacity: 0.9, transition: 'all 0.3s ease'}} />
-                    </a>
-                </div>
-            </header>
+            {/* 企业级导航栏 */}
+            <Header />
 
             {/* 音频源选择对话框 */}
             {showAudioSourceSelector && (
@@ -3271,49 +3125,8 @@ const App = () => {
                 </div>
             )}
 
-            {/* Footer */}
-            <footer className="footer">
-                <div className="footer-content">
-                    <div className="footer-logo">
-                        <img src={sheaWhiteLogo} alt="Shea Logo" style={{height: '24px', marginRight: '10px', opacity: 0.9}}/>
-                    </div>
-                    <div className="footer-text">
-                        Copyright © 1993-2026 Shea All Rights Reserved
-                    </div>
-                    <div className="footer-powered" style={{
-                        marginTop: '8px',
-                        fontSize: '0.85rem',
-                        color: 'rgba(255, 255, 255, 0.5)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '6px'
-                    }}>
-                        <span>Powered by</span>
-                        <a 
-                            href="https://cloud.tencent.com" 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            style={{
-                                color: 'rgba(99, 102, 241, 0.8)',
-                                textDecoration: 'none',
-                                fontWeight: '600',
-                                transition: 'all 0.3s ease'
-                            }}
-                            onMouseEnter={(e) => {
-                                e.currentTarget.style.color = '#6366f1';
-                                e.currentTarget.style.textDecoration = 'underline';
-                            }}
-                            onMouseLeave={(e) => {
-                                e.currentTarget.style.color = 'rgba(99, 102, 241, 0.8)';
-                                e.currentTarget.style.textDecoration = 'none';
-                            }}
-                        >
-                            Tencent Cloud
-                        </a>
-                    </div>
-                </div>
-            </footer>
+            {/* 企业级页脚 */}
+            <Footer />
         </div>
     );
 }

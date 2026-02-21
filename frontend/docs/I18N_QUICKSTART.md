@@ -66,7 +66,7 @@ function MyComponent() {
 ```javascript
 export default {
   common: {
-    appName: 'EchoFlow Pro',
+    appName: 'Meet and Note',
     buttons: {
       confirm: '確認',
       cancel: 'キャンセル',

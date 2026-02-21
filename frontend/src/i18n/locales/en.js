@@ -5,7 +5,7 @@
 export default {
   // Common text
   common: {
-    appName: 'EchoFlow Pro',
+    appName: 'Meet and Note',
     buttons: {
       confirm: 'Confirm',
       cancel: 'Cancel',
@@ -256,9 +256,64 @@ export default {
     feedbackSubmitted: 'Feedback submitted successfully, thank you for your suggestion',
   },
 
+  // Navigation
+  nav: {
+    home: 'Home',
+    features: 'Features',
+    solutions: 'Solutions',
+    about: 'About',
+    login: 'Login',
+    register: 'Register',
+    mainNavigation: 'Main Navigation',
+    mobileNavigation: 'Mobile Navigation',
+    toggleMenu: 'Toggle Menu',
+  },
+
   // Footer
   footer: {
-    copyright: '© 2024 EchoFlow Pro. All rights reserved.',
+    // Copyright
+    copyright: '© 2024 Meet and Note. All rights reserved.',
+    allRightsReserved: 'All Rights Reserved',
+    
+    // Company description
+    companyDescription: 'Enterprise-grade intelligent meeting minutes solution, making every meeting valuable.',
+    
+    // Column titles
+    product: 'Product',
+    company: 'Company',
+    legal: 'Legal',
+    
+    // Product links
+    features: 'Features',
+    pricing: 'Pricing',
+    solutions: 'Solutions',
+    integrations: 'Integrations',
+    
+    // Company links
+    aboutUs: 'About Us',
+    careers: 'Careers',
+    contactUs: 'Contact Us',
+    blog: 'Blog',
+    
+    // Legal links
+    privacyPolicy: 'Privacy Policy',
+    termsOfService: 'Terms of Service',
+    cookiePolicy: 'Cookie Policy',
+    compliance: 'Compliance',
+    
+    // Bottom quick links
+    privacy: 'Privacy',
+    terms: 'Terms',
+    cookies: 'Cookies',
+    
+    // Contact form
+    contactDescription: 'Have any questions or suggestions? Let us know!',
+    yourName: 'Your Name',
+    yourEmail: 'Your Email',
+    yourMessage: 'Your Message',
+    sendMessage: 'Send Message',
+    
+    // Legacy links (for compatibility)
     links: {
       about: 'About Us',
       contact: 'Contact',
@@ -267,12 +322,6 @@ export default {
       help: 'Help Center',
       feedback: 'Feedback',
     },
-    contactUs: 'Contact Us',
-    contactDescription: 'Have any questions or suggestions? Let us know!',
-    yourName: 'Your Name',
-    yourEmail: 'Your Email',
-    yourMessage: 'Your Message',
-    sendMessage: 'Send Message',
   },
 
   // Features

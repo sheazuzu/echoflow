@@ -554,3 +554,399 @@
     transform: scale(1);
   }
 }
+
+/* 高级设置 - 音频源选择 */
+.advanced-settings {
+  margin-top: 20px;
+  border-top: 2px solid #e5e7eb;
+  padding-top: 16px;
+}
+
+.advanced-settings-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: linear-gradient(135deg, #f3f4f6, #e5e7eb);
+  border: 2px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #4b5563;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  width: 100%;
+  justify-content: center;
+}
+
+.advanced-settings-toggle:hover {
+  background: linear-gradient(135deg, #e5e7eb, #d1d5db);
+  border-color: #9ca3af;
+  transform: translateY(-1px);
+}
+
+.toggle-icon {
+  display: inline-block;
+  transition: transform 0.3s ease;
+  font-size: 0.8rem;
+}
+
+.toggle-icon.open {
+  transform: rotate(180deg);
+}
+
+.audio-source-settings {
+  margin-top: 16px;
+  padding: 20px;
+  background: #f9fafb;
+  border-radius: 12px;
+  border: 2px solid #e5e7eb;
+  animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    max-height: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    max-height: 500px;
+    transform: translateY(0);
+  }
+}
+
+.settings-header {
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.settings-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.audio-source-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.audio-source-option {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px;
+  background: white;
+  border: 2px solid #e5e7eb;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.audio-source-option:hover {
+  border-color: #667eea;
+  background: #f8f9ff;
+  transform: translateX(4px);
+}
+
+.audio-source-option input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.audio-source-option input[type="radio"]:checked + .option-label {
+  color: #667eea;
+  font-weight: 700;
+}
+
+.audio-source-option input[type="radio"]:checked ~ .option-description {
+  color: #4b5563;
+}
+
+.audio-source-option:has(input[type="radio"]:checked) {
+  border-color: #667eea;
+  background: linear-gradient(135deg, #f8f9ff, #eef2ff);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+}
+
+.option-label {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1f2937;
+  transition: all 0.3s ease;
+  padding-left: 28px;
+  position: relative;
+}
+
+.option-label::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  border: 2px solid #d1d5db;
+  border-radius: 50%;
+  background: white;
+  transition: all 0.3s ease;
+}
+
+.audio-source-option input[type="radio"]:checked + .option-label::before {
+  border-color: #667eea;
+  background: #667eea;
+  box-shadow: inset 0 0 0 4px white;
+}
+
+.option-description {
+  font-size: 0.875rem;
+  color: #6b7280;
+  padding-left: 28px;
+  transition: all 0.3s ease;
+}
+
+/* 响应式设计 - 高级设置 */
+@media (max-width: 768px) {
+  .audio-source-settings {
+    padding: 16px;
+  }
+
+  .audio-source-option {
+    padding: 12px;
+  }
+
+  .option-label {
+    font-size: 0.95rem;
+  }
+
+  .option-description {
+    font-size: 0.8rem;
+  }
+}
+
+/* 音频源状态指示器 */
+.audio-source-status {
+  margin-top: 20px;
+  padding: 16px;
+  background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+  border-radius: 12px;
+  border: 2px solid #86efac;
+  animation: slideDown 0.3s ease;
+}
+
+.status-header {
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #86efac;
+}
+
+.status-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #166534;
+}
+
+.source-status-indicators {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.source-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: white;
+  border: 2px solid #d1d5db;
+  border-radius: 10px;
+  flex: 1;
+  min-width: 200px;
+  transition: all 0.3s ease;
+}
+
+.source-indicator.active {
+  border-color: #10b981;
+  background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+}
+
+.source-indicator.inactive {
+  border-color: #e5e7eb;
+  background: #f9fafb;
+  opacity: 0.7;
+}
+
+.source-icon {
+  font-size: 1.5rem;
+  animation: pulse-icon 2s ease-in-out infinite;
+}
+
+.source-indicator.inactive .source-icon {
+  animation: none;
+  filter: grayscale(100%);
+  opacity: 0.5;
+}
+
+@keyframes pulse-icon {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+.source-label {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #1f2937;
+  flex: 1;
+}
+
+.source-indicator.inactive .source-label {
+  color: #9ca3af;
+}
+
+.source-status-badge {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.source-indicator.active .source-status-badge {
+  background: #10b981;
+  color: white;
+  animation: pulse-badge 2s ease-in-out infinite;
+}
+
+.source-indicator.inactive .source-status-badge {
+  background: #e5e7eb;
+  color: #6b7280;
+}
+
+@keyframes pulse-badge {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+/* 响应式设计 - 音频源状态 */
+@media (max-width: 768px) {
+  .source-status-indicators {
+    flex-direction: column;
+  }
+
+  .source-indicator {
+    min-width: auto;
+  }
+}
+
+/* 首次使用引导提示 */
+.first-time-guide {
+  margin-top: 20px;
+  padding: 20px;
+  background: linear-gradient(135deg, #fef3c7, #fde68a);
+  border-radius: 12px;
+  border: 2px solid #fbbf24;
+  animation: slideDown 0.5s ease, pulse-guide 2s ease-in-out infinite;
+}
+
+@keyframes pulse-guide {
+  0%, 100% {
+    box-shadow: 0 4px 12px rgba(251, 191, 36, 0.3);
+  }
+  50% {
+    box-shadow: 0 6px 20px rgba(251, 191, 36, 0.5);
+  }
+}
+
+.guide-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.guide-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.guide-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #92400e;
+}
+
+.guide-close-btn {
+  background: rgba(146, 64, 14, 0.1);
+  border: none;
+  color: #92400e;
+  font-size: 1.2rem;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+
+.guide-close-btn:hover {
+  background: rgba(146, 64, 14, 0.2);
+  transform: rotate(90deg);
+}
+
+.guide-message {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #78350f;
+  line-height: 1.6;
+}
+
+.guide-got-it-btn {
+  align-self: flex-end;
+  padding: 8px 20px;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.guide-got-it-btn:hover {
+  background: linear-gradient(135deg, #d97706, #b45309);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(217, 119, 6, 0.3);
+}
+
+/* 响应式设计 - 引导提示 */
+@media (max-width: 768px) {
+  .first-time-guide {
+    padding: 16px;
+  }
+
+  .guide-title {
+    font-size: 1rem;
+  }
+
+  .guide-message {
+    font-size: 0.9rem;
+  }
+}

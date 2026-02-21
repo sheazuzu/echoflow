@@ -28,7 +28,7 @@ export const LANGUAGE_METADATA = {
 };
 
 // 语言存储键
-export const LANGUAGE_STORAGE_KEY = 'echoflow_language';
+export const LANGUAGE_STORAGE_KEY = 'meetandnote_language';
 
 /**
  * 验证语言代码是否有效

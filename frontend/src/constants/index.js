@@ -126,10 +126,10 @@ export const API_ENDPOINTS = {
 
 // ==================== 本地存储键 ====================
 export const STORAGE_KEYS = {
-  USER_SETTINGS: 'echoflow_user_settings',
-  DEFAULT_RECIPIENTS: 'echoflow_default_recipients',
-  LAST_MEETING: 'echoflow_last_meeting',
-  THEME: 'echoflow_theme',
+  USER_SETTINGS: 'meetandnote_user_settings',
+  DEFAULT_RECIPIENTS: 'meetandnote_default_recipients',
+  LAST_MEETING: 'meetandnote_last_meeting',
+  THEME: 'meetandnote_theme',
 };
 
 // ==================== 时间配置 ====================

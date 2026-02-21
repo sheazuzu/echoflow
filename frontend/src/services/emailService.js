@@ -271,7 +271,7 @@ const formatMeetingMinutesEmail = (minutesData) => {
   html += `
       <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0 20px 0;">
       <p style="color: #999; font-size: 12px; text-align: center;">
-        此邮件由 EchoFlow 智能会议助手自动生成
+        此邮件由 Meet and Note 智能会议助手自动生成
       </p>
     </div>
   `;

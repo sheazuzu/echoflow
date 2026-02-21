@@ -73,6 +73,37 @@ export const realtimeTranscriptionI18n = {
       autoDetect: '自动检测'
     },
     
+    // 音频源设置
+    audioSource: {
+      advancedSettings: '高级设置',
+      audioSourceSettings: '音频源设置',
+      allSources: '所有音频源（推荐）',
+      allSourcesDesc: '自动捕获麦克风和系统音频',
+      microphoneOnly: '仅麦克风',
+      microphoneOnlyDesc: '只录制麦克风音频',
+      systemAudioOnly: '仅系统音频',
+      systemAudioOnlyDesc: '只录制系统播放的音频',
+      microphoneAndSystem: '麦克风 + 系统音频',
+      microphoneAndSystemDesc: '同时录制麦克风和系统音频',
+      microphone: '麦克风',
+      systemAudio: '系统音频',
+      active: '活跃',
+      inactive: '不可用',
+      notUsed: '未使用',
+      statusTitle: '音频源状态',
+      requestingMicPermission: '正在请求麦克风权限...',
+      requestingSystemAudioPermission: '正在请求系统音频权限...'
+    },
+    
+    // 引导提示
+    guide: {
+      firstTimeTitle: '💡 使用提示',
+      firstTimeMessage: '系统将自动捕获麦克风和系统音频，点击"开始录音"即可开始实时转录。如需自定义音频源，请展开"高级设置"。',
+      permissionExplanation: '需要访问麦克风和系统音频以进行实时转录',
+      advancedSettingsTooltip: '自定义音频源设置',
+      gotIt: '知道了'
+    },
+    
     // 语言选项
     languageOptions: {
       chinese: '中文',
@@ -112,7 +143,14 @@ export const realtimeTranscriptionI18n = {
       downloadSuccess: '转录文字已下载',
       downloadFailed: '下载失败',
       micAccessFailed: '无法访问麦克风，请检查权限设置',
-      transcriptionStartFailed: '启动转录失败'
+      transcriptionStartFailed: '启动转录失败',
+      micPermissionDenied: '麦克风权限被拒绝，请在浏览器设置中允许访问',
+      systemAudioCancelled: '系统音频捕获已取消，将仅使用麦克风录音',
+      browserNotSupportSystemAudio: '当前浏览器不支持系统音频捕获，将仅使用麦克风录音',
+      allAudioSourcesFailed: '无法访问任何音频设备，请检查权限设置',
+      audioStreamInterrupted: '音频流已中断，录音已停止',
+      recordingStarted: '录音已开始',
+      recordingStopped: '录音已停止'
     }
   },
   
@@ -187,6 +225,37 @@ export const realtimeTranscriptionI18n = {
       autoDetect: 'Auto Detect'
     },
     
+    // Audio Source Settings
+    audioSource: {
+      advancedSettings: 'Advanced Settings',
+      audioSourceSettings: 'Audio Source Settings',
+      allSources: 'All Audio Sources (Recommended)',
+      allSourcesDesc: 'Auto capture microphone and system audio',
+      microphoneOnly: 'Microphone Only',
+      microphoneOnlyDesc: 'Record microphone audio only',
+      systemAudioOnly: 'System Audio Only',
+      systemAudioOnlyDesc: 'Record system audio only',
+      microphoneAndSystem: 'Microphone + System Audio',
+      microphoneAndSystemDesc: 'Record both microphone and system audio',
+      microphone: 'Microphone',
+      systemAudio: 'System Audio',
+      active: 'Active',
+      inactive: 'Unavailable',
+      notUsed: 'Not Used',
+      statusTitle: 'Audio Source Status',
+      requestingMicPermission: 'Requesting microphone permission...',
+      requestingSystemAudioPermission: 'Requesting system audio permission...'
+    },
+    
+    // Guide Tips
+    guide: {
+      firstTimeTitle: '💡 Usage Tips',
+      firstTimeMessage: 'The system will automatically capture microphone and system audio. Click "Start Recording" to begin real-time transcription. To customize audio sources, expand "Advanced Settings".',
+      permissionExplanation: 'Need to access microphone and system audio for real-time transcription',
+      advancedSettingsTooltip: 'Customize audio source settings',
+      gotIt: 'Got it'
+    },
+    
     // Language Options
     languageOptions: {
       chinese: 'Chinese',
@@ -226,7 +295,14 @@ export const realtimeTranscriptionI18n = {
       downloadSuccess: 'Transcription text downloaded',
       downloadFailed: 'Download failed',
       micAccessFailed: 'Cannot access microphone, please check permissions',
-      transcriptionStartFailed: 'Failed to start transcription'
+      transcriptionStartFailed: 'Failed to start transcription',
+      micPermissionDenied: 'Microphone permission denied, please allow access in browser settings',
+      systemAudioCancelled: 'System audio capture cancelled, will use microphone only',
+      browserNotSupportSystemAudio: 'Current browser does not support system audio capture, will use microphone only',
+      allAudioSourcesFailed: 'Cannot access any audio device, please check permissions',
+      audioStreamInterrupted: 'Audio stream interrupted, recording stopped',
+      recordingStarted: 'Recording started',
+      recordingStopped: 'Recording stopped'
     }
   }
 };

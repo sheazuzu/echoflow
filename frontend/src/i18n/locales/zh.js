@@ -5,7 +5,7 @@
 export default {
   // 通用文本
   common: {
-    appName: 'EchoFlow Pro',
+    appName: 'Meet and Note',
     buttons: {
       confirm: '确认',
       cancel: '取消',
@@ -256,9 +256,64 @@ export default {
     feedbackSubmitted: '反馈提交成功，感谢您的建议',
   },
 
+  // 导航栏
+  nav: {
+    home: '首页',
+    features: '产品功能',
+    solutions: '解决方案',
+    about: '关于我们',
+    login: '登录',
+    register: '注册',
+    mainNavigation: '主导航',
+    mobileNavigation: '移动端导航',
+    toggleMenu: '切换菜单',
+  },
+
   // 页脚
   footer: {
-    copyright: '© 2024 EchoFlow Pro. 保留所有权利。',
+    // 版权信息
+    copyright: '© 2024 Meet and Note. 保留所有权利。',
+    allRightsReserved: '保留所有权利',
+    
+    // 公司描述
+    companyDescription: '企业级智能会议纪要解决方案，让每一次会议都有价值。',
+    
+    // 栏目标题
+    product: '产品',
+    company: '公司',
+    legal: '法律',
+    
+    // 产品链接
+    features: '功能特性',
+    pricing: '价格方案',
+    solutions: '解决方案',
+    integrations: '集成服务',
+    
+    // 公司链接
+    aboutUs: '关于我们',
+    careers: '加入我们',
+    contactUs: '联系我们',
+    blog: '博客',
+    
+    // 法律链接
+    privacyPolicy: '隐私政策',
+    termsOfService: '服务条款',
+    cookiePolicy: 'Cookie 政策',
+    compliance: '合规性',
+    
+    // 底部快捷链接
+    privacy: '隐私',
+    terms: '条款',
+    cookies: 'Cookies',
+    
+    // 联系表单
+    contactDescription: '有任何问题或建议？请告诉我们！',
+    yourName: '您的姓名',
+    yourEmail: '您的邮箱',
+    yourMessage: '您的消息',
+    sendMessage: '发送消息',
+    
+    // 旧的链接（保持兼容性）
     links: {
       about: '关于我们',
       contact: '联系我们',
@@ -267,12 +322,6 @@ export default {
       help: '帮助中心',
       feedback: '反馈建议',
     },
-    contactUs: '联系我们',
-    contactDescription: '有任何问题或建议？请告诉我们！',
-    yourName: '您的姓名',
-    yourEmail: '您的邮箱',
-    yourMessage: '您的消息',
-    sendMessage: '发送消息',
   },
 
   // 功能特性

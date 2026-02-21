@@ -65,7 +65,7 @@ export function LanguageSwitcher() {
         aria-label="选择语言 / Select Language"
         aria-expanded={isOpen}
       >
-        <Globe size={18} />
+        <Globe size={16} />
         <span className="language-switcher-label">
           {currentLanguageMetadata.nativeName}
         </span>

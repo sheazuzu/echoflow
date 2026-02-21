@@ -2,7 +2,7 @@
 
 ## 概述
 
-EchoFlow Pro 现已支持中英文双语切换功能。用户可以通过右上角的语言选择器在中文和英文之间切换，系统会自动保存语言偏好。
+Meet and Note 现已支持中英文双语切换功能。用户可以通过右上角的语言选择器在中文和英文之间切换，系统会自动保存语言偏好。
 
 ## 功能特性
 
@@ -120,7 +120,7 @@ function App() {
 ```javascript
 export default {
   common: {
-    appName: 'EchoFlow Pro',
+    appName: 'Meet and Note',
     buttons: {
       confirm: '確認',
       cancel: 'キャンセル',
