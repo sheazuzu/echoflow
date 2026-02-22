@@ -188,9 +188,15 @@ export default {
   email: {
     title: 'Send Email',
     sendMinutes: 'Send Meeting Minutes',
+    sendMinutesToEmail: 'Send Meeting Minutes to Email',
     recipients: 'Recipients',
+    recipientsLabel: 'Recipient Email',
     recipientsPlaceholder: 'Enter email address, press Enter to add',
+    recipientsInputPlaceholder: 'Enter recipient email, press Enter to add',
     addRecipient: 'Add Recipient',
+    addButton: 'Add',
+    addedCount: '{count} recipient(s) added',
+    multipleHint: '(Multiple allowed)',
     cc: 'CC',
     bcc: 'BCC',
     subject: 'Subject',
@@ -206,6 +212,7 @@ export default {
     invalidEmail: 'Invalid email address format',
     noRecipients: 'Please add at least one recipient',
     defaultSubject: 'Meeting Minutes - {date}',
+    downloadAudio: 'Download Audio',
   },
 
   // Error messages

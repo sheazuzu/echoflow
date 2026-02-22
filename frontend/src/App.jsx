@@ -472,10 +472,17 @@ const App = () => {
                         setRecordingSize(audioBlob.size);
                         setIsGeneratingAudio(false);
                         
+                        console.log('=== 准备显示下载界面 ===');
+                        console.log('downloadBlob:', audioBlob);
+                        console.log('downloadFileName:', fileName);
+                        console.log('recordingDuration:', recordingTime);
+                        console.log('recordingSize:', audioBlob.size);
+                        
                         // 先关闭录音界面，再显示下载选项
                         setIsRecording(false);
                         setShowDownloadOption(true);
                         
+                        console.log('✅ 已设置 showDownloadOption = true');
                         console.log('录音文件已准备好下载:', fileName, '大小:', (audioBlob.size / 1024 / 1024).toFixed(2), 'MB');
                     } catch (error) {
                         console.error('准备下载文件失败:', error);
@@ -898,28 +905,29 @@ const App = () => {
     }, [appState, currentFileId]);
 
     // 监听录音停止后生成文件并上传
-    useEffect(() => {
-        const handleRecordingComplete = async () => {
-            if (!isRecording && recordedChunks.length > 0) {
-                try {
-                    // 生成音频文件
-                    const audioFile = await generateAudioFile();
-                    
-                    // 自动上传并处理
-                    console.log('音频文件已生成，开始上传:', audioFile.name);
-                    await startProcessing(audioFile);
-                    
-                    // 清空录音数据
-                    setRecordedChunks([]);
-                } catch (error) {
-                    console.error('处理录音文件失败:', error);
-                    setAppState('idle');
-                }
-            }
-        };
-        
-        handleRecordingComplete();
-    }, [isRecording, recordedChunks]);
+    // 注释掉自动上传逻辑，改为用户手动触发
+    // useEffect(() => {
+    //     const handleRecordingComplete = async () => {
+    //         if (!isRecording && recordedChunks.length > 0) {
+    //             try {
+    //                 // 生成音频文件
+    //                 const audioFile = await generateAudioFile();
+    //                 
+    //                 // 自动上传并处理
+    //                 console.log('音频文件已生成，开始上传:', audioFile.name);
+    //                 await startProcessing(audioFile);
+    //                 
+    //                 // 清空录音数据
+    //                 setRecordedChunks([]);
+    //             } catch (error) {
+    //                 console.error('处理录音文件失败:', error);
+    //                 setAppState('idle');
+    //             }
+    //         }
+    //     };
+    //     
+    //     handleRecordingComplete();
+    // }, [isRecording, recordedChunks]);
 
     // 邮箱对话框打开时自动聚焦到输入框
     useEffect(() => {
@@ -1320,8 +1328,8 @@ const App = () => {
                         fontSize: '14px',
                         lineHeight: '1.6',
                         resize: 'vertical',
-                        backgroundColor: 'rgba(30, 41, 59, 0.6)',
-                        color: '#f1f5f9',
+                        backgroundColor: '#0f172a',
+                        color: '#e0f2fe',
                         whiteSpace: 'pre-wrap',
                         outline: 'none',
                         boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.2)'
@@ -1528,7 +1536,7 @@ const App = () => {
 
                         {/* 功能模块容器 - 左右布局 */}
                         <div className="features-container">
-                            {/* 左侧：文件上传模块 */}
+                        {/* 左侧：文件上传模块 */}
                             <div className="feature-module upload-module">
                                 <div className="upload-section">
                                     <div className={`upload-card ${isUploading ? 'uploading' : ''}`}>
@@ -1878,6 +1886,13 @@ const App = () => {
                 )}
 
                 {/* 录音下载选项界面 */}
+                {(() => {
+                    console.log('=== 下载界面渲染检查 ===');
+                    console.log('showDownloadOption:', showDownloadOption);
+                    console.log('isDownloadMinimized:', isDownloadMinimized);
+                    console.log('应该显示下载界面:', showDownloadOption && !isDownloadMinimized);
+                    return null;
+                })()}
                 {showDownloadOption && !isDownloadMinimized && (
                     <div className="download-option-container">
                         <div className="download-option-content">
@@ -1907,7 +1922,7 @@ const App = () => {
                                         <Download size={60} color="#818cf8" />
                                     </div>
                                     
-                                    <h2 style={{color: '#f1f5f9', marginBottom: '10px', fontSize: '1.8rem'}}>
+                                    <h2 style={{color: '#1e293b', marginBottom: '10px', fontSize: '1.8rem'}}>
                                         {t('recording.recordingCompleted')}
                                     </h2>
                                     
@@ -1943,6 +1958,34 @@ const App = () => {
                                             <Download size={20} />
                                             {t('recording.downloadRecording')}
                                         </button>
+                                        <button
+                                            onClick={async () => {
+                                                try {
+                                                    // 生成音频文件
+                                                    const audioFile = await generateAudioFile();
+                                                    
+                                                    // 开始上传并处理
+                                                    console.log('用户点击开始处理，音频文件:', audioFile.name);
+                                                    await startProcessing(audioFile);
+                                                    
+                                                    // 清空录音数据
+                                                    setRecordedChunks([]);
+                                                } catch (error) {
+                                                    console.error('处理录音文件失败:', error);
+                                                    setErrorMsg('处理失败：' + error.message);
+                                                }
+                                            }}
+                                            className="download-btn secondary"
+                                            style={{
+                                                background: 'linear-gradient(135deg, #818cf8, #6366f1)',
+                                                color: '#ffffff'
+                                            }}
+                                        >
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                <path d="M5 12h14M12 5l7 7-7 7"/>
+                                            </svg>
+                                            {currentLanguage === 'en' ? 'Start Processing' : '开始处理'}
+                                        </button>
                                     </div>
                                 </>
                             )}
@@ -1962,12 +2005,72 @@ const App = () => {
                     <div className="processing-container">
                         <div className="processing-header">
                             <h2>{t('processing.title')}</h2>
-                            <button 
-                                onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    
-                                    console.log('=== 取消处理按钮被点击 ===');
+                            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                                {/* 下载录音按钮 - 只在有录音Blob时显示 */}
+                                {downloadBlob && downloadFileName && (
+                                    <button 
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            
+                                            console.log('=== 下载录音按钮被点击 ===');
+                                            console.log('downloadBlob:', downloadBlob);
+                                            console.log('downloadFileName:', downloadFileName);
+                                            
+                                            try {
+                                                // 使用前端Blob直接下载
+                                                const url = URL.createObjectURL(downloadBlob);
+                                                const a = document.createElement('a');
+                                                a.href = url;
+                                                a.download = downloadFileName;
+                                                document.body.appendChild(a);
+                                                a.click();
+                                                document.body.removeChild(a);
+                                                URL.revokeObjectURL(url);
+                                                console.log('✅ 录音文件下载成功:', downloadFileName);
+                                            } catch (error) {
+                                                console.error('❌ 下载录音失败:', error);
+                                                alert(currentLanguage === 'en' ? 'Failed to download recording' : '下载录音失败');
+                                            }
+                                        }}
+                                        className="btn-download-recording"
+                                        style={{ 
+                                            pointerEvents: 'auto',
+                                            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                                            color: 'white',
+                                            border: 'none',
+                                            padding: '10px 20px',
+                                            borderRadius: '8px',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px',
+                                            fontSize: '14px',
+                                            fontWeight: '500',
+                                            transition: 'all 0.3s ease',
+                                            boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.target.style.transform = 'translateY(-2px)';
+                                            e.target.style.boxShadow = '0 4px 12px rgba(16, 185, 129, 0.4)';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.target.style.transform = 'translateY(0)';
+                                            e.target.style.boxShadow = '0 2px 8px rgba(16, 185, 129, 0.3)';
+                                        }}
+                                    >
+                                        <Download size={16} />
+                                        {currentLanguage === 'en' ? 'Download Recording' : '下载录音'}
+                                    </button>
+                                )}
+                                
+                                {/* 取消处理按钮 */}
+                                <button 
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        
+                                        console.log('=== 取消处理按钮被点击 ===');
                                     
                                     // 确认取消
                                     const confirmed = window.confirm(
@@ -2018,8 +2121,9 @@ const App = () => {
                                     <line x1="15" y1="9" x2="9" y2="15"></line>
                                     <line x1="9" y1="9" x2="15" y2="15"></line>
                                 </svg>
-                                {t('processing.cancelProcessing')}
-                            </button>
+                                    {t('processing.cancelProcessing')}
+                                </button>
+                            </div>
                         </div>
                         
                         <div className="steps-container">
@@ -2094,7 +2198,7 @@ const App = () => {
                                 alignItems: flex-start;
                                 gap: 15px;
                                 position: relative;
-                                opacity: 0.5;
+                                opacity: 0.85;
                                 transition: all 0.5s ease;
                                 padding-bottom: 30px;
                             }
@@ -2166,7 +2270,7 @@ const App = () => {
                                 font-weight: 600;
                                 font-size: 1rem;
                                 line-height: 1.2;
-                                color: #f1f5f9;
+                                color: #334155;
                                 transition: all 0.3s ease;
                             }
                             .step-item.active .step-label {
@@ -2174,7 +2278,7 @@ const App = () => {
                             }
                             @keyframes activeTextGlow {
                                 0%, 100% {
-                                    color: #f1f5f9;
+                                    color: #334155;
                                     text-shadow: 0 0 0 rgba(129, 140, 248, 0);
                                 }
                                 50% {
@@ -2239,6 +2343,66 @@ const App = () => {
                                 <button onClick={resetApp} className="btn-reset" style={{ marginRight: '15px' }}>
                                     <RefreshCw size={16} style={{marginRight:'5px', verticalAlign:'middle'}}/> {t('minutes.newMeeting')}
                                 </button>
+                                {currentFileId && (
+                                    <button 
+                                        onClick={async () => {
+                                            try {
+                                                // 如果有录音Blob，直接使用前端下载
+                                                if (downloadBlob && downloadFileName) {
+                                                    const url = URL.createObjectURL(downloadBlob);
+                                                    const a = document.createElement('a');
+                                                    a.href = url;
+                                                    a.download = downloadFileName;
+                                                    document.body.appendChild(a);
+                                                    a.click();
+                                                    document.body.removeChild(a);
+                                                    URL.revokeObjectURL(url);
+                                                    console.log('录音文件下载成功:', downloadFileName);
+                                                } else {
+                                                    // 否则从后端下载上传的文件
+                                                    const response = await fetch(`/api/audio/${currentFileId}/download`);
+                                                    if (!response.ok) {
+                                                        throw new Error('下载失败');
+                                                    }
+                                                    const blob = await response.blob();
+                                                    const url = URL.createObjectURL(blob);
+                                                    const a = document.createElement('a');
+                                                    a.href = url;
+                                                    a.download = `audio_${currentFileId}.mp3`;
+                                                    document.body.appendChild(a);
+                                                    a.click();
+                                                    document.body.removeChild(a);
+                                                    URL.revokeObjectURL(url);
+                                                }
+                                            } catch (error) {
+                                                console.error('下载音频失败:', error);
+                                                alert('下载音频失败，请重试');
+                                            }
+                                        }}
+                                        style={{
+                                            padding:'10px 20px', 
+                                            background:'linear-gradient(135deg, #10b981, #059669)', 
+                                            border:'none', 
+                                            borderRadius:'10px', 
+                                            color:'white', 
+                                            fontWeight:'bold', 
+                                            cursor:'pointer',
+                                            transition: 'all 0.3s ease',
+                                            boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                                            marginRight: '15px'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.target.style.transform = 'translateY(-2px)';
+                                            e.target.style.boxShadow = '0 6px 12px rgba(0,0,0,0.15)';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.target.style.transform = 'translateY(0)';
+                                            e.target.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
+                                        }}
+                                    >
+                                        <Download size={16} style={{marginRight:'5px', verticalAlign:'middle'}}/> {t('email.downloadAudio')}
+                                    </button>
+                                )}
                                 <button 
                                     onClick={() => setShowEmailDialog(true)}
                                     style={{
@@ -2280,7 +2444,7 @@ const App = () => {
                                 <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '15px'}}>
                                     <div style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
                                         <FileAudio size={20} color="#818cf8"/>
-                                        <h3 style={{margin: 0, fontSize: '1.2rem', color: '#f1f5f9'}}>{t('minutes.originalTranscript')} (Transcript)</h3>
+                                        <h3 style={{margin: 0, fontSize: '1.2rem', color: '#1e293b'}}>{t('minutes.originalTranscript')} (Transcript)</h3>
                                     </div>
                                     <button
                                         onClick={() => {
@@ -2347,8 +2511,8 @@ const App = () => {
                                         fontSize: '14px',
                                         lineHeight: '1.8',
                                         resize: 'vertical',
-                                        backgroundColor: 'rgba(15, 23, 42, 0.4)',
-                                        color: '#cbd5e1',
+                                        backgroundColor: '#0f172a',
+                                        color: '#e0f2fe',
                                         whiteSpace: 'pre-wrap',
                                         wordBreak: 'break-word',
                                         overflowY: 'auto',
@@ -2402,7 +2566,7 @@ const App = () => {
                             color: '#f1f5f9',
                             fontWeight: 'bold'
                         }}>
-                            发送会议纪要到邮箱
+                            {t('email.sendMinutesToEmail')}
                         </h2>
                         
                         <div style={{ marginBottom: '20px' }}>
@@ -2413,7 +2577,7 @@ const App = () => {
                                 fontSize: '0.95rem',
                                 fontWeight: '500'
                             }}>
-                                收件人邮箱 * <span style={{color: '#64748b', fontSize: '0.85rem', fontWeight: 'normal'}}>(可添加多个)</span>
+                                {t('email.recipientsLabel')} * <span style={{color: '#64748b', fontSize: '0.85rem', fontWeight: 'normal'}}>{t('email.multipleHint')}</span>
                             </label>
                             
                             {meetingRecipients.length > 0 && (
@@ -2475,7 +2639,7 @@ const App = () => {
                                         setEmailError(''); // 清除错误提示
                                     }}
                                     onKeyPress={handleMeetingRecipientKeyPress}
-                                    placeholder="输入收件人邮箱，按回车添加"
+                                    placeholder={t('email.recipientsInputPlaceholder')}
                                     style={{
                                         flex: 1,
                                         padding: '12px 16px',
@@ -2521,7 +2685,7 @@ const App = () => {
                                         e.target.style.boxShadow = 'none';
                                     }}
                                 >
-                                    添加
+                                    {t('email.addButton')}
                                 </button>
                             </div>
                             <div style={{
@@ -2529,7 +2693,7 @@ const App = () => {
                                 fontSize: '0.85rem',
                                 marginBottom: emailError ? '5px' : '0'
                             }}>
-                                已添加 {meetingRecipients.length} 个收件人
+                                {t('email.addedCount', { count: meetingRecipients.length })}
                             </div>
                             {emailError && (
                                 <div style={{
@@ -2572,7 +2736,7 @@ const App = () => {
                                     e.target.style.backgroundColor = 'transparent';
                                 }}
                             >
-                                取消
+                                {t('common.buttons.cancel')}
                             </button>
                             <button
                                 onClick={handleSendEmailClick}
@@ -2603,7 +2767,7 @@ const App = () => {
                                     }
                                 }}
                             >
-                                {isSendingEmail ? '发送中...' : '发送'}
+                                {isSendingEmail ? t('email.sending') : t('common.buttons.send')}
                             </button>
                         </div>
                     </div>
@@ -2793,7 +2957,7 @@ const App = () => {
                                     fontSize: '0.95rem',
                                     fontWeight: '500'
                                 }}>
-                                    收件人邮箱 * <span style={{color: '#64748b', fontSize: '0.85rem', fontWeight: 'normal'}}>(可添加多个)</span>
+                                    {t('email.recipientsLabel')} * <span style={{color: '#64748b', fontSize: '0.85rem', fontWeight: 'normal'}}>{t('email.multipleHint')}</span>
                                 </label>
                                 
                                 {/* 收件人标签列表 */}
@@ -2853,7 +3017,7 @@ const App = () => {
                                         value={recipientInput}
                                         onChange={(e) => setRecipientInput(e.target.value)}
                                         onKeyPress={handleRecipientKeyPress}
-                                        placeholder="输入收件人邮箱，按回车添加"
+                                        placeholder={t('email.recipientsInputPlaceholder')}
                                         style={{
                                             flex: 1,
                                             padding: '12px',
@@ -2896,17 +3060,17 @@ const App = () => {
                                         onMouseLeave={(e) => {
                                             e.target.style.transform = 'translateY(0)';
                                             e.target.style.boxShadow = 'none';
-                                        }}
-                                    >
-                                        添加
-                                    </button>
+                                    }}
+                                >
+                                    {t('email.addButton')}
+                                </button>
                                 </div>
                                 <div style={{
                                     color: '#64748b',
                                     fontSize: '0.85rem',
                                     marginTop: '5px'
                                 }}>
-                                    已添加 {contactForm.recipients.length} 个收件人
+                                    {t('email.addedCount', { count: contactForm.recipients.length })}
                                 </div>
                             </div>
 

@@ -1,8 +1,6 @@
 #!/bin/bash
 
-# Echoflow 一键部署脚本
-
-
+# MeetAndNote 一键部署脚本
 
 echo "🚀 Echoflow 容器化部署脚本"
 echo "================================"
@@ -23,7 +21,7 @@ else
     exit 1
 fi
 
-echo "✅ 使用 Docker Compose 命令: $DOCKER_COMPOSE_CMD"
+echo "✅ 使用 Docker Compose 命令: $DOCKER_COMPOSE_CMD"Ï
 
 # 检查环境变量文件
 if [ ! -f ".env" ]; then

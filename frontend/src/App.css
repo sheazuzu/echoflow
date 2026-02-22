@@ -436,9 +436,11 @@ a:hover {
 /* ==================== 下载操作按钮 ==================== */
 .download-actions {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: var(--spacing-md);
   margin-bottom: var(--spacing-lg);
+  justify-content: center;
+  flex-wrap: wrap;
 }
 
 .download-btn {

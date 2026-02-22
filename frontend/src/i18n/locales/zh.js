@@ -188,9 +188,15 @@ export default {
   email: {
     title: '发送邮件',
     sendMinutes: '发送会议纪要',
+    sendMinutesToEmail: '发送会议纪要到邮箱',
     recipients: '收件人',
+    recipientsLabel: '收件人邮箱',
     recipientsPlaceholder: '输入邮箱地址，按回车添加',
+    recipientsInputPlaceholder: '输入收件人邮箱，按回车添加',
     addRecipient: '添加收件人',
+    addButton: '添加',
+    addedCount: '已添加 {count} 个收件人',
+    multipleHint: '(可添加多个)',
     cc: '抄送',
     bcc: '密送',
     subject: '主题',
@@ -206,6 +212,7 @@ export default {
     invalidEmail: '邮箱地址格式不正确',
     noRecipients: '请至少添加一个收件人',
     defaultSubject: '会议纪要 - {date}',
+    downloadAudio: '下载音频',
   },
 
   // 错误消息

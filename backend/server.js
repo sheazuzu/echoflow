@@ -158,6 +158,12 @@ app.post('/api/transcribe/stream', upload.single('audio'), async (req, res) => {
         const transcription = await openai.audio.transcriptions.create(transcriptionParams);
         const duration = ((Date.now() - startTime) / 1000).toFixed(2);
         
+        // 验证转录结果
+        if (!transcription || typeof transcription.text === 'undefined') {
+            logger('ERROR', `[${requestId}] ❌ Whisper API返回无效结果`);
+            throw new Error('Whisper API返回无效的转录结果');
+        }
+        
         // 清理临时文件
         fs.unlinkSync(tempFilePath);
         logger('TRANSCRIBE', `[${requestId}] 🗑️ 已清理临时文件`);
@@ -167,13 +173,17 @@ app.post('/api/transcribe/stream', upload.single('audio'), async (req, res) => {
             : transcription.text;
         logger('TRANSCRIBE', `[${requestId}] ✅ 转录完成: "${textPreview}", 耗时: ${duration}s`);
         
-        res.json({
+        // 构建响应对象
+        const responseData = {
             success: true,
-            text: transcription.text,
+            text: transcription.text || '',
             language: language,
             duration: parseFloat(duration),
             requestId
-        });
+        };
+        
+        logger('TRANSCRIBE', `[${requestId}] 📤 发送响应: ${JSON.stringify(responseData).substring(0, 100)}...`);
+        res.json(responseData);
         
     } catch (error) {
         logger('ERROR', `[${requestId}] ❌ 实时转录失败: ${error.message}`);
@@ -187,29 +197,41 @@ app.post('/api/transcribe/stream', upload.single('audio'), async (req, res) => {
             logger('ERROR', `[${requestId}] 错误代码: ${error.code}`);
         }
         
-        // 清理可能存在的临时文件
+        // 清理可能存在的临时文件（不影响错误响应）
         try {
             const tempFiles = fs.readdirSync(uploadDir).filter(f => f.startsWith('temp_'));
             tempFiles.forEach(f => {
                 const filePath = path.join(uploadDir, f);
-                const stats = fs.statSync(filePath);
-                // 删除超过5分钟的临时文件
-                if (Date.now() - stats.mtimeMs > 5 * 60 * 1000) {
-                    fs.unlinkSync(filePath);
-                    logger('TRANSCRIBE', `[${requestId}] 🗑️ 清理过期临时文件: ${f}`);
+                try {
+                    const stats = fs.statSync(filePath);
+                    // 删除超过5分钟的临时文件
+                    if (Date.now() - stats.mtimeMs > 5 * 60 * 1000) {
+                        fs.unlinkSync(filePath);
+                        logger('TRANSCRIBE', `[${requestId}] 🗑️ 清理过期临时文件: ${f}`);
+                    }
+                } catch (fileError) {
+                    // 忽略单个文件的错误
                 }
             });
         } catch (cleanupError) {
             logger('WARN', `[${requestId}] ⚠️ 清理临时文件失败: ${cleanupError.message}`);
         }
         
-        res.status(500).json({
+        // 构建错误响应
+        const errorResponse = {
             success: false,
             message: "转录失败",
-            error: error.message,
+            error: error.message || 'Unknown error',
             errorCode: error.code || 'UNKNOWN_ERROR',
             requestId
-        });
+        };
+        
+        logger('ERROR', `[${requestId}] 📤 发送错误响应: ${JSON.stringify(errorResponse)}`);
+        
+        // 确保返回JSON响应
+        if (!res.headersSent) {
+            res.status(500).json(errorResponse);
+        }
     }
 });
 
@@ -310,7 +332,8 @@ const uploadToCOS = (fileBuffer, fileName) => {
             return;
         }
         
-        const cosKey = `uploads/${fileName}`;
+        // 录音文件存储在单独的 audio-recordings 文件夹
+        const cosKey = `audio-recordings/${fileName}`;
         
         cos.putObject({
             Bucket: cosConfig.Bucket,
@@ -370,7 +393,8 @@ const uploadTranscriptToCOS = (transcriptText, fileName) => {
 // COS辅助函数：从COS下载文件到本地临时文件
 const downloadFromCOS = (cosKey) => {
     return new Promise((resolve, reject) => {
-        if (!cosKey.startsWith('uploads/')) {
+        // 判断是否为COS路径（audio-recordings/ 或 uploads/ 或 transcripts/）
+        if (!cosKey.startsWith('audio-recordings/') && !cosKey.startsWith('uploads/') && !cosKey.startsWith('transcripts/')) {
             // 如果是本地文件路径，直接返回
             resolve(cosKey);
             return;
@@ -749,7 +773,10 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
     const fileBuffer = req.file.buffer;
     const fileSizeMB = req.file.size / (1024 * 1024);
     
-    // 生成标准化文件名：YYYYMMDD_HHMMSS_原始文件名
+    // 获取会议主题（如果前端传递了）
+    const meetingTopic = req.body.meetingTopic || '';
+    
+    // 生成标准化文件名：YYYYMMDD_HHMMSS_会议主题_原始文件名
     const now = new Date();
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -759,14 +786,28 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
     const seconds = String(now.getSeconds()).padStart(2, '0');
     const timestamp = `${year}${month}${day}_${hours}${minutes}${seconds}`;
     
+    // 清理会议主题：移除特殊字符，限制长度
+    let cleanTopic = '';
+    if (meetingTopic) {
+        cleanTopic = meetingTopic
+            .replace(/[\\/:*?"<>|]/g, '_')  // 替换文件系统不允许的字符
+            .replace(/\s+/g, '_')            // 空格替换为下划线
+            .substring(0, 50);               // 限制主题长度为50字符
+        cleanTopic = '_' + cleanTopic;       // 添加分隔符
+    }
+    
     // 清理原始文件名：移除特殊字符
     const cleanFileName = req.file.originalname
         .replace(/[\\/:*?"<>|]/g, '_')  // 替换文件系统不允许的字符
         .replace(/\s+/g, '_');            // 空格替换为下划线
     
-    const fileId = `${timestamp}_${cleanFileName}`;
+    // 文件名格式：时间戳_会议主题_原始文件名
+    const fileId = `${timestamp}${cleanTopic}_${cleanFileName}`;
     
     logger('UPLOAD', `接收文件: ${req.file.originalname}`);
+    if (meetingTopic) {
+        logger('UPLOAD', `会议主题: ${meetingTopic}`);
+    }
     logger('UPLOAD', `标准化文件名: ${fileId}`);
     logger('UPLOAD', `文件大小: ${fileSizeMB.toFixed(2)}MB`);
 
@@ -970,7 +1011,8 @@ Please create meeting summary.
             progress: 100, 
             minutesData: aiResult,
             transcript: fullTranscript,
-            transcriptCosKey: transcriptCosKey // 存储转录结果的COS键
+            transcriptCosKey: transcriptCosKey, // 存储转录结果的COS键
+            cosKey: cosKey // 存储音频文件的COS键，用于下载
         });
         
         // 输出会议纪要简介到日志
@@ -989,20 +1031,10 @@ Please create meeting summary.
                 logger('CLEANUP', `本地临时文件已清理: ${localFilePath}`);
             }
             
-            // 清理COS中的音频文件（不保留音频文件）
-            if (cosKey.startsWith('uploads/')) {
-                cos.deleteObject({
-                    Bucket: cosConfig.Bucket,
-                    Region: cosConfig.Region,
-                    Key: cosKey
-                }, (err, data) => {
-                    if (err) {
-                        logger('COS_CLEANUP_ERROR', `删除COS音频文件失败: ${err.message}`);
-                    } else {
-                        logger('COS_CLEANUP_SUCCESS', `COS音频文件已删除: ${cosKey}`);
-                    }
-                });
-            }
+            // 保留COS中的音频文件供用户下载
+            // 注意：音频文件会保留在COS中，用户可以随时下载
+            // 如果需要自动清理，可以配置COS的生命周期规则
+            logger('COS_KEEP', `COS音频文件已保留供下载: ${cosKey}`);
             
             logger('CLEANUP', `文件处理流程完成，本地临时文件已清理，转录结果已存储在COS: ${transcriptCosKey}`);
             
@@ -1220,6 +1252,68 @@ app.get('/api/transcript/:fileId', async (req, res) => {
     } catch (error) {
         logger('ERROR', `获取转录结果失败: ${error.message}`);
         res.status(500).json({ message: "获取转录结果失败", error: error.message });
+    }
+});
+
+// 下载音频文件接口
+app.get('/api/audio/:fileId/download', async (req, res) => {
+    const fileId = req.params.fileId;
+    const status = processingStatus.get(fileId);
+    
+    logger('DOWNLOAD', `收到下载请求: ${fileId}`);
+    
+    if (!status) {
+        logger('DOWNLOAD', `文件处理状态未找到: ${fileId}`);
+        return res.status(404).json({ message: "文件未找到" });
+    }
+    
+    if (!status.cosKey) {
+        logger('DOWNLOAD', `文件COS键未找到: ${fileId}`);
+        return res.status(404).json({ message: "音频文件未找到" });
+    }
+    
+    try {
+        logger('DOWNLOAD', `开始从COS下载文件: ${status.cosKey}`);
+        
+        // 从COS下载文件到本地临时文件
+        const localFilePath = await downloadFromCOS(status.cosKey);
+        
+        logger('DOWNLOAD', `文件下载成功，准备发送: ${localFilePath}`);
+        
+        // 设置响应头
+        res.setHeader('Content-Type', 'audio/mpeg');
+        res.setHeader('Content-Disposition', `attachment; filename="${fileId}"`);
+        
+        // 创建读取流并发送文件
+        const fileStream = fs.createReadStream(localFilePath);
+        
+        fileStream.on('error', (error) => {
+            logger('ERROR', `文件流读取错误: ${error.message}`);
+            if (!res.headersSent) {
+                res.status(500).json({ message: "文件读取失败" });
+            }
+        });
+        
+        fileStream.on('end', () => {
+            logger('DOWNLOAD', `文件发送完成: ${fileId}`);
+            // 清理本地临时文件
+            try {
+                fs.unlinkSync(localFilePath);
+                logger('DOWNLOAD', `临时文件已清理: ${localFilePath}`);
+            } catch (cleanupError) {
+                logger('WARN', `清理临时文件失败: ${cleanupError.message}`);
+            }
+        });
+        
+        // 发送文件流
+        fileStream.pipe(res);
+        
+    } catch (error) {
+        logger('ERROR', `下载音频文件失败: ${error.message}`);
+        console.error(error);
+        if (!res.headersSent) {
+            res.status(500).json({ message: "下载失败", error: error.message });
+        }
     }
 });
 

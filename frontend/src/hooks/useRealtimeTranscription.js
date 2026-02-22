@@ -94,14 +94,38 @@ export const useRealtimeTranscription = (options = {}) => {
       console.log(`[${requestId}] 📥 收到响应: ${response.status} ${response.statusText}`);
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
+        let errorData = {};
+        try {
+          const responseText = await response.text();
+          if (responseText) {
+            errorData = JSON.parse(responseText);
+          }
+        } catch (parseError) {
+          console.error(`[${requestId}] ⚠️ 无法解析错误响应:`, parseError);
+        }
         const errorMsg = errorData.message || `转录请求失败: ${response.status}`;
         console.error(`[${requestId}] ❌ 请求失败:`, errorData);
         throw new Error(errorMsg);
       }
 
-      const result = await response.json();
-      console.log(`[${requestId}] 📄 解析响应:`, result);
+      // 先获取响应文本，再尝试解析JSON
+      const responseText = await response.text();
+      console.log(`[${requestId}] 📄 响应文本长度: ${responseText.length} 字节`);
+      
+      if (!responseText || responseText.trim() === '') {
+        console.error(`[${requestId}] ❌ 响应体为空`);
+        throw new Error('服务器返回空响应，请检查后端服务状态');
+      }
+
+      let result;
+      try {
+        result = JSON.parse(responseText);
+        console.log(`[${requestId}] 📄 解析响应:`, result);
+      } catch (parseError) {
+        console.error(`[${requestId}] ❌ JSON解析失败:`, parseError);
+        console.error(`[${requestId}] 响应内容:`, responseText.substring(0, 200));
+        throw new Error(`无法解析服务器响应: ${parseError.message}`);
+      }
       
       if (result.success && result.text) {
         // 过滤不相关的文本
