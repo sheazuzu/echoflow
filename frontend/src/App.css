@@ -147,6 +147,175 @@ a:hover {
   color: var(--color-primary-hover);
 }
 
+/* ==================== 处理状态下的logo动画 ==================== */
+.processing .logo {
+  animation: logoProcessingPulse 3s ease-in-out infinite;
+  transition: all 0.3s ease-in-out;
+}
+
+.processing .logo img {
+  animation: logoImageProcessing 3s ease-in-out infinite;
+  transition: all 0.3s ease-in-out;
+}
+
+.processing .logo span {
+  animation: logoTextProcessing 3s ease-in-out infinite;
+  transition: all 0.3s ease-in-out;
+}
+
+@keyframes logoProcessingPulse {
+  0%, 100% {
+    color: var(--color-primary);
+    transform: scale(1);
+  }
+  10% {
+    color: rgba(0, 102, 204, 0.95);
+    transform: scale(1.005);
+  }
+  20% {
+    color: rgba(0, 102, 204, 0.90);
+    transform: scale(1.010);
+  }
+  30% {
+    color: rgba(0, 102, 204, 0.85);
+    transform: scale(1.015);
+  }
+  40% {
+    color: rgba(0, 102, 204, 0.80);
+    transform: scale(1.020);
+  }
+  50% {
+    color: rgba(0, 102, 204, 0.75);
+    transform: scale(1.025);
+  }
+  60% {
+    color: rgba(0, 102, 204, 0.80);
+    transform: scale(1.020);
+  }
+  70% {
+    color: rgba(0, 102, 204, 0.85);
+    transform: scale(1.015);
+  }
+  80% {
+    color: rgba(0, 102, 204, 0.90);
+    transform: scale(1.010);
+  }
+  90% {
+    color: rgba(0, 102, 204, 0.95);
+    transform: scale(1.005);
+  }
+}
+
+@keyframes logoImageProcessing {
+  0%, 100% {
+    filter: brightness(1) saturate(1);
+    transform: scale(1);
+  }
+  10% {
+    filter: brightness(1.05) saturate(1.08);
+    transform: scale(1.008);
+  }
+  20% {
+    filter: brightness(1.10) saturate(1.16);
+    transform: scale(1.016);
+  }
+  30% {
+    filter: brightness(1.15) saturate(1.24);
+    transform: scale(1.024);
+  }
+  40% {
+    filter: brightness(1.20) saturate(1.32);
+    transform: scale(1.032);
+  }
+  50% {
+    filter: brightness(1.25) saturate(1.40);
+    transform: scale(1.040);
+  }
+  60% {
+    filter: brightness(1.20) saturate(1.32);
+    transform: scale(1.032);
+  }
+  70% {
+    filter: brightness(1.15) saturate(1.24);
+    transform: scale(1.024);
+  }
+  80% {
+    filter: brightness(1.10) saturate(1.16);
+    transform: scale(1.016);
+  }
+  90% {
+    filter: brightness(1.05) saturate(1.08);
+    transform: scale(1.008);
+  }
+}
+
+@keyframes logoTextProcessing {
+  0%, 100% {
+    color: var(--color-primary);
+    text-shadow: 0 0 0 rgba(0, 102, 204, 0);
+  }
+  10% {
+    color: rgba(0, 102, 204, 0.95);
+    text-shadow: 0 0 5px rgba(0, 102, 204, 0.1);
+  }
+  20% {
+    color: rgba(0, 102, 204, 0.90);
+    text-shadow: 0 0 10px rgba(0, 102, 204, 0.2);
+  }
+  30% {
+    color: rgba(0, 102, 204, 0.85);
+    text-shadow: 0 0 15px rgba(0, 102, 204, 0.3);
+  }
+  40% {
+    color: rgba(0, 102, 204, 0.80);
+    text-shadow: 0 0 20px rgba(0, 102, 204, 0.4);
+  }
+  50% {
+    color: rgba(0, 102, 204, 0.75);
+    text-shadow: 0 0 25px rgba(0, 102, 204, 0.5);
+  }
+  60% {
+    color: rgba(0, 102, 204, 0.80);
+    text-shadow: 0 0 20px rgba(0, 102, 204, 0.4);
+  }
+  70% {
+    color: rgba(0, 102, 204, 0.85);
+    text-shadow: 0 0 15px rgba(0, 102, 204, 0.3);
+  }
+  80% {
+    color: rgba(0, 102, 204, 0.90);
+    text-shadow: 0 0 10px rgba(0, 102, 204, 0.2);
+  }
+  90% {
+    color: rgba(0, 102, 204, 0.95);
+    text-shadow: 0 0 5px rgba(0, 102, 204, 0.1);
+  }
+}
+
+/* ==================== 平滑状态过渡 ==================== */
+.processing-status-transition {
+  transition: all 0.3s ease-in-out;
+}
+
+.processing-status-smooth {
+  animation: statusTransition 0.5s ease-in-out;
+}
+
+@keyframes statusTransition {
+  0% {
+    opacity: 0.8;
+    transform: scale(0.98);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 .partner-logo {
   display: flex;
   align-items: center;
@@ -833,19 +1002,80 @@ button.btn-reset:hover {
   border-style: solid;
   border-width: 3px;
   box-shadow: var(--shadow-medium);
+  transition: all 0.5s ease-in-out;
+  animation: processingGlow 3s ease-in-out infinite;
 }
 
 .upload-card.uploading .upload-icon-wrapper {
   background: rgba(0, 102, 204, 0.2);
-  animation: uploadPulse 1.5s ease-in-out infinite;
+  animation: uploadPulse 2s ease-in-out infinite;
+  transition: all 0.5s ease-in-out;
 }
 
 @keyframes uploadPulse {
   0%, 100% {
     transform: scale(1);
+    background: rgba(0, 102, 204, 0.2);
+  }
+  25% {
+    transform: scale(1.05);
+    background: rgba(0, 102, 204, 0.3);
   }
   50% {
     transform: scale(1.1);
+    background: rgba(0, 102, 204, 0.4);
+  }
+  75% {
+    transform: scale(1.05);
+    background: rgba(0, 102, 204, 0.3);
+  }
+}
+
+/* ==================== 处理状态平滑过渡动画 ==================== */
+@keyframes processingGlow {
+  0%, 100% {
+    border-color: var(--color-primary);
+    box-shadow: var(--shadow-medium);
+    background: rgba(0, 102, 204, 0.1);
+  }
+  25% {
+    border-color: rgba(0, 102, 204, 0.8);
+    box-shadow: 0 0 20px rgba(0, 102, 204, 0.3);
+    background: rgba(0, 102, 204, 0.15);
+  }
+  50% {
+    border-color: var(--color-primary);
+    box-shadow: var(--shadow-medium);
+    background: rgba(0, 102, 204, 0.1);
+  }
+  75% {
+    border-color: rgba(0, 102, 204, 0.8);
+    box-shadow: 0 0 20px rgba(0, 102, 204, 0.3);
+    background: rgba(0, 102, 204, 0.15);
+  }
+}
+
+/* ==================== 平滑状态过渡 ==================== */
+.processing-status-transition {
+  transition: all 0.3s ease-in-out;
+}
+
+.processing-status-smooth {
+  animation: statusTransition 0.5s ease-in-out;
+}
+
+@keyframes statusTransition {
+  0% {
+    opacity: 0.8;
+    transform: scale(0.98);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
   }
 }
 

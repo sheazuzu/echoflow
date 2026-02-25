@@ -936,8 +936,9 @@ async function processFile(fileId, cosKey, fileSizeMB) {
             fullTranscript = await transcribeChunk(localFilePath, fileId);
         }
 
-        processingStatus.set(fileId, { status: 'generating_summary', progress: 80 });
-        logger('LLM', `转录完成，正在生成 8 点结构化会议纪要...`);
+        // 保持处理状态连续性，避免logo动画中断
+        processingStatus.set(fileId, { status: 'transcribing', progress: 80 });
+        logger('LLM', `转录完成，准备生成 8 点结构化会议纪要...`);
 
         // 检查是否被取消
         if (processingStatus.get(fileId)?.status === 'cancelled') {
@@ -947,6 +948,9 @@ async function processFile(fileId, cosKey, fileSizeMB) {
 
         // 记录总结生成进程
         activeProcesses.set(fileId, { type: ProcessType.SUMMARY, startTime: new Date() });
+        
+        // 立即更新状态为generating_summary，确保前端感知到处理状态
+        processingStatus.set(fileId, { status: 'generating_summary', progress: 80 });
 
         // 2. 调用 LLM 生成总结 (Enhanced Prompt for Detailed Minutes)
         const systemPrompt = `You are a professional bilingual meeting assistant specializing in detailed meeting documentation.

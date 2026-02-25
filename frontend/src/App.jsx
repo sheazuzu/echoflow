@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Upload, FileAudio, CheckCircle, Clock, Download, Settings, Cpu, Loader2, RefreshCw, CloudUpload, Mic, Mail, Copy, Check, Github, MessageCircle, X } from 'lucide-react';
 import './App.css';
 import { useTranslation, useDocumentLanguage, getCurrentLanguage } from './i18n/index.js';
@@ -16,6 +17,7 @@ const App = () => {
     const { t } = useTranslation();
     useDocumentLanguage(); // 自动更新文档语言属性
     const currentLanguage = getCurrentLanguage(); // 获取当前语言
+    const navigate = useNavigate(); // 路由导航
     
     const [appState, setAppState] = useState('idle'); // idle, processing, completed
     const [minutesData, setMinutesData] = useState(null);
@@ -826,25 +828,183 @@ const App = () => {
             // 确保上传状态持续显示
             setIsUploading(true);
             
+            // 初始化平滑状态转换参数
+            let lastProgressUpdate = Date.now();
+            let targetProgress = 0;
+            let smoothProgress = 0;
+            
             window.progressInterval = setInterval(async () => {
                 try {
                     const response = await fetch(`/api/progress/${currentFileId}`);
                     if (response.ok) {
                         const progressData = await response.json();
+                        
+                        // 定义步骤顺序和对应的进度值
+                        const stepOrder = ['uploading', 'splitting', 'transcribing', 'generating_summary', 'completed'];
+                        const stepProgress = {
+                            'uploading': 20,
+                            'splitting': 40,
+                            'transcribing': 60,
+                            'generating_summary': 80,
+                            'completed': 100
+                        };
+                        
+                        const currentStepIndex = stepOrder.indexOf(processingStatus.status);
+                        const backendStepIndex = stepOrder.indexOf(progressData.status);
+                        
+                        // 优化状态转换逻辑：确保更平滑的过渡
+                        let nextStatus = processingStatus.status;
+                        let nextProgress = processingStatus.progress;
+                        
+                        // 连续状态转换逻辑 - 确保四个步骤动画不间断
+                        const now = Date.now();
+                        const timeDiff = now - lastProgressUpdate;
+                        
+                        if (backendStepIndex > currentStepIndex) {
+                            // 后端状态更靠后，采用连续推进策略
+                            if (currentStepIndex < stepOrder.length - 1) {
+                                // 计算目标状态和进度
+                                const targetStepIndex = Math.min(backendStepIndex, currentStepIndex + 1);
+                                nextStatus = stepOrder[targetStepIndex];
+                                targetProgress = stepProgress[nextStatus] || progressData.progress;
+                                
+                                console.log(`连续状态推进: ${processingStatus.status} -> ${nextStatus}`);
+                                
+                                // 连续进度更新：每200ms更新一次，确保动画不间断
+                                if (timeDiff > 200) {
+                                    // 更平滑的进度增量，确保动画连续性
+                                    const progressDiff = targetProgress - smoothProgress;
+                                    if (progressDiff > 0) {
+                                        // 使用更小的增量确保动画连续
+                                        smoothProgress += Math.min(progressDiff, 1.5); // 每次最多增加1.5%
+                                    }
+                                    
+                                    nextProgress = Math.max(processingStatus.progress, smoothProgress);
+                                    lastProgressUpdate = now;
+                                } else {
+                                    // 保持当前进度，确保动画连续性
+                                    nextProgress = processingStatus.progress;
+                                }
+                            }
+                        } else if (backendStepIndex === currentStepIndex) {
+                            // 状态相同，连续更新进度
+                            targetProgress = progressData.progress;
+                            
+                            // 更频繁的更新，确保动画连续性
+                            if (timeDiff > 150) {
+                                const progressDiff = targetProgress - smoothProgress;
+                                if (progressDiff > 0) {
+                                    // 更小的增量确保动画连续
+                                    smoothProgress += Math.min(progressDiff, 1); // 每次最多增加1%
+                                } else if (progressDiff < 0) {
+                                    // 如果进度倒退，也采用连续处理
+                                    smoothProgress += Math.max(progressDiff, -1); // 每次最多减少1%
+                                }
+                                
+                                nextProgress = smoothProgress;
+                                lastProgressUpdate = now;
+                            } else {
+                                nextProgress = processingStatus.progress;
+                            }
+                            
+                            nextStatus = progressData.status;
+                        } else {
+                            // 后端状态异常，采用连续过渡策略
+                            const statusDiff = currentStepIndex - backendStepIndex;
+                            if (statusDiff <= 2) {
+                                nextStatus = progressData.status;
+                                targetProgress = progressData.progress;
+                                
+                                // 连续过渡到目标进度
+                                if (timeDiff > 150) {
+                                    const progressDiff = targetProgress - smoothProgress;
+                                    if (Math.abs(progressDiff) > 0) {
+                                        smoothProgress += Math.sign(progressDiff) * Math.min(Math.abs(progressDiff), 1);
+                                    }
+                                    
+                                    nextProgress = smoothProgress;
+                                    lastProgressUpdate = now;
+                                } else {
+                                    nextProgress = processingStatus.progress;
+                                }
+                            } else {
+                                // 差异过大，但也要确保动画连续性
+                                nextStatus = progressData.status;
+                                nextProgress = progressData.progress;
+                                smoothProgress = nextProgress;
+                                targetProgress = nextProgress;
+                            }
+                        }
+                        
+                        // 确保进度值不会倒退
+                        if (nextProgress < processingStatus.progress) {
+                            nextProgress = processingStatus.progress;
+                        }
+                        
+                        // 确保进度值不会跳跃过大
+                        if (nextProgress > processingStatus.progress + 15) {
+                            nextProgress = processingStatus.progress + 15;
+                        }
+                        
+                        // 应用平滑状态过渡效果
+                        const processingElement = document.querySelector('.upload-card.uploading');
+                        const logoElement = document.querySelector('.logo');
+                        
+                        if (processingElement) {
+                            processingElement.classList.add('processing-status-transition');
+                            
+                            // 添加平滑动画类
+                            setTimeout(() => {
+                                processingElement.classList.add('processing-status-smooth');
+                                
+                                // 动画完成后移除动画类，保留过渡效果
+                                setTimeout(() => {
+                                    processingElement.classList.remove('processing-status-smooth');
+                                }, 500);
+                            }, 10);
+                        }
+                        
+                        // 为logo添加处理状态类，实现平滑颜色变化
+                        if (logoElement) {
+                            const headerElement = logoElement.closest('.header');
+                            if (headerElement) {
+                                // 基于处理状态而不是应用状态来管理processing类
+                                // 确保在处理过程中（包括所有中间状态）logo动画不会中断
+                                const isProcessing = nextStatus !== 'completed' && 
+                                                   nextStatus !== 'error' && 
+                                                   nextStatus !== 'cancelled' &&
+                                                   nextStatus !== 'idle';
+                                
+                                if (isProcessing) {
+                                    // 处理过程中，确保processing类持续存在
+                                    if (!headerElement.classList.contains('processing')) {
+                                        headerElement.classList.add('processing');
+                                        console.log('添加processing类到header元素，开始logo动画');
+                                    }
+                                } else {
+                                    // 处理完成或出错时，移除processing类
+                                    if (headerElement.classList.contains('processing')) {
+                                        headerElement.classList.remove('processing');
+                                        console.log('移除processing类从header元素，停止logo动画');
+                                    }
+                                }
+                            }
+                        }
+                        
                         setProcessingStatus({
-                            status: progressData.status,
-                            progress: progressData.progress,
+                            status: nextStatus,
+                            progress: nextProgress,
                             currentChunk: progressData.currentChunk,
                             totalChunks: progressData.totalChunks
                         });
                         
                         // 只有当处理完成或出错时才重置上传状态
-                        if (progressData.status === 'completed' || progressData.status === 'error' || progressData.status === 'cancelled') {
+                        if (nextStatus === 'completed' || nextStatus === 'error' || nextStatus === 'cancelled') {
                             setIsUploading(false);
                         }
                         
                         // 如果处理完成，更新应用状态并获取会议纪要数据
-                        if (progressData.status === 'completed') {
+                        if (nextStatus === 'completed') {
                             try {
                                 const minutesResponse = await fetch(`/api/minutes/${currentFileId}`);
                                 if (minutesResponse.ok) {
@@ -868,8 +1028,8 @@ const App = () => {
                                 clearInterval(window.progressInterval);
                                 window.progressInterval = null;
                             }
-                        } else if (progressData.status === 'error' || progressData.status === 'cancelled') {
-                            setErrorMsg(`处理${progressData.status === 'cancelled' ? '已取消' : '过程中出错'}: ${progressData.error || '未知错误'}`);
+                        } else if (nextStatus === 'error' || nextStatus === 'cancelled') {
+                            setErrorMsg(`处理${nextStatus === 'cancelled' ? '已取消' : '过程中出错'}: ${progressData.error || '未知错误'}`);
                             setAppState('idle');
                             setIsUploading(false); // 处理出错或取消，重置上传状态
                             if (window.progressInterval) {
@@ -877,22 +1037,11 @@ const App = () => {
                                 window.progressInterval = null;
                             }
                         }
-                        
-                        // 状态转换逻辑：当后端状态从uploading变为splitting时，保持uploading状态一段时间
-                        // 确保用户能看到完整的上传过程，避免状态闪断
-                        if (progressData.status === 'splitting' && processingStatus.status === 'uploading') {
-                            // 保持uploading状态，确保用户能看到完整的上传过程
-                            // 在下一次轮询时再更新为splitting状态
-                            setProcessingStatus({ status: 'uploading', progress: 20 });
-                        } else if (progressData.status === 'splitting' && processingStatus.status !== 'uploading') {
-                            // 当状态已经不是uploading时，正常更新为splitting状态
-                            setProcessingStatus({ status: 'splitting', progress: 30 });
-                        }
                     }
                 } catch (error) {
                     console.error('进度查询失败:', error);
                 }
-            }, 2000); // 每2秒查询一次进度
+            }, 1000); // 缩短轮询间隔到1秒，实现更平滑的更新
         }
         
         return () => {
@@ -902,7 +1051,7 @@ const App = () => {
                 window.progressInterval = null;
             }
         };
-    }, [appState, currentFileId]);
+    }, [appState, currentFileId, processingStatus.status]);
 
     // 监听录音停止后生成文件并上传
     // 注释掉自动上传逻辑，改为用户手动触发
@@ -1046,28 +1195,50 @@ const App = () => {
     };
 
     const resetApp = () => {
-        // 清理轮询interval
-        if (window.progressInterval) {
-            clearInterval(window.progressInterval);
-            window.progressInterval = null;
+        console.log('resetApp函数被调用');
+        
+        try {
+            // 清理轮询interval
+            if (window.progressInterval) {
+                clearInterval(window.progressInterval);
+                window.progressInterval = null;
+                console.log('清理了进度轮询interval');
+            }
+            
+            // 清理下载相关状态
+            setShowDownloadOption(false);
+            setDownloadBlob(null);
+            setDownloadFileName('');
+            setRecordingDuration(0);
+            setRecordingSize(0);
+            setAutoProcessCountdown(5);
+            setIsGeneratingAudio(false);
+            
+            setAppState('idle');
+            setMinutesData(null);
+            setTranscript('');
+            setErrorMsg('');
+            setProcessingStatus({ status: '', progress: 0 });
+            setCurrentFileId('');
+            setIsUploading(false); // 重置上传状态
+            
+            console.log('状态清理完成，准备导航回首页');
+            console.log('navigate函数类型:', typeof navigate);
+            
+            // 导航回首页
+            if (typeof navigate === 'function') {
+                navigate('/');
+                console.log('导航命令已执行');
+            } else {
+                console.error('navigate不是函数，可能是路由配置问题');
+                // 如果navigate不可用，尝试使用window.location刷新页面
+                window.location.href = '/';
+            }
+        } catch (error) {
+            console.error('resetApp函数执行出错:', error);
+            // 出错时也尝试刷新页面
+            window.location.href = '/';
         }
-        
-        // 清理下载相关状态
-        setShowDownloadOption(false);
-        setDownloadBlob(null);
-        setDownloadFileName('');
-        setRecordingDuration(0);
-        setRecordingSize(0);
-        setAutoProcessCountdown(5);
-        setIsGeneratingAudio(false);
-        
-        setAppState('idle');
-        setMinutesData(null);
-        setTranscript('');
-        setErrorMsg('');
-        setProcessingStatus({ status: '', progress: 0 });
-        setCurrentFileId('');
-        setIsUploading(false); // 重置上传状态
     };
 
     // Contact表单处理函数
@@ -1186,8 +1357,11 @@ const App = () => {
 
     // 获取进度状态描述
     const getStatusDescription = (status, progressData) => {
+        // 扩展状态映射，包含后端实际使用的所有状态名称
         const statusMap = {
             'uploading': currentLanguage === 'en' ? 'Uploading file...' : '上传文件中...',
+            'uploading_to_cos': currentLanguage === 'en' ? 'Uploading file...' : '上传文件中...',
+            'uploaded_to_cos': currentLanguage === 'en' ? 'Uploading file...' : '上传文件中...',
             'splitting': currentLanguage === 'en' ? 'Splitting audio file...' : '音频文件切割中...',
             'transcribing': progressData?.currentChunk && progressData?.totalChunks 
                 ? `${currentLanguage === 'en' ? 'Transcribing' : '语音转录中'}... (${progressData.currentChunk}/${progressData.totalChunks})`
@@ -2139,24 +2313,47 @@ const App = () => {
                                 
                                 // 计算步骤状态
                                 let stepState = 'pending'; // pending, active, completed
-                                const statusOrder = ['uploading', 'splitting', 'transcribing', 'generating_summary', 'completed'];
+                                // 扩展状态映射，包含后端实际使用的所有状态名称
+                                const statusOrder = ['uploading', 'uploading_to_cos', 'uploaded_to_cos', 'splitting', 'transcribing', 'generating_summary', 'completed'];
                                 const currentIndex = statusOrder.indexOf(currentStatus);
                                 const stepIndex = statusOrder.indexOf(step.id);
+                                
+                                // 如果状态不在标准列表中，根据状态名称进行智能映射
+                                let mappedCurrentIndex = currentIndex;
+                                if (currentIndex === -1) {
+                                    // 智能状态映射 - 精确匹配后端状态
+                                    if (currentStatus === 'uploading_to_cos' || currentStatus === 'uploaded_to_cos') {
+                                        mappedCurrentIndex = statusOrder.indexOf('uploading');
+                                    } else if (currentStatus.includes('split')) {
+                                        mappedCurrentIndex = statusOrder.indexOf('splitting');
+                                    } else if (currentStatus.includes('transcrib')) {
+                                        mappedCurrentIndex = statusOrder.indexOf('transcribing');
+                                    } else if (currentStatus.includes('generating') || currentStatus.includes('summary')) {
+                                        mappedCurrentIndex = statusOrder.indexOf('generating_summary');
+                                    } else {
+                                        mappedCurrentIndex = 0; // 默认到第一个步骤
+                                    }
+                                }
                                 
                                 if (currentStatus === 'completed') {
                                     stepState = 'completed';
                                 } else if (currentStatus === 'error') {
-                                    stepState = stepIndex <= currentIndex ? 'error' : 'pending';
+                                    stepState = stepIndex <= mappedCurrentIndex ? 'error' : 'pending';
                                 } else {
-                                    if (stepIndex < currentIndex) stepState = 'completed';
-                                    else if (stepIndex === currentIndex) stepState = 'active';
-                                    else stepState = 'pending';
+                                    // 优化状态判断逻辑，确保每个步骤都有足够的时间显示完成状态
+                                    if (stepIndex < mappedCurrentIndex) {
+                                        stepState = 'completed';
+                                    } else if (stepIndex === mappedCurrentIndex) {
+                                        stepState = 'active';
+                                    } else {
+                                        stepState = 'pending';
+                                    }
                                 }
+                                
+                                // 添加一个特殊的逻辑：当某个步骤完成后，确保它的动画效果持续一段时间
+                                // 避免步骤状态变化太快导致用户看不到完成效果
 
-                                // 特殊处理：如果直接跳过了 splitting (文件小)，当处于 transcribing 时，splitting 应显示完成
-                                if ((currentStatus === 'transcribing' || currentStatus === 'generating_summary') && step.id === 'splitting') {
-                                    stepState = 'completed';
-                                }
+                                // 不再需要特殊处理逻辑，因为新的状态更新逻辑已经确保步骤逐个完成
 
                                 return (
                                     <div key={step.id} className={`step-item ${stepState}`}>
@@ -2174,7 +2371,7 @@ const App = () => {
                                             {stepState === 'active' && (
                                                 <div className="step-indicator">
                                                     <span className="pulse-dot"></span>
-                                                    {getStatusDescription(step.id, processingStatus)}
+                                                    {getStatusDescription(processingStatus.status, processingStatus)}
                                                 </div>
                                             )}
                                         </div>
@@ -2340,7 +2537,12 @@ const App = () => {
                                 <span style={{fontSize:'1.1rem', fontWeight:'bold'}}>{t('minutes.completed')}</span>
                             </div>
                             <div>
-                                <button onClick={resetApp} className="btn-reset" style={{ marginRight: '15px' }}>
+                                <button onClick={() => {
+                                    console.log('新会议按钮被点击');
+                                    console.log('当前appState:', appState);
+                                    console.log('当前minutesData:', minutesData);
+                                    resetApp();
+                                }} className="btn-reset" style={{ marginRight: '15px' }}>
                                     <RefreshCw size={16} style={{marginRight:'5px', verticalAlign:'middle'}}/> {t('minutes.newMeeting')}
                                 </button>
                                 {currentFileId && (
@@ -2778,7 +2980,7 @@ const App = () => {
             {sendSuccess && (
                 <div style={{
                     position: 'fixed',
-                    top: '20px',
+                    top: '90px',
                     right: '20px',
                     backgroundColor: '#10b981',
                     color: 'white',
