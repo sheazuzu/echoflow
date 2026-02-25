@@ -71,7 +71,9 @@ const emailTransporter = emailService.createTransporter();
 const allowedOrigins = [
     'http://localhost:5173',  // 开发环境
     'https://localhost',       // 生产环境（Traefik 反向代理）
-    'http://localhost'         // 生产环境（HTTP）
+    'http://localhost',         // 生产环境（HTTP）
+    'https://echoflow.zhenyuxie.com',  // 生产域名
+    'https://meetandnote.com'  // 生产域名
 ];
 
 app.use(cors({
