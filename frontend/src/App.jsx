@@ -835,7 +835,7 @@ const App = () => {
             
             window.progressInterval = setInterval(async () => {
                 try {
-                    const response = await fetch(`/api/progress/${currentFileId}`);
+const response = await fetch(`/api/progress/${encodeURIComponent(currentFileId)}`);
                     if (response.ok) {
                         const progressData = await response.json();
                         
@@ -1006,7 +1006,7 @@ const App = () => {
                         // 如果处理完成，更新应用状态并获取会议纪要数据
                         if (nextStatus === 'completed') {
                             try {
-                                const minutesResponse = await fetch(`/api/minutes/${currentFileId}`);
+const minutesResponse = await fetch(`/api/minutes/${encodeURIComponent(currentFileId)}`);
                                 if (minutesResponse.ok) {
                                     const minutesResult = await minutesResponse.json();
                                     setMinutesData(minutesResult.minutesData);
@@ -2273,7 +2273,7 @@ const App = () => {
                                     // 发送取消请求到后端（不等待响应）
                                     if (fileIdToCancel) {
                                         console.log('📡 发送取消请求到后端，fileId:', fileIdToCancel);
-                                        fetch(`/api/cancel/${fileIdToCancel}`, { 
+fetch(`/api/cancel/${encodeURIComponent(fileIdToCancel)}`, {
                                             method: 'POST',
                                             headers: {
                                                 'Content-Type': 'application/json'
@@ -2562,7 +2562,7 @@ const App = () => {
                                                     console.log('录音文件下载成功:', downloadFileName);
                                                 } else {
                                                     // 否则从后端下载上传的文件
-                                                    const response = await fetch(`/api/audio/${currentFileId}/download`);
+const response = await fetch(`/api/audio/${encodeURIComponent(currentFileId)}/download`);
                                                     if (!response.ok) {
                                                         throw new Error('下载失败');
                                                     }
