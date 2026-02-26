@@ -162,7 +162,7 @@ app.post('/api/transcribe/stream', upload.single('audio'), async (req, res) => {
         
         // 验证转录结果
         if (!transcription || typeof transcription.text === 'undefined') {
-            logger('ERROR', `[${requestId}] ❌ Whisper API返回无效结果`);
+            logger('REALTIME_TRANSCRIBE_ERROR', `[${requestId}] Whisper API返回无效结果`);
             throw new Error('Whisper API返回无效的转录结果');
         }
         
@@ -188,15 +188,15 @@ app.post('/api/transcribe/stream', upload.single('audio'), async (req, res) => {
         res.json(responseData);
         
     } catch (error) {
-        logger('ERROR', `[${requestId}] ❌ 实时转录失败: ${error.message}`);
+        logger('REALTIME_TRANSCRIBE_ERROR', `[${requestId}] 实时转录失败: ${error.message}`);
         console.error(`[${requestId}] 详细错误信息:`, error);
         
         // 记录更详细的错误信息
         if (error.response) {
-            logger('ERROR', `[${requestId}] API 响应错误: ${JSON.stringify(error.response.data)}`);
+            logger('REALTIME_TRANSCRIBE_ERROR', `[${requestId}] API 响应错误: ${JSON.stringify(error.response.data)}`);
         }
         if (error.code) {
-            logger('ERROR', `[${requestId}] 错误代码: ${error.code}`);
+            logger('REALTIME_TRANSCRIBE_ERROR', `[${requestId}] 错误代码: ${error.code}`);
         }
         
         // 清理可能存在的临时文件（不影响错误响应）
@@ -216,7 +216,7 @@ app.post('/api/transcribe/stream', upload.single('audio'), async (req, res) => {
                 }
             });
         } catch (cleanupError) {
-            logger('WARN', `[${requestId}] ⚠️ 清理临时文件失败: ${cleanupError.message}`);
+            logger('REALTIME_TRANSCRIBE_WARN', `[${requestId}] 清理临时文件失败: ${cleanupError.message}`);
         }
         
         // 构建错误响应
@@ -228,7 +228,7 @@ app.post('/api/transcribe/stream', upload.single('audio'), async (req, res) => {
             requestId
         };
         
-        logger('ERROR', `[${requestId}] 📤 发送错误响应: ${JSON.stringify(errorResponse)}`);
+        logger('REALTIME_TRANSCRIBE_ERROR', `[${requestId}] 发送错误响应: ${JSON.stringify(errorResponse)}`);
         
         // 确保返回JSON响应
         if (!res.headersSent) {
@@ -242,7 +242,7 @@ app.post('/api/generate-meeting-summary', express.json(), async (req, res) => {
     const { transcript } = req.body;
 
     if (!transcript) {
-        logger('SUMMARY', '失败：未提供转录文字');
+        logger('SUMMARY_ERROR', '会议记录生成失败：未提供转录文字');
         return res.status(400).json({
             success: false,
             message: "未提供转录文字"
@@ -250,14 +250,15 @@ app.post('/api/generate-meeting-summary', express.json(), async (req, res) => {
     }
 
     if (transcript.length < 100) {
-        logger('SUMMARY', '失败：转录文字太短');
+        logger('SUMMARY_ERROR', `会议记录生成失败：转录文字太短(${transcript.length}字符，最少需要100字符)`);
         return res.status(400).json({
             success: false,
             message: "转录文字太短，无法生成有效的会议记录"
         });
     }
 
-    logger('SUMMARY', `开始生成会议记录，转录文字长度: ${transcript.length} 字符`);
+    logger('SUMMARY_API_START', `开始通过API生成会议记录，转录文字长度: ${transcript.length} 字符`);
+    logger('SUMMARY_API_DETAIL', `转录文本预览: ${transcript.substring(0, 150)}${transcript.length > 150 ? '...' : ''}`);
 
     try {
         const systemPrompt = `You are a professional bilingual meeting assistant specializing in detailed meeting documentation.
@@ -303,7 +304,8 @@ Output MUST be a valid JSON object with the following structure:
         const duration = ((Date.now() - startTime) / 1000).toFixed(2);
         const summary = JSON.parse(completion.choices[0].message.content);
 
-        logger('SUMMARY', `会议记录生成完成，耗时: ${duration}s`);
+        logger('SUMMARY_API_SUCCESS', `会议记录生成完成，耗时: ${duration}s`);
+        logger('SUMMARY_API_DETAIL', `结果大小: ${JSON.stringify(aiResult).length} 字符`);
 
         res.json({
             success: true,
@@ -312,7 +314,8 @@ Output MUST be a valid JSON object with the following structure:
         });
 
     } catch (error) {
-        logger('ERROR', `生成会议记录失败: ${error.message}`);
+        logger('SUMMARY_API_ERROR', `生成会议记录失败: ${error.message}`);
+        logger('SUMMARY_API_ERROR', `错误堆栈: ${error.stack}`);
         console.error(error);
 
         res.status(500).json({
@@ -326,16 +329,22 @@ Output MUST be a valid JSON object with the following structure:
 // COS辅助函数：上传文件到COS桶
 const uploadToCOS = (fileBuffer, fileName) => {
     return new Promise((resolve, reject) => {
+        const fileSizeMB = (fileBuffer.length / (1024 * 1024)).toFixed(2);
+        
         if (!cosConfig.SecretId || !cosConfig.SecretKey || !cosConfig.Bucket || !cosConfig.Endpoint) {
             // COS配置不完整，使用本地存储模式
+            logger('COS_INFO', `COS配置不完整，使用本地存储模式: ${fileName} (${fileSizeMB}MB)`);
             const localFilePath = path.join(uploadDir, fileName);
             fs.writeFileSync(localFilePath, fileBuffer);
+            logger('COS_SUCCESS', `文件已保存到本地: ${localFilePath}`);
             resolve(localFilePath);
             return;
         }
         
         // 录音文件存储在单独的 audio-recordings 文件夹
         const cosKey = `audio-recordings/${fileName}`;
+        
+        logger('COS_UPLOAD', `开始上传文件到COS: ${fileName} (${fileSizeMB}MB) -> ${cosKey}`);
         
         cos.putObject({
             Bucket: cosConfig.Bucket,
@@ -345,13 +354,15 @@ const uploadToCOS = (fileBuffer, fileName) => {
             ContentLength: fileBuffer.length
         }, (err, data) => {
             if (err) {
-                logger('COS_ERROR', `上传到COS失败: ${err.message}`);
+                logger('COS_ERROR', `上传到COS失败: ${err.message}，文件: ${fileName}`);
+                logger('COS_INFO', `回退到本地存储模式`);
                 // 上传失败时回退到本地存储
                 const localFilePath = path.join(uploadDir, fileName);
                 fs.writeFileSync(localFilePath, fileBuffer);
+                logger('COS_SUCCESS', `文件已保存到本地: ${localFilePath}`);
                 resolve(localFilePath);
             } else {
-                logger('COS_SUCCESS', `文件已上传到COS: ${cosKey}`);
+                logger('COS_SUCCESS', `文件已成功上传到COS: ${cosKey}，ETag: ${data.ETag}`);
                 resolve(cosKey); // 返回COS对象键
             }
         });
@@ -398,6 +409,7 @@ const downloadFromCOS = (cosKey) => {
         // 判断是否为COS路径（audio-recordings/ 或 uploads/ 或 transcripts/）
         if (!cosKey.startsWith('audio-recordings/') && !cosKey.startsWith('uploads/') && !cosKey.startsWith('transcripts/')) {
             // 如果是本地文件路径，直接返回
+            logger('COS_INFO', `检测到本地文件路径，直接返回: ${cosKey}`);
             resolve(cosKey);
             return;
         }
@@ -405,17 +417,22 @@ const downloadFromCOS = (cosKey) => {
         const fileName = path.basename(cosKey);
         const localFilePath = path.join(uploadDir, fileName);
         
+        logger('COS_DOWNLOAD', `开始从COS下载文件: ${cosKey} -> ${localFilePath}`);
+        
         cos.getObject({
             Bucket: cosConfig.Bucket,
             Region: cosConfig.Region,
             Key: cosKey
         }, (err, data) => {
             if (err) {
-                logger('COS_ERROR', `从COS下载失败: ${err.message}`);
+                logger('COS_ERROR', `从COS下载失败: ${err.message}，文件: ${cosKey}`);
+                logger('COS_ERROR', `错误详情: ${JSON.stringify(err)}`);
                 reject(err);
             } else {
+                const fileSizeMB = (data.Body.length / (1024 * 1024)).toFixed(2);
                 fs.writeFileSync(localFilePath, data.Body);
-                logger('COS_SUCCESS', `文件已从COS下载到: ${localFilePath}`);
+                logger('COS_SUCCESS', `文件已从COS下载完成: ${localFilePath} (${fileSizeMB}MB)`);
+                logger('COS_DEBUG', `下载详情: ETag=${data.ETag}, ContentLength=${data.ContentLength}`);
                 resolve(localFilePath);
             }
         });
@@ -425,9 +442,12 @@ const downloadFromCOS = (cosKey) => {
 // 辅助函数：获取音频文件时长（增强版，支持webm等格式）
 const getAudioDuration = (filePath) => {
     return new Promise((resolve, reject) => {
+        const fileName = path.basename(filePath);
+        logger('DURATION_START', `开始获取音频时长: ${fileName}`);
+        
         // 检查文件是否存在
         if (!fs.existsSync(filePath)) {
-            logger('ERROR', `文件不存在: ${filePath}`);
+            logger('DURATION_ERROR', `文件不存在，使用默认时长600秒: ${filePath}`);
             resolve(600); // 默认10分钟
             return;
         }
@@ -435,30 +455,32 @@ const getAudioDuration = (filePath) => {
         // 获取文件大小，用于估算时长
         const fileSizeBytes = fs.statSync(filePath).size;
         const fileSizeMB = fileSizeBytes / (1024 * 1024);
+        logger('DURATION_INFO', `文件大小: ${fileSizeMB.toFixed(2)}MB`);
         
         // 方案1: 使用 ffprobe
         ffmpeg.ffprobe(filePath, (err, metadata) => {
             if (err) {
-                logger('WARN', `ffprobe获取时长失败: ${err.message}`);
+                logger('DURATION_WARN', `方案1(ffprobe)获取时长失败: ${err.message}`);
+                logger('DURATION_INFO', `尝试方案2: 使用命令行ffprobe`);
                 
                 // 方案2: 使用命令行 ffprobe（对webm格式更可靠）
                 const { exec } = require('child_process');
                 exec(`ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${filePath}"`, 
                     (error, stdout, stderr) => {
-                        if (error || !stdout.trim()) {
-                            logger('WARN', `命令行ffprobe也失败，使用文件大小估算时长`);
+                    if (error || !stdout.trim()) {
+                            logger('DURATION_WARN', `方案2(命令行ffprobe)也失败，降级到方案3: 使用文件大小估算时长`);
                             // 方案3: 根据文件大小估算（假设平均码率 128kbps）
                             const estimatedDuration = Math.ceil((fileSizeMB * 8 * 1024) / 128);
-                            logger('INFO', `文件大小 ${fileSizeMB.toFixed(2)}MB，估算时长 ${Math.round(estimatedDuration/60)} 分钟`);
+                logger('DURATION_ESTIMATE_INFO', `文件大小 ${fileSizeMB.toFixed(2)}MB，估算时长 ${Math.round(estimatedDuration/60)} 分钟 (基于128kbps码率计算)`);
                             resolve(Math.max(estimatedDuration, 600)); // 至少10分钟
                         } else {
                             const duration = parseFloat(stdout.trim());
                             if (isNaN(duration) || duration <= 0) {
-                                logger('WARN', `解析时长失败，使用文件大小估算`);
+                                logger('DURATION_WARN', `解析时长失败(值: ${stdout.trim()})，使用文件大小估算`);
                                 const estimatedDuration = Math.ceil((fileSizeMB * 8 * 1024) / 128);
                                 resolve(Math.max(estimatedDuration, 600));
                             } else {
-                                logger('INFO', `成功获取文件时长: ${Math.round(duration/60)} 分钟`);
+                                logger('DURATION_SUCCESS', `方案2(命令行ffprobe)成功获取文件时长: ${Math.round(duration/60)} 分钟 (${duration.toFixed(1)}秒)`);
                                 resolve(duration);
                             }
                         }
@@ -470,12 +492,12 @@ const getAudioDuration = (filePath) => {
             // 成功获取元数据
             const duration = metadata?.format?.duration;
             if (!duration || isNaN(duration) || duration <= 0) {
-                logger('WARN', `元数据中时长无效: ${duration}，使用文件大小估算`);
+                logger('DURATION_WARN', `元数据中时长无效(值: ${duration})，使用文件大小估算`);
                 const estimatedDuration = Math.ceil((fileSizeMB * 8 * 1024) / 128);
-                logger('INFO', `文件大小 ${fileSizeMB.toFixed(2)}MB，估算时长 ${Math.round(estimatedDuration/60)} 分钟`);
+                logger('DURATION_ESTIMATE_INFO', `文件大小 ${fileSizeMB.toFixed(2)}MB，估算时长 ${Math.round(estimatedDuration/60)} 分钟`);
                 resolve(Math.max(estimatedDuration, 600));
             } else {
-                logger('INFO', `成功获取文件时长: ${Math.round(duration/60)} 分钟`);
+                logger('DURATION_SUCCESS', `方案1(ffprobe)成功获取文件时长: ${Math.round(duration/60)} 分钟 (${duration}s)`);
                 resolve(duration);
             }
         });
@@ -484,7 +506,9 @@ const getAudioDuration = (filePath) => {
 
 // 备选方案：使用原生FFmpeg命令行切割音频（更稳定）
 const splitAudioWithFFmpegCLI = async (filePath, segmentTime = 600, fileId = null) => {
-    logger('SPLIT', `使用FFmpeg CLI切割文件: ${path.basename(filePath)}，每段${Math.round(segmentTime/60)}分钟`);
+    const cliFileName = path.basename(filePath);
+    const cliFileSizeMB = (fs.statSync(filePath).size / (1024 * 1024)).toFixed(2);
+    logger('FFMPEG_CLI_START', `FFmpeg CLI切割开始: ${cliFileName} (${cliFileSizeMB}MB)，每段${Math.round(segmentTime/60)}分钟`);
     
     // 清理文件名
     const cleanBaseName = path.basename(filePath, path.extname(filePath))
@@ -510,7 +534,7 @@ const splitAudioWithFFmpegCLI = async (filePath, segmentTime = 600, fileId = nul
     
     // 使用原生FFmpeg命令行，根据格式选择适当的编码方式
     const command = `ffmpeg -i "${filePath}" -f segment -segment_time ${segmentTime} -c copy "${outputPattern}"`;
-    logger('DEBUG', `FFmpeg CLI命令: ${command}`);
+    logger('FFMPEG_CLI_CMD', `FFmpeg CLI命令: ${command}`);
     
     try {
         // 记录FFmpeg进程（使用child_process以便后续终止）
@@ -568,40 +592,51 @@ const splitAudioWithFFmpegCLI = async (filePath, segmentTime = 600, fileId = nul
                 if (stats.size > 1024) { // 文件大小大于1KB
                     validChunks.push(chunk);
                 } else {
-                    logger('WARN', `跳过太短的切片: ${path.basename(chunk)} (${stats.size} bytes)`);
+                    logger('FFMPEG_CLI_WARN', `跳过太短的切片: ${path.basename(chunk)} (${stats.size} bytes，小于1KB阈值)`);
                     await fs.promises.unlink(chunk); // 删除无效切片
                 }
             } catch (err) {
-                logger('WARN', `无法检查切片文件: ${path.basename(chunk)}`);
+                logger('FFMPEG_CLI_WARN', `无法检查切片文件状态: ${path.basename(chunk)}, 错误: ${err.message}`);
             }
         }
         
-        logger('SPLIT', `FFmpeg CLI切割完成，生成 ${allChunks.length} 个切片，有效切片: ${validChunks.length}`);
+        logger('FFMPEG_CLI_SUCCESS', `FFmpeg CLI切割完成: ${cliFileName}，生成 ${allChunks.length} 个切片，有效切片: ${validChunks.length}`);
+        validChunks.forEach((chunk, idx) => {
+            const chunkSize = (fs.statSync(chunk).size / (1024 * 1024)).toFixed(2);
+            logger('FFMPEG_CLI_DETAIL', `  切片 ${idx + 1}: ${path.basename(chunk)} (${chunkSize}MB)`);
+        });
         return validChunks;
     } catch (error) {
-        logger('ERROR', `FFmpeg CLI切割失败: ${error.message}`);
+        logger('FFMPEG_CLI_ERROR', `FFmpeg CLI切割失败: ${cliFileName}，错误: ${error.message}`);
         throw error;
     }
 };
 
 // 主音频切割函数，支持多种备选方案
 const splitAudio = async (filePath, segmentTime = 600, fileId = null) => {
-    logger('SPLIT', `开始切割文件: ${path.basename(filePath)}，每段${Math.round(segmentTime/60)}分钟`);
+    const fileName = path.basename(filePath);
+    const fileSizeMB = (fs.statSync(filePath).size / (1024 * 1024)).toFixed(2);
+    
+    logger('SPLIT_START', `开始音频切割: ${fileName} (${fileSizeMB}MB)，每段${Math.round(segmentTime/60)}分钟`);
     
     // 检查是否被取消
     if (fileId && processingStatus.get(fileId)?.status === 'cancelled') {
-        logger('CANCEL', `音频切割进程被取消，跳过文件: ${path.basename(filePath)}`);
+        logger('SPLIT_CANCEL', `音频切割进程被取消，跳过文件: ${fileName}`);
         throw new Error('用户取消了处理');
     }
     
     // 方案1：首先尝试使用FFmpeg CLI（最稳定）
     try {
-        return await splitAudioWithFFmpegCLI(filePath, segmentTime, fileId);
+        logger('SPLIT_METHOD', `使用方案1: FFmpeg CLI切割文件: ${fileName}`);
+        const result = await splitAudioWithFFmpegCLI(filePath, segmentTime, fileId);
+        logger('SPLIT_SUCCESS', `FFmpeg CLI切割完成: ${fileName} -> ${result.length}个有效切片`);
+        return result;
     } catch (error) {
-        logger('WARN', `FFmpeg CLI方案失败，尝试fluent-ffmpeg方案: ${error.message}`);
+        logger('SPLIT_WARN', `方案1(FFmpeg CLI)失败: ${error.message}，尝试方案2(fluent-ffmpeg)`);
     }
     
     // 方案2：回退到fluent-ffmpeg
+    logger('SPLIT_METHOD', `使用方案2: fluent-ffmpeg切割文件: ${fileName}`);
     return new Promise((resolve, reject) => {
         const cleanBaseName = path.basename(filePath, path.extname(filePath))
             .replace(/[\\s\\W]+/g, '_')
@@ -614,18 +649,22 @@ const splitAudio = async (filePath, segmentTime = 600, fileId = null) => {
         const outputPattern = path.join(splitDir, `${cleanBaseName}_%03d${outputExt}`);
         
         if (!fs.existsSync(filePath)) {
-            reject(new Error(`输入文件不存在: ${filePath}`));
+            const errorMsg = `输入文件不存在: ${filePath}`;
+            logger('SPLIT_ERROR', errorMsg);
+            reject(new Error(errorMsg));
             return;
         }
         
         try {
             fs.accessSync(filePath, fs.constants.R_OK);
         } catch (err) {
-            reject(new Error(`文件不可读或无权限: ${filePath}`));
+            const errorMsg = `文件不可读或无权限: ${filePath}`;
+            logger('SPLIT_ERROR', errorMsg);
+            reject(new Error(errorMsg));
             return;
         }
         
-        logger('DEBUG', `使用fluent-ffmpeg处理文件: ${filePath} -> ${outputPattern}`);
+        logger('SPLIT_DETAIL', `使用fluent-ffmpeg处理: ${filePath} -> ${outputPattern}`);
         
         const ffmpegProcess = ffmpeg(filePath)
             .outputOptions([
@@ -635,7 +674,7 @@ const splitAudio = async (filePath, segmentTime = 600, fileId = null) => {
             ])
             .output(outputPattern)
             .on('start', (commandLine) => {
-                logger('DEBUG', `fluent-ffmpeg命令: ${commandLine}`);
+                logger('SPLIT_DEBUG', `fluent-ffmpeg命令: ${commandLine}`);
                 
                 // 记录进程信息
                 if (fileId) {
@@ -671,15 +710,21 @@ const splitAudio = async (filePath, segmentTime = 600, fileId = null) => {
                             if (stats.size > 1024) { // 文件大小大于1KB
                                 validChunks.push(chunk);
                             } else {
-                                logger('WARN', `跳过太短的切片: ${path.basename(chunk)} (${stats.size} bytes)`);
+                            logger('FFMPEG_FLUENT_WARN', `跳过太短的切片: ${path.basename(chunk)} (${stats.size} bytes，小于1KB阈值)`);
                                 fs.unlinkSync(chunk); // 删除无效切片
                             }
                         } catch (err) {
-                            logger('WARN', `无法检查切片文件: ${path.basename(chunk)}`);
+                            logger('FFMPEG_FLUENT_WARN', `无法检查切片文件状态: ${path.basename(chunk)}, 错误: ${err.message}`);
                         }
                     }
                     
-                    logger('SPLIT', `fluent-ffmpeg切割完成，生成 ${allChunks.length} 个切片，有效切片: ${validChunks.length}`);
+                    logger('FFMPEG_FLUENT_SUCCESS', `fluent-ffmpeg切割完成，生成 ${allChunks.length} 个切片，有效切片: ${validChunks.length}`);
+                    validChunks.forEach((chunk, idx) => {
+                        try {
+                            const chunkSize = (fs.statSync(chunk).size / (1024 * 1024)).toFixed(2);
+                            logger('FFMPEG_FLUENT_DETAIL', `  切片 ${idx + 1}: ${path.basename(chunk)} (${chunkSize}MB)`);
+                        } catch (e) {}
+                    });
                     resolve(validChunks);
                 });
             })
@@ -689,7 +734,8 @@ const splitAudio = async (filePath, segmentTime = 600, fileId = null) => {
                     activeProcesses.delete(fileId);
                 }
                 
-                logger('ERROR', `fluent-ffmpeg切割失败: ${err.message}`);
+                logger('FFMPEG_FLUENT_ERROR', `fluent-ffmpeg切割失败: ${err.message}`);
+                logger('FFMPEG_FLUENT_ERROR', `错误详情: ${JSON.stringify(err)}`);
                 reject(err);
             })
             .run();
@@ -699,14 +745,14 @@ const splitAudio = async (filePath, segmentTime = 600, fileId = null) => {
             const checkCancelInterval = setInterval(() => {
                 if (processingStatus.get(fileId)?.status === 'cancelled') {
                     clearInterval(checkCancelInterval);
-                    logger('CANCEL', `检测到取消请求，终止fluent-ffmpeg进程: ${fileId}`);
+                    logger('FFMPEG_FLUENT_CANCEL', `检测到取消请求，终止fluent-ffmpeg进程: ${fileId}`);
                     
                     // 尝试终止ffmpeg进程
                     try {
                         ffmpegProcess.kill();
-                        logger('CANCEL', `已发送终止信号给fluent-ffmpeg进程: ${fileId}`);
+                        logger('FFMPEG_FLUENT_CANCEL', `已发送终止信号给fluent-ffmpeg进程: ${fileId}`);
                     } catch (err) {
-                        logger('WARN', `终止fluent-ffmpeg进程失败: ${err.message}`);
+                        logger('FFMPEG_FLUENT_ERROR', `终止fluent-ffmpeg进程失败: ${err.message}`);
                     }
                     
                     reject(new Error('用户取消了处理'));
@@ -720,15 +766,26 @@ const splitAudio = async (filePath, segmentTime = 600, fileId = null) => {
     });
 };
 
-// 辅助函数：调用 Whisper 转录
+// 辅助函数：调用 Whisper API 进行音频转录
 const transcribeChunk = async (filePath, fileId = null) => {
     const fileName = path.basename(filePath);
-    logger('WHISPER', `正在转录片段: ${fileName}...`);
+    const fileSizeMB = (fs.statSync(filePath).size / (1024 * 1024)).toFixed(2);
+    
+    logger('TRANSCRIBE_START', `开始转录音频片段: ${fileName} (${fileSizeMB}MB)`);
     
     // 首先检查文件是否存在
     if (!fs.existsSync(filePath)) {
         const errorMsg = `转录文件不存在: ${filePath}`;
-        logger('ERROR', errorMsg);
+        logger('TRANSCRIBE_ERROR', errorMsg);
+        throw new Error(errorMsg);
+    }
+    
+    // 检查文件是否可读
+    try {
+        fs.accessSync(filePath, fs.constants.R_OK);
+    } catch (err) {
+        const errorMsg = `转录文件不可读或无权限: ${filePath}`;
+        logger('TRANSCRIBE_ERROR', errorMsg);
         throw new Error(errorMsg);
     }
     
@@ -736,18 +793,38 @@ const transcribeChunk = async (filePath, fileId = null) => {
 
     // 检查是否被取消（如果提供了fileId）
     if (fileId && processingStatus.get(fileId)?.status === 'cancelled') {
-        logger('CANCEL', `转录进程被取消，跳过片段: ${fileName}`);
+        logger('TRANSCRIBE_CANCEL', `转录进程被取消，跳过片段: ${fileName}`);
         throw new Error('用户取消了处理');
     }
 
-    const transcription = await openai.audio.transcriptions.create({
-        file: fs.createReadStream(filePath),
-        model: "whisper-1",
-    });
+    logger('TRANSCRIBE_API', `调用OpenAI Whisper API转录: ${fileName}`);
+    
+    try {
+        const transcription = await openai.audio.transcriptions.create({
+            file: fs.createReadStream(filePath),
+            model: "whisper-1",
+        });
 
-    const duration = ((Date.now() - startTime) / 1000).toFixed(2);
-    logger('WHISPER', `片段 ${fileName} 转录完成，耗时 ${duration}s`);
-    return transcription.text;
+        const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+        const textLength = transcription.text.length;
+        
+        logger('TRANSCRIBE_SUCCESS', `音频片段转录完成: ${fileName}，耗时 ${duration}s，生成文本 ${textLength} 字符`);
+        logger('TRANSCRIBE_DETAIL', `转录结果预览: ${transcription.text.substring(0, 100)}${textLength > 100 ? '...' : ''}`);
+        
+        return transcription.text;
+    } catch (error) {
+        const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+        logger('TRANSCRIBE_ERROR', `Whisper API调用失败: ${fileName}，耗时 ${duration}s，错误: ${error.message}`);
+        
+        if (error.code) {
+            logger('TRANSCRIBE_ERROR', `错误代码: ${error.code}`);
+        }
+        if (error.status) {
+            logger('TRANSCRIBE_ERROR', `HTTP状态码: ${error.status}`);
+        }
+        
+        throw error;
+    }
 };
 
 // 处理进度状态存储（简单内存存储，生产环境建议使用Redis）
@@ -825,18 +902,21 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
 
     try {
         // 1. 上传文件到COS
-        logger('COS_UPLOAD', `开始上传文件到COS: ${fileId}`);
+        logger('PROCESS_START', `开始处理文件: ${fileId} (${fileSizeMB.toFixed(2)}MB)`);
+        logger('STEP_UPLOAD', `步骤1: 上传文件到COS存储`);
         processingStatus.set(fileId, { status: 'uploading_to_cos', progress: 10 });
         
         const cosKey = await uploadToCOS(fileBuffer, fileId);
         processingStatus.set(fileId, { status: 'uploaded_to_cos', progress: 30 });
         
         // 2. 开始处理文件
-        logger('PROCESS', `文件上传完成，开始处理: ${cosKey}`);
+        logger('STEP_PROCESS', `步骤2: 开始音频处理流程`);
+        logger('PROCESS_INFO', `文件已上传到COS: ${cosKey}`);
         await processFile(fileId, cosKey, fileSizeMB);
         
     } catch (error) {
-        logger('ERROR', `文件处理流程异常: ${error.message}`);
+        logger('PROCESS_ERROR', `文件处理流程异常: ${error.message}`);
+        logger('ERROR_DETAIL', `错误堆栈: ${error.stack}`);
         processingStatus.set(fileId, { status: 'error', progress: 0, error: error.message });
         console.error(error);
     }
@@ -849,6 +929,7 @@ async function processFile(fileId, cosKey, fileSizeMB) {
     
     try {
         // 1. 从COS下载文件到本地临时文件
+        logger('STEP_DOWNLOAD', `步骤3: 从COS下载文件到本地处理`);
         logger('COS_DOWNLOAD', `开始从COS下载文件: ${cosKey}`);
         processingStatus.set(fileId, { status: 'downloading_from_cos', progress: 40 });
         
@@ -858,17 +939,23 @@ async function processFile(fileId, cosKey, fileSizeMB) {
         // 检查文件是否存在
         if (!fs.existsSync(localFilePath)) {
             const errorMsg = `处理文件不存在: ${localFilePath}. 请检查文件是否成功下载。`;
-            logger('ERROR', errorMsg);
+            logger('FILE_ERROR', errorMsg);
             processingStatus.set(fileId, { status: 'error', progress: 0, error: errorMsg });
             throw new Error(errorMsg);
         }
+        
+        // 检查文件大小和可读性
+        const fileStats = fs.statSync(localFilePath);
+        const actualFileSizeMB = (fileStats.size / (1024 * 1024)).toFixed(2);
+        logger('FILE_INFO', `文件下载完成: ${localFilePath}，实际大小: ${actualFileSizeMB}MB`);
         
         let fullTranscript = "";
 
         // 1. 检查大小与处理音频
         if (fileSizeMB > 25) {
+            logger('STEP_SPLIT', `步骤4: 音频文件过大(${fileSizeMB.toFixed(2)}MB > 25MB)，启动切片流程`);
             processingStatus.set(fileId, { status: 'splitting', progress: 60 });
-            logger('PROCESS', `文件超过 25MB (${fileSizeMB.toFixed(2)}MB)，启动自动切片流程`);
+            logger('PROCESS_INFO', `文件超过 25MB (${fileSizeMB.toFixed(2)}MB)，启动自动切片流程`);
             
             // 动态计算切片时间：目标每个切片接近25MB但不超过
             const targetChunkSizeMB = 24; // 目标切片大小，留1MB缓冲
@@ -877,29 +964,30 @@ async function processFile(fileId, cosKey, fileSizeMB) {
             
             // 安全检查：确保时长有效
             if (!fileDuration || isNaN(fileDuration) || fileDuration <= 0) {
-                logger('WARN', `文件时长无效 (${fileDuration})，使用文件大小估算`);
+            logger('DURATION_WARN', `文件时长无效 (${fileDuration})，降级到文件大小估算`);
                 // 根据文件大小估算时长（假设平均码率 128kbps）
                 fileDuration = Math.ceil((fileSizeMB * 8 * 1024) / 128);
-                logger('INFO', `估算时长: ${Math.round(fileDuration/60)} 分钟`);
+                logger('DURATION_ESTIMATE', `估算时长: ${Math.round(fileDuration/60)} 分钟 (基于文件大小${fileSizeMB.toFixed(2)}MB)`);
             }
             
             let segmentTime = Math.ceil(fileDuration / estimatedChunkCount);
             
             // 安全检查：确保切片时间有效
             if (!segmentTime || isNaN(segmentTime) || segmentTime <= 0) {
-                logger('WARN', `切片时间无效 (${segmentTime})，使用默认值 600 秒`);
+                logger('SPLIT_WARN', `切片时间计算无效 (${segmentTime}秒)，降级到默认值 600 秒(10分钟)`);
                 segmentTime = 600; // 默认10分钟
             }
             
-            logger('PROCESS', `文件时长约${Math.round(fileDuration/60)}分钟，预计切成${estimatedChunkCount}个切片，每段${Math.round(segmentTime/60)}分钟`);
+            logger('SPLIT_DETAIL', `文件时长约${Math.round(fileDuration/60)}分钟，预计切成${estimatedChunkCount}个切片，每段${Math.round(segmentTime/60)}分钟`);
             
             // 记录切片进程
             activeProcesses.set(fileId, { type: ProcessType.SPLIT, startTime: new Date() });
             
             const chunks = await splitAudio(localFilePath, segmentTime, fileId);
 
+            logger('STEP_TRANSCRIBE', `步骤5: 开始转录音频内容`);
             processingStatus.set(fileId, { status: 'transcribing', progress: 70, currentChunk: 0, totalChunks: chunks.length });
-            logger('PROCESS', `开始并行处理 ${chunks.length} 个切片...`);
+            logger('TRANSCRIBE_START', `开始并行处理 ${chunks.length} 个音频切片...`);
             
             // 记录转录进程
             activeProcesses.set(fileId, { type: ProcessType.TRANSCRIBE, startTime: new Date(), totalChunks: chunks.length });
@@ -907,11 +995,11 @@ async function processFile(fileId, cosKey, fileSizeMB) {
             for (const [index, chunkPath] of chunks.entries()) {
                 const progress = 70 + Math.floor((index / chunks.length) * 20);
                 processingStatus.set(fileId, { status: 'transcribing', progress, currentChunk: index + 1, totalChunks: chunks.length });
-                logger('PROCESS', `处理进度: ${index + 1}/${chunks.length}`);
+                logger('TRANSCRIBE_PROGRESS', `转录进度: ${index + 1}/${chunks.length} (${progress}%)`);
                 
                 // 检查是否被取消
                 if (processingStatus.get(fileId)?.status === 'cancelled') {
-                    logger('CANCEL', `转录进程被取消，终止处理切片 ${index + 1}/${chunks.length}`);
+                    logger('TRANSCRIBE_CANCEL', `转录进程被取消，终止处理切片 ${index + 1}/${chunks.length}`);
                     fs.unlinkSync(chunkPath);
                     break;
                 }
@@ -919,17 +1007,19 @@ async function processFile(fileId, cosKey, fileSizeMB) {
                 const text = await transcribeChunk(chunkPath, fileId);
                 fullTranscript += text + " ";
                 fs.unlinkSync(chunkPath);
+                logger('TRANSCRIBE_CHUNK', `切片 ${index + 1}/${chunks.length} 转录完成，累计文本长度: ${fullTranscript.length} 字符`);
             }
         } else {
+            logger('STEP_TRANSCRIBE', `步骤5: 开始转录音频内容（小文件直接转录）`);
             processingStatus.set(fileId, { status: 'transcribing', progress: 70 });
-            logger('PROCESS', `文件小于 25MB，直接转录`);
+            logger('TRANSCRIBE_DIRECT', `文件小于 25MB (${fileSizeMB.toFixed(2)}MB)，直接转录，无需切片`);
             
             // 记录转录进程
             activeProcesses.set(fileId, { type: ProcessType.TRANSCRIBE, startTime: new Date(), totalChunks: 1 });
             
             // 检查是否被取消
             if (processingStatus.get(fileId)?.status === 'cancelled') {
-                logger('CANCEL', `转录进程被取消，跳过小文件转录`);
+                logger('TRANSCRIBE_CANCEL', `转录进程被取消，跳过小文件转录: ${fileId}`);
                 throw new Error('用户取消了处理');
             }
             
@@ -938,11 +1028,14 @@ async function processFile(fileId, cosKey, fileSizeMB) {
 
         // 保持处理状态连续性，避免logo动画中断
         processingStatus.set(fileId, { status: 'transcribing', progress: 80 });
-        logger('LLM', `转录完成，准备生成 8 点结构化会议纪要...`);
+        
+        logger('STEP_SUMMARY', `步骤6: 生成结构化会议纪要`);
+        const transcriptLength = fullTranscript.length;
+        logger('LLM_PREPARE', `转录完成，准备生成会议纪要，转录文本长度: ${transcriptLength} 字符`);
 
         // 检查是否被取消
         if (processingStatus.get(fileId)?.status === 'cancelled') {
-            logger('CANCEL', `总结生成进程被取消，跳过LLM调用`);
+            logger('LLM_CANCEL', `总结生成进程被取消，跳过LLM调用`);
             throw new Error('用户取消了处理');
         }
 
@@ -1007,7 +1100,10 @@ Please create meeting summary.
 
         const aiResult = JSON.parse(completion.choices[0].message.content);
         
+        logger('LLM_SUCCESS', `GPT总结生成完成，开始处理结果`);
+        
         // 3. 将转录结果上传到COS桶
+        logger('STEP_UPLOAD_TRANSCRIPT', `步骤7: 上传转录结果到COS存储`);
         logger('COS_UPLOAD', `开始上传转录结果到COS桶`);
         transcriptCosKey = await uploadTranscriptToCOS(fullTranscript, fileId);
         logger('COS_SUCCESS', `转录结果已存储到COS: ${transcriptCosKey}`);
@@ -1024,46 +1120,71 @@ Please create meeting summary.
         // 输出会议纪要简介到日志
         const chineseSummary = aiResult.chinese?.summary || "无摘要";
         const englishSummary = aiResult.english?.summary || "No summary";
-        logger('SUMMARY', `中文纪要摘要: ${chineseSummary.substring(0, 100)}...`);
-        logger('SUMMARY', `English Summary: ${englishSummary.substring(0, 100)}...`);
+        const chineseTitle = aiResult.chinese?.title || "无标题";
+        const englishTitle = aiResult.english?.title || "No title";
         
-        logger('LLM', `GPT 总结生成完毕`);
+        logger('SUMMARY_SUCCESS', `会议纪要生成完成`);
+        logger('SUMMARY_DETAIL', `中文标题: ${chineseTitle}`);
+
+        logger('PROCESS_COMPLETE', `文件处理流程全部完成: ${fileId}`);
 
         // 清理文件：只清理本地临时文件，保留COS中的转录结果
         try {
+            logger('STEP_CLEANUP', `步骤8: 清理本地临时文件`);
             // 清理本地临时文件
             if (localFilePath && fs.existsSync(localFilePath)) {
                 fs.unlinkSync(localFilePath);
-                logger('CLEANUP', `本地临时文件已清理: ${localFilePath}`);
+                logger('CLEANUP_SUCCESS', `本地临时文件已清理: ${localFilePath}`);
             }
             
             // 保留COS中的音频文件供用户下载
             // 注意：音频文件会保留在COS中，用户可以随时下载
             // 如果需要自动清理，可以配置COS的生命周期规则
             logger('COS_KEEP', `COS音频文件已保留供下载: ${cosKey}`);
+            logger('COS_KEEP', `COS转录结果已存储: ${transcriptCosKey}`);
             
-            logger('CLEANUP', `文件处理流程完成，本地临时文件已清理，转录结果已存储在COS: ${transcriptCosKey}`);
+            logger('CLEANUP_COMPLETE', `文件处理流程完成，本地临时文件已清理，转录结果已存储在COS`);
             
         } catch (cleanupError) {
-            logger('ERROR', `清理文件失败: ${cleanupError.message}`);
+            logger('CLEANUP_ERROR', `清理文件失败: ${cleanupError.message}`);
+            logger('ERROR_STACK', `清理错误堆栈: ${cleanupError.stack}`);
         }
 
     } catch (error) {
+        logger('PROCESS_FAILED', `文件处理流程失败: ${fileId}`);
+        logger('ERROR_DETAIL', `错误信息: ${error.message}`);
+        logger('ERROR_STACK', `错误堆栈: ${error.stack}`);
+        
         processingStatus.set(fileId, { status: 'error', progress: 0, error: error.message });
-        logger('ERROR', `处理流程异常: ${error.message}`);
-        console.error(error);
         
         // 异常情况下清理文件
         try {
+            logger('ERROR_CLEANUP', `开始异常情况下的文件清理`);
             if (localFilePath && fs.existsSync(localFilePath)) {
                 fs.unlinkSync(localFilePath);
-                logger('CLEANUP', `异常清理本地临时文件: ${localFilePath}`);
+                logger('ERROR_CLEANUP_SUCCESS', `异常情况下清理本地文件: ${localFilePath}`);
             }
+            
+            // 清理可能存在的临时切片文件
+            const splitDirFiles = fs.readdirSync(splitDir);
+            const relatedFiles = splitDirFiles.filter(file => file.includes(fileId));
+            if (relatedFiles.length > 0) {
+                relatedFiles.forEach(file => {
+                    const filePath = path.join(splitDir, file);
+                    fs.unlinkSync(filePath);
+                    logger('ERROR_CLEANUP_SUCCESS', `清理临时切片文件: ${filePath}`);
+                });
+            }
+            
+            logger('ERROR_CLEANUP_COMPLETE', `异常清理完成`);
         } catch (cleanupError) {
-            logger('ERROR', `异常清理文件失败: ${cleanupError.message}`);
+            logger('ERROR_CLEANUP_FAILED', `异常清理失败: ${cleanupError.message}`);
         }
     }
 }
+
+// 进度查询日志去重缓存：只在状态或进度变化时才打印日志
+const lastProgressLog = new Map();
 
 // 进度查询接口
 app.get('/api/progress/:fileId', (req, res) => {
@@ -1071,7 +1192,29 @@ app.get('/api/progress/:fileId', (req, res) => {
     const status = processingStatus.get(fileId);
     
     if (!status) {
+        logger('PROGRESS_QUERY', `进度查询失败: 文件ID ${fileId} 的状态未找到`);
         return res.status(404).json({ message: "文件处理状态未找到" });
+    }
+    
+    // 只在状态或进度发生变化时才打印日志，避免每秒轮询刷屏
+    const currentKey = `${status.status}_${status.progress}_${status.currentChunk || 0}`;
+    const lastKey = lastProgressLog.get(fileId);
+    if (currentKey !== lastKey) {
+        lastProgressLog.set(fileId, currentKey);
+        logger('PROGRESS_QUERY', `${fileId} -> 状态: ${status.status}, 进度: ${status.progress}%`);
+        
+        if (status.currentChunk && status.totalChunks) {
+            logger('PROGRESS_DETAIL', `转录进度: ${status.currentChunk}/${status.totalChunks} 个切片`);
+        }
+    }
+    
+    if (status.error) {
+        logger('PROGRESS_ERROR', `文件处理错误: ${status.error}`);
+    }
+    
+    // 处理完成或失败时清理缓存
+    if (status.status === 'completed' || status.status === 'error' || status.status === 'cancelled') {
+        lastProgressLog.delete(fileId);
     }
     
     res.json({
@@ -1088,12 +1231,12 @@ app.get('/api/progress/:fileId', (req, res) => {
 app.post('/api/cancel/:fileId', (req, res) => {
     const fileId = req.params.fileId;
     
-    logger('CANCEL', `收到取消请求，fileId: ${fileId}`);
+    logger('CANCEL_REQUEST', `收到取消处理请求，文件ID: ${fileId}`);
     
     const status = processingStatus.get(fileId);
     
     if (!status) {
-        logger('CANCEL', `文件处理状态未找到: ${fileId}`);
+        logger('CANCEL_ERROR', `取消失败: 文件处理状态未找到: ${fileId}`);
         return res.status(404).json({ 
             code: 404,
             message: "文件处理状态未找到",
@@ -1101,9 +1244,11 @@ app.post('/api/cancel/:fileId', (req, res) => {
         });
     }
     
+    logger('CANCEL_INFO', `当前处理状态: ${status.status}, 进度: ${status.progress}%`);
+    
     // 检查是否已经完成或已取消
     if (status.status === 'completed') {
-        logger('CANCEL', `文件处理已完成，无法取消: ${fileId}`);
+        logger('CANCEL_ERROR', `取消失败: 文件处理已完成，无法取消: ${fileId}`);
         return res.status(400).json({
             code: 400,
             message: "文件处理已完成，无法取消",
@@ -1112,7 +1257,7 @@ app.post('/api/cancel/:fileId', (req, res) => {
     }
     
     if (status.status === 'cancelled') {
-        logger('CANCEL', `文件处理已经被取消: ${fileId}`);
+        logger('CANCEL_INFO', `文件处理已经被取消: ${fileId}`);
         return res.json({
             code: 200,
             message: "文件处理已经被取消",
@@ -1128,36 +1273,40 @@ app.post('/api/cancel/:fileId', (req, res) => {
         cancelledAt: new Date().toISOString()
     });
     
-    logger('CANCEL', `已标记为取消状态: ${fileId}`);
+    logger('CANCEL_PROCESS', `已标记文件处理状态为取消: ${fileId}`);
     
     // 强制终止正在运行的进程
     const activeProcess = activeProcesses.get(fileId);
     if (activeProcess) {
-        logger('CANCEL', `发现活动进程: ${fileId}，类型: ${activeProcess.type}`);
+        logger('CANCEL_PROCESS_DETAIL', `发现活动进程需要终止: ${fileId}，进程类型: ${activeProcess.type}`);
+        logger('CANCEL_PROCESS_INFO', `进程启动时间: ${activeProcess.startTime}`);
         
         if (activeProcess.process && activeProcess.process.kill) {
             try {
+                logger('PROCESS_TERMINATE', `开始终止进程: ${fileId}, 进程类型: ${activeProcess.type}`);
+                
                 // 终止进程（FFmpeg等）
                 activeProcess.process.kill('SIGTERM');
-                logger('CANCEL', `已发送 SIGTERM 信号给进程: ${fileId}`);
+                logger('PROCESS_TERMINATE_SUCCESS', `已发送 SIGTERM 信号给进程: ${fileId}`);
                 
                 // 如果进程在2秒内没有终止，强制杀死
                 setTimeout(() => {
                     if (activeProcess.process && !activeProcess.process.killed) {
                         activeProcess.process.kill('SIGKILL');
-                        logger('CANCEL', `已发送 SIGKILL 信号强制终止进程: ${fileId}`);
+                        logger('PROCESS_TERMINATE_FORCE', `已发送 SIGKILL 信号强制终止进程: ${fileId}`);
                     }
                 }, 2000);
             } catch (killError) {
-                logger('CANCEL', `终止进程失败: ${fileId}, 错误: ${killError.message}`);
+                logger('PROCESS_TERMINATE_ERROR', `终止进程失败: ${fileId}, 错误: ${killError.message}`);
+                logger('PROCESS_TERMINATE_ERROR_DETAIL', `错误堆栈: ${killError.stack}`);
             }
         }
         
         // 清理进程跟踪
         activeProcesses.delete(fileId);
-        logger('CANCEL', `已清理进程跟踪: ${fileId}`);
+        logger('PROCESS_CLEANUP', `已清理进程跟踪: ${fileId}`);
     } else {
-        logger('CANCEL', `没有找到活动进程: ${fileId}`);
+        logger('PROCESS_INFO', `没有找到活动进程: ${fileId}`);
     }
     
     // 清理临时文件（可选，根据需要）
@@ -1169,17 +1318,17 @@ app.post('/api/cancel/:fileId', (req, res) => {
         if (fs.existsSync(chunksDir)) {
             fs.rm(chunksDir, { recursive: true, force: true }, (err) => {
                 if (err) {
-                    logger('CANCEL', `清理临时文件失败: ${fileId}, 错误: ${err.message}`);
+                logger('CANCEL_CLEANUP_ERROR', `清理临时文件失败: ${fileId}, 错误: ${err.message}`);
                 } else {
-                    logger('CANCEL', `已清理临时文件: ${fileId}`);
+                    logger('CANCEL_CLEANUP_SUCCESS', `已清理临时文件: ${fileId}`);
                 }
             });
         }
     } catch (cleanupError) {
-        logger('CANCEL', `清理文件时出错: ${fileId}, 错误: ${cleanupError.message}`);
+        logger('CANCEL_CLEANUP_ERROR', `清理文件时出错: ${fileId}, 错误: ${cleanupError.message}`);
     }
     
-    logger('CANCEL', `用户成功取消了文件处理: ${fileId}`);
+    logger('CANCEL_COMPLETE', `用户成功取消了文件处理: ${fileId}`);
     
     res.json({
         code: 200,
@@ -1194,18 +1343,24 @@ app.get('/api/minutes/:fileId', (req, res) => {
     const fileId = req.params.fileId;
     const status = processingStatus.get(fileId);
     
+    logger('MINUTES_QUERY', `收到会议纪要获取请求: ${fileId}`);
+    
     if (!status) {
+        logger('MINUTES_ERROR', `会议纪要获取失败: 文件处理状态未找到: ${fileId}`);
         return res.status(404).json({ message: "文件处理状态未找到" });
     }
     
     if (status.status !== 'completed') {
+        logger('MINUTES_WARN', `会议纪要获取失败: 文件处理尚未完成: ${fileId}, 当前状态: ${status.status}`);
         return res.status(400).json({ message: "文件处理尚未完成" });
     }
     
     if (!status.minutesData) {
+        logger('MINUTES_ERROR', `会议纪要获取失败: 纪要数据未找到: ${fileId}`);
         return res.status(404).json({ message: "会议纪要数据未找到" });
     }
     
+    logger('MINUTES_SUCCESS', `会议纪要获取成功: ${fileId}`);
     res.json({
         fileId,
         status: status.status,
@@ -1219,15 +1374,20 @@ app.get('/api/transcript/:fileId', async (req, res) => {
     const fileId = req.params.fileId;
     const status = processingStatus.get(fileId);
     
+    logger('TRANSCRIPT_QUERY', `收到转录结果获取请求: ${fileId}`);
+    
     if (!status) {
+        logger('TRANSCRIPT_ERROR', `转录结果获取失败: 文件处理状态未找到: ${fileId}`);
         return res.status(404).json({ message: "文件处理状态未找到" });
     }
     
     if (status.status !== 'completed') {
+        logger('TRANSCRIPT_WARN', `转录结果获取失败: 文件处理尚未完成: ${fileId}, 当前状态: ${status.status}`);
         return res.status(400).json({ message: "文件处理尚未完成" });
     }
     
     if (!status.transcriptCosKey) {
+        logger('TRANSCRIPT_ERROR', `转录结果获取失败: COS键未找到: ${fileId}`);
         return res.status(404).json({ message: "转录结果未找到" });
     }
     
@@ -1256,7 +1416,8 @@ app.get('/api/transcript/:fileId', async (req, res) => {
             });
         }
     } catch (error) {
-        logger('ERROR', `获取转录结果失败: ${error.message}`);
+        logger('TRANSCRIPT_ERROR', `获取转录结果失败: ${fileId}, 错误: ${error.message}`);
+        logger('TRANSCRIPT_ERROR', `错误堆栈: ${error.stack}`);
         res.status(500).json({ message: "获取转录结果失败", error: error.message });
     }
 });
@@ -1266,25 +1427,26 @@ app.get('/api/audio/:fileId/download', async (req, res) => {
     const fileId = req.params.fileId;
     const status = processingStatus.get(fileId);
     
-    logger('DOWNLOAD', `收到下载请求: ${fileId}`);
+    logger('DOWNLOAD_REQUEST', `收到音频文件下载请求: ${fileId}`);
     
     if (!status) {
-        logger('DOWNLOAD', `文件处理状态未找到: ${fileId}`);
+        logger('DOWNLOAD_ERROR', `下载失败: 文件处理状态未找到: ${fileId}`);
         return res.status(404).json({ message: "文件未找到" });
     }
     
     if (!status.cosKey) {
-        logger('DOWNLOAD', `文件COS键未找到: ${fileId}`);
+        logger('DOWNLOAD_ERROR', `下载失败: COS键未找到: ${fileId}`);
         return res.status(404).json({ message: "音频文件未找到" });
     }
     
     try {
-        logger('DOWNLOAD', `开始从COS下载文件: ${status.cosKey}`);
+        logger('DOWNLOAD_COS', `开始从COS下载音频文件: ${status.cosKey}`);
         
         // 从COS下载文件到本地临时文件
         const localFilePath = await downloadFromCOS(status.cosKey);
         
-        logger('DOWNLOAD', `文件下载成功，准备发送: ${localFilePath}`);
+        const downloadFileSize = (fs.statSync(localFilePath).size / (1024 * 1024)).toFixed(2);
+        logger('DOWNLOAD_READY', `文件下载成功(${downloadFileSize}MB)，准备发送给客户端: ${localFilePath}`);
         
         // 设置响应头
         res.setHeader('Content-Type', 'audio/mpeg');
@@ -1294,20 +1456,20 @@ app.get('/api/audio/:fileId/download', async (req, res) => {
         const fileStream = fs.createReadStream(localFilePath);
         
         fileStream.on('error', (error) => {
-            logger('ERROR', `文件流读取错误: ${error.message}`);
+            logger('DOWNLOAD_ERROR', `文件流读取错误: ${fileId}, 错误: ${error.message}`);
             if (!res.headersSent) {
                 res.status(500).json({ message: "文件读取失败" });
             }
         });
         
         fileStream.on('end', () => {
-            logger('DOWNLOAD', `文件发送完成: ${fileId}`);
+            logger('DOWNLOAD_SUCCESS', `音频文件发送完成: ${fileId}`);
             // 清理本地临时文件
             try {
                 fs.unlinkSync(localFilePath);
-                logger('DOWNLOAD', `临时文件已清理: ${localFilePath}`);
+                logger('DOWNLOAD_CLEANUP', `下载临时文件已清理: ${localFilePath}`);
             } catch (cleanupError) {
-                logger('WARN', `清理临时文件失败: ${cleanupError.message}`);
+                logger('DOWNLOAD_CLEANUP_ERROR', `清理下载临时文件失败: ${cleanupError.message}`);
             }
         });
         
@@ -1315,8 +1477,8 @@ app.get('/api/audio/:fileId/download', async (req, res) => {
         fileStream.pipe(res);
         
     } catch (error) {
-        logger('ERROR', `下载音频文件失败: ${error.message}`);
-        console.error(error);
+        logger('DOWNLOAD_ERROR', `下载音频文件失败: ${fileId}, 错误: ${error.message}`);
+        logger('DOWNLOAD_ERROR', `错误堆栈: ${error.stack}`);
         if (!res.headersSent) {
             res.status(500).json({ message: "下载失败", error: error.message });
         }
@@ -1383,8 +1545,8 @@ app.post('/api/send-email', async (req, res) => {
         // 检查邮件传输器是否可用
         if (!emailTransporter) {
             const maskedUser = process.env.SMTP_USER ? process.env.SMTP_USER.replace(/(.{3}).*(@.*)/, '$1***$2') : '未设置';
-            logger('ERROR', `❌ SMTP邮件服务未配置`);
-            logger('ERROR', `配置检查: HOST=${process.env.SMTP_HOST || '未设置'}, PORT=${process.env.SMTP_PORT || 587}, USER=${maskedUser}, PASS=${process.env.SMTP_PASS ? '已设置' : '未设置'}`);
+            logger('EMAIL_CONFIG_ERROR', `SMTP邮件服务未配置，无法发送会议纪要`);
+            logger('EMAIL_CONFIG_ERROR', `配置检查: HOST=${process.env.SMTP_HOST || '未设置'}, PORT=${process.env.SMTP_PORT || 587}, USER=${maskedUser}, PASS=${process.env.SMTP_PASS ? '已设置' : '未设置'}`);
             return res.status(500).json({ 
                 success: false, 
                 message: 'SMTP邮件服务未配置，请联系管理员配置邮件服务器' 
@@ -1413,12 +1575,12 @@ app.post('/api/send-email', async (req, res) => {
                     sendResults.push({ email: recipientEmail, success: true });
                     successCount++;
                 } else {
-                    logger('ERROR', `❌ 发送失败 - 收件人: ${recipientEmail}, 错误: ${result.error}`);
+                    logger('EMAIL_SEND_ERROR', `发送失败 - 收件人: ${recipientEmail}, 错误: ${result.error}`);
                     sendResults.push({ email: recipientEmail, success: false, error: result.error });
                     failCount++;
                 }
             } catch (error) {
-                logger('ERROR', `❌ 发送异常 - 收件人: ${recipientEmail}, 异常: ${error.message}`);
+                logger('EMAIL_SEND_ERROR', `发送异常 - 收件人: ${recipientEmail}, 异常: ${error.message}`);
                 sendResults.push({ email: recipientEmail, success: false, error: error.message });
                 failCount++;
             }
@@ -1451,9 +1613,9 @@ app.post('/api/send-email', async (req, res) => {
             });
         }
     } catch (error) {
-        logger('ERROR', `❌ 邮件发送异常 - 会议ID: ${fileId}`);
-        logger('ERROR', `异常信息: ${error.message}`);
-        logger('ERROR', `异常堆栈: ${error.stack}`);
+        logger('EMAIL_EXCEPTION', `邮件发送异常 - 会议ID: ${fileId}`);
+        logger('EMAIL_EXCEPTION', `异常信息: ${error.message}`);
+        logger('EMAIL_EXCEPTION', `异常堆栈: ${error.stack}`);
         res.status(500).json({ 
             success: false,
             message: '邮件发送过程中发生异常，请稍后重试' 
@@ -1518,7 +1680,7 @@ app.post('/api/send-feedback', async (req, res) => {
     try {
         // 检查邮件传输器是否可用
         if (!emailTransporter) {
-            logger('ERROR', `❌ SMTP邮件服务未配置，无法发送反馈`);
+            logger('FEEDBACK_CONFIG_ERROR', `SMTP邮件服务未配置，无法发送反馈邮件`);
             return res.status(500).json({ 
                 success: false, 
                 message: 'SMTP邮件服务未配置，请联系管理员' 
@@ -1654,8 +1816,8 @@ ${message}
                 logger('EMAIL', `✅ 反馈邮件发送成功 - 收件人: ${recipientEmail}, MessageID: ${result.messageId}`);
             } else {
                 failCount++;
-                logger('ERROR', `❌ 反馈邮件发送失败 - 收件人: ${recipientEmail}`);
-                logger('ERROR', `错误详情: ${result.error} (代码: ${result.code || '无'})`);
+                logger('FEEDBACK_SEND_ERROR', `反馈邮件发送失败 - 收件人: ${recipientEmail}`);
+                logger('FEEDBACK_SEND_ERROR', `错误详情: ${result.error} (代码: ${result.code || '无'})`);
             }
         }
         
@@ -1691,9 +1853,9 @@ ${message}
             });
         }
     } catch (error) {
-        logger('ERROR', `❌ 反馈邮件发送异常`);
-        logger('ERROR', `异常信息: ${error.message}`);
-        logger('ERROR', `异常堆栈: ${error.stack}`);
+        logger('FEEDBACK_EXCEPTION', `反馈邮件发送异常`);
+        logger('FEEDBACK_EXCEPTION', `异常信息: ${error.message}`);
+        logger('FEEDBACK_EXCEPTION', `异常堆栈: ${error.stack}`);
         res.status(500).json({ 
             success: false,
             message: '发送过程中发生异常，请稍后重试' 
@@ -1775,7 +1937,7 @@ app.listen(PORT, async () => {
     if (smtpTestResult.success) {
         logger('SYSTEM', `✓ ${smtpTestResult.message}`);
     } else {
-        logger('ERROR', `✗ ${smtpTestResult.message}`);
-        logger('ERROR', '邮件发送功能将不可用，请检查.env文件中的SMTP配置');
+        logger('SMTP_ERROR', `✗ ${smtpTestResult.message}`);
+        logger('SMTP_ERROR', '邮件发送功能将不可用，请检查.env文件中的SMTP配置');
     }
 });
