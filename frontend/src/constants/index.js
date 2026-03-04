@@ -50,8 +50,8 @@ export const AUDIO_FORMAT_LABELS = {
 
 // ==================== 文件大小限制 ====================
 export const FILE_SIZE_LIMITS = {
-  MAX_FILE_SIZE: 100 * 1024 * 1024,  // 100MB
-  MAX_RECORDING_SIZE: 50 * 1024 * 1024, // 50MB
+  MAX_FILE_SIZE: 500 * 1024 * 1024,  // 500MB
+  MAX_RECORDING_SIZE: 500 * 1024 * 1024, // 500MB
 };
 
 // ==================== 录音配置 ====================
@@ -59,7 +59,7 @@ export const RECORDING_CONFIG = {
   SAMPLE_RATE: 44100,             // 采样率
   CHANNELS: 1,                    // 单声道
   BITS_PER_SAMPLE: 16,            // 位深度
-  MAX_DURATION: 3600,             // 最大录音时长（秒）
+  MAX_DURATION: 7200,             // 最大录音时长（秒）= 2小时
 };
 
 // ==================== 通知类型 ====================

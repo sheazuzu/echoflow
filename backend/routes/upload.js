@@ -21,7 +21,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
         return res.status(400).json({ message: "未上传文件" });
     }
 
-    const fileBuffer = req.file.buffer;
+    const tmpFilePath = req.file.path;  // diskStorage 保存的临时文件路径
     const fileSizeMB = req.file.size / (1024 * 1024);
     
     // 获取会议主题（如果前端传递了）
@@ -77,13 +77,22 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     processManager.setStatus(fileId, { status: 'uploading_to_cos', progress: 5 });
 
     try {
-        // 1. 上传文件到COS
+        // 1. 上传文件到COS（从磁盘文件读取buffer）
         logger('PROCESS_START', `开始处理文件: ${fileId} (${fileSizeMB.toFixed(2)}MB)`);
         logger('STEP_UPLOAD', `步骤1: 上传文件到COS存储`);
         processManager.setStatus(fileId, { status: 'uploading_to_cos', progress: 10 });
         
+        const fileBuffer = fs.readFileSync(tmpFilePath);
         const cosKey = await cosService.uploadToCOS(fileBuffer, fileId);
         processManager.setStatus(fileId, { status: 'uploaded_to_cos', progress: 30 });
+        
+        // 上传COS后删除multer临时文件，释放磁盘空间
+        try {
+            fs.unlinkSync(tmpFilePath);
+            logger('CLEANUP_TMP', `已清理multer临时上传文件: ${tmpFilePath}`);
+        } catch (tmpErr) {
+            logger('CLEANUP_WARN', `清理multer临时文件失败: ${tmpErr.message}`);
+        }
         
         // 2. 开始处理文件
         logger('STEP_PROCESS', `步骤2: 开始音频处理流程`);
@@ -95,6 +104,16 @@ router.post('/upload', upload.single('file'), async (req, res) => {
         logger('ERROR_DETAIL', `错误堆栈: ${error.stack}`);
         processManager.setStatus(fileId, { status: 'error', progress: 0, error: error.message });
         console.error(error);
+        
+        // 异常时清理multer临时上传文件（如果还未被清理）
+        try {
+            if (tmpFilePath && fs.existsSync(tmpFilePath)) {
+                fs.unlinkSync(tmpFilePath);
+                logger('ERROR_CLEANUP_TMP', `异常清理multer临时文件: ${tmpFilePath}`);
+            }
+        } catch (cleanupErr) {
+            logger('CLEANUP_WARN', `异常清理multer临时文件失败: ${cleanupErr.message}`);
+        }
     }
 });
 

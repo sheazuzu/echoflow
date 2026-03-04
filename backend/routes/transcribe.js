@@ -29,22 +29,17 @@ router.post('/transcribe/stream', upload.single('audio'), async (req, res) => {
         });
     }
 
-    const audioBuffer = req.file.buffer;
+    // diskStorage模式下，文件已保存到磁盘，直接使用文件路径
+    const tmpFilePath = req.file.path;
     const audioSize = (req.file.size / 1024).toFixed(2); // KB
     const language = req.body.language || 'auto'; // 支持语言参数
     
-    logger('TRANSCRIBE', `[${requestId}] 📥 接收音频段: ${audioSize}KB, 语言: ${language}, MIME类型: ${req.file.mimetype}`);
+    logger('TRANSCRIBE', `[${requestId}] 📥 接收音频段: ${audioSize}KB, 语言: ${language}, MIME类型: ${req.file.mimetype}, 临时文件: ${req.file.filename}`);
 
     try {
-        // 将音频buffer写入临时文件
-        const tempFileName = `temp_${Date.now()}_${Math.random().toString(36).substring(7)}.webm`;
-        const tempFilePath = path.join(uploadDir, tempFileName);
-        
-        logger('TRANSCRIBE', `[${requestId}] 💾 写入临时文件: ${tempFileName}`);
-        
         logger('TRANSCRIBE', `[${requestId}] 🔄 调用 Whisper API...`);
         
-        const result = await openaiService.transcribeStream(audioBuffer, language, tempFilePath);
+        const result = await openaiService.transcribeStream(null, language, tmpFilePath, true);
         
         const textPreview = result.text.length > 50 
             ? result.text.substring(0, 50) + '...' 
@@ -76,22 +71,12 @@ router.post('/transcribe/stream', upload.single('audio'), async (req, res) => {
             logger('REALTIME_TRANSCRIBE_ERROR', `[${requestId}] 错误代码: ${error.code}`);
         }
         
-        // 清理可能存在的临时文件（不影响错误响应）
+        // 清理multer临时文件（不影响错误响应）
         try {
-            const tempFiles = fs.readdirSync(uploadDir).filter(f => f.startsWith('temp_'));
-            tempFiles.forEach(f => {
-                const filePath = path.join(uploadDir, f);
-                try {
-                    const stats = fs.statSync(filePath);
-                    // 删除超过5分钟的临时文件
-                    if (Date.now() - stats.mtimeMs > 5 * 60 * 1000) {
-                        fs.unlinkSync(filePath);
-                        logger('TRANSCRIBE', `[${requestId}] 🗑️ 清理过期临时文件: ${f}`);
-                    }
-                } catch (fileError) {
-                    // 忽略单个文件的错误
-                }
-            });
+            if (tmpFilePath && fs.existsSync(tmpFilePath)) {
+                fs.unlinkSync(tmpFilePath);
+                logger('TRANSCRIBE', `[${requestId}] 🗑️ 清理临时文件: ${path.basename(tmpFilePath)}`);
+            }
         } catch (cleanupError) {
             logger('REALTIME_TRANSCRIBE_WARN', `[${requestId}] 清理临时文件失败: ${cleanupError.message}`);
         }

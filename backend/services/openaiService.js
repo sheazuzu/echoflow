@@ -83,14 +83,17 @@ const transcribeChunk = async (filePath, fileId = null) => {
 
 /**
  * 实时转录音频流（实时转录路由用）
- * @param {Buffer} audioBuffer - 音频数据
+ * @param {Buffer|null} audioBuffer - 音频数据（fileExists为true时可为null）
  * @param {string} language - 语言参数（'auto' 或具体语言代码）
  * @param {string} tempFilePath - 临时文件路径
+ * @param {boolean} fileExists - 文件是否已存在于磁盘（diskStorage模式）
  * @returns {Promise<object>} 转录结果 { text, duration }
  */
-const transcribeStream = async (audioBuffer, language, tempFilePath) => {
-    // 将音频buffer写入临时文件
-    fs.writeFileSync(tempFilePath, audioBuffer);
+const transcribeStream = async (audioBuffer, language, tempFilePath, fileExists = false) => {
+    // 如果文件不在磁盘上，将buffer写入临时文件
+    if (!fileExists && audioBuffer) {
+        fs.writeFileSync(tempFilePath, audioBuffer);
+    }
     
     // 调用 Whisper API 进行转录
     const transcriptionParams = {
