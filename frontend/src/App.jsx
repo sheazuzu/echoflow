@@ -839,6 +839,12 @@ const response = await fetch(`/api/progress/${encodeURIComponent(currentFileId)}
                     if (response.ok) {
                         const progressData = await response.json();
                         
+                        // 将后端细分状态映射到前端4个主要步骤
+                        // uploading_to_cos / uploaded_to_cos 都属于 uploading 阶段
+                        if (progressData.status === 'uploading_to_cos' || progressData.status === 'uploaded_to_cos') {
+                            progressData.status = 'uploading';
+                        }
+                        
                         // 定义步骤顺序和对应的进度值
                         const stepOrder = ['uploading', 'splitting', 'transcribing', 'generating_summary', 'completed'];
                         const stepProgress = {
@@ -2319,37 +2325,35 @@ fetch(`/api/cancel/${encodeURIComponent(fileIdToCancel)}`, {
                                 
                                 // 计算步骤状态
                                 let stepState = 'pending'; // pending, active, completed
-                                // 扩展状态映射，包含后端实际使用的所有状态名称
-                                const statusOrder = ['uploading', 'uploading_to_cos', 'uploaded_to_cos', 'splitting', 'transcribing', 'generating_summary', 'completed'];
-                                const currentIndex = statusOrder.indexOf(currentStatus);
-                                const stepIndex = statusOrder.indexOf(step.id);
+                                // 前端步骤顺序（只包含4个主要步骤）
+                                const stepOrder = ['uploading', 'splitting', 'transcribing', 'generating_summary', 'completed'];
+                                const stepIndex = stepOrder.indexOf(step.id);
                                 
-                                // 如果状态不在标准列表中，根据状态名称进行智能映射
-                                let mappedCurrentIndex = currentIndex;
-                                if (currentIndex === -1) {
-                                    // 智能状态映射 - 精确匹配后端状态
-                                    if (currentStatus === 'uploading_to_cos' || currentStatus === 'uploaded_to_cos') {
-                                        mappedCurrentIndex = statusOrder.indexOf('uploading');
-                                    } else if (currentStatus.includes('split')) {
-                                        mappedCurrentIndex = statusOrder.indexOf('splitting');
-                                    } else if (currentStatus.includes('transcrib')) {
-                                        mappedCurrentIndex = statusOrder.indexOf('transcribing');
-                                    } else if (currentStatus.includes('generating') || currentStatus.includes('summary')) {
-                                        mappedCurrentIndex = statusOrder.indexOf('generating_summary');
-                                    } else {
-                                        mappedCurrentIndex = 0; // 默认到第一个步骤
-                                    }
+                                // 将后端状态映射到前端步骤
+                                // uploading_to_cos / uploaded_to_cos 都属于 uploading 阶段
+                                let mappedStatus = currentStatus;
+                                if (currentStatus === 'uploading_to_cos' || currentStatus === 'uploaded_to_cos') {
+                                    mappedStatus = 'uploading';
+                                } else if (currentStatus.includes('split')) {
+                                    mappedStatus = 'splitting';
+                                } else if (currentStatus.includes('transcrib')) {
+                                    mappedStatus = 'transcribing';
+                                } else if (currentStatus.includes('generating') || currentStatus.includes('summary')) {
+                                    mappedStatus = 'generating_summary';
                                 }
+                                const mappedCurrentIndex = stepOrder.indexOf(mappedStatus);
+                                // 如果映射后仍然找不到，默认到第一个步骤
+                                const effectiveCurrentIndex = mappedCurrentIndex === -1 ? 0 : mappedCurrentIndex;
                                 
                                 if (currentStatus === 'completed') {
                                     stepState = 'completed';
                                 } else if (currentStatus === 'error') {
-                                    stepState = stepIndex <= mappedCurrentIndex ? 'error' : 'pending';
+                                    stepState = stepIndex <= effectiveCurrentIndex ? 'error' : 'pending';
                                 } else {
-                                    // 优化状态判断逻辑，确保每个步骤都有足够的时间显示完成状态
-                                    if (stepIndex < mappedCurrentIndex) {
+                                    // 状态判断：当前步骤之前的为completed（绿色），当前步骤为active（紫色），之后为pending
+                                    if (stepIndex < effectiveCurrentIndex) {
                                         stepState = 'completed';
-                                    } else if (stepIndex === mappedCurrentIndex) {
+                                    } else if (stepIndex === effectiveCurrentIndex) {
                                         stepState = 'active';
                                     } else {
                                         stepState = 'pending';
