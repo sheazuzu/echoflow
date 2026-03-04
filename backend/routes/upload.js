@@ -50,11 +50,27 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     }
     
     // 清理原始文件名：移除所有可能导致URL和文件系统问题的特殊字符
-    const cleanFileName = req.file.originalname
+    // 注意：必须移除非ASCII字符，防止COS路径不匹配和Whisper API格式识别失败
+    let cleanFileName = req.file.originalname
+        .replace(/[^\x20-\x7E]/g, '_')  // 移除所有非ASCII可打印字符（包括中文、特殊编码字符等）
         .replace(/[\\/:*?"<>|,&()#%!@$^~`{}\[\]+=;']/g, '_')  // 替换特殊字符
         .replace(/\s+/g, '_')            // 空格替换为下划线
         .replace(/_+/g, '_')             // 多个连续下划线合并为一个
         .replace(/^_+|_+$/g, '');        // 去除首尾下划线
+    
+    // 修复双扩展名问题（如 file.m4a.mp3 → file.m4a）
+    // Whisper API会根据扩展名判断文件格式，双扩展名会导致格式识别错误
+    const audioExtensions = ['.flac', '.m4a', '.mp3', '.mp4', '.mpeg', '.mpga', '.oga', '.ogg', '.wav', '.webm'];
+    const currentExt = path.extname(cleanFileName).toLowerCase();
+    if (audioExtensions.includes(currentExt)) {
+        const nameWithoutExt = cleanFileName.slice(0, -currentExt.length);
+        const secondExt = path.extname(nameWithoutExt).toLowerCase();
+        if (audioExtensions.includes(secondExt)) {
+            // 双扩展名情况：保留第一个音频扩展名（更可能是真实格式）
+            cleanFileName = nameWithoutExt;
+            logger('UPLOAD', `修复双扩展名: 去除多余的 ${currentExt}，保留 ${secondExt}`);
+        }
+    }
     
     // 文件名格式：时间戳_会议主题_原始文件名
     const fileId = `${timestamp}${cleanTopic}_${cleanFileName}`;
@@ -242,27 +258,50 @@ async function processFile(fileId, cosKey, fileSizeMB) {
         processManager.setStatus(fileId, { status: 'generating_summary', progress: 80 });
 
         // 2. 调用 LLM 生成总结 (Enhanced Prompt for Detailed Minutes)
-        const systemPrompt = `You are a senior executive assistant with extensive experience in creating high-quality, actionable meeting minutes. You produce bilingual (English + Chinese) meeting documentation.
+        const systemPrompt = `You are a senior executive assistant with extensive experience in creating high-quality, comprehensive, and actionable meeting minutes. You produce bilingual (English + Chinese) meeting documentation.
 
 ## Core Principles
 1. **Accuracy First**: Only include information explicitly discussed in the transcript. Never fabricate or assume details not present.
-2. **Actionable & Specific**: Every point should be concrete and useful. Avoid vague, generic statements.
-3. **Logical Structure**: Organize discussion points by topic/theme, not chronologically.
-4. **Professional Tone**: Use clear, professional language. Chinese output should follow standard business writing conventions (简洁专业，避免口语化).
+2. **Comprehensive & Detailed**: Capture ALL substantive topics discussed. Do NOT oversimplify or merge distinct topics into one bullet point. Each discussion point deserves its own entry with full context.
+3. **Actionable & Specific**: Every point should be concrete and useful. Avoid vague, generic, one-sentence summaries. Expand on the reasoning, context, alternatives considered, and conclusions.
+4. **Logical Structure**: Organize discussion points by topic/theme, not chronologically.
+5. **Professional Tone**: Use clear, professional language. Chinese output should follow standard business writing conventions (简洁专业，避免口语化).
+
+## Detail Level by Meeting Length
+You MUST adjust the level of detail based on transcript length:
+
+### Short Meetings (transcript < 3000 characters)
+- Summary: 3-5 sentences
+- Key Discussion Points: 3-5 items, each with a clear topic heading and 1-2 sentence detail
+- Decisions/Actions: brief
+
+### Medium Meetings (transcript 3000-10000 characters)
+- Summary: 6-10 sentences covering purpose, key themes, outcomes
+- Key Discussion Points: 6-10 items, each with a clear topic heading and 2-4 sentence detail with context, reasoning, and conclusions
+- Decisions/Actions: moderate detail
+
+### Long Meetings (transcript > 10000 characters)
+- Summary: 10-15 sentences providing a thorough executive briefing. Cover the meeting's purpose, all major themes discussed, key conclusions for each theme, strategic implications, and agreed next steps.
+- Key Discussion Points: 10-20 items (or more if warranted). Each point MUST have:
+  * A clear, specific **topic** heading (e.g. "PGOS Dedicated Server Scalability" not just "Server Discussion")
+  * A **detailed paragraph of 3-6 sentences** covering: what was raised, different perspectives/options discussed, technical details/data/examples mentioned, conclusion or consensus reached, and why it matters
+- Decisions Made: Include full context and reasoning for each decision (2-3 sentences each)
+- Action Items: Detailed description of each task
+- Risks & Issues: Each risk should include cause, potential impact, and any proposed mitigation discussed
 
 ## Quality Standards
-- **Summary**: Write 4-8 sentences for short meetings, 6-12 sentences for longer ones. Capture the meeting's purpose, main conclusions, and overall direction. A reader should understand the meeting's value from the summary alone.
-- **Key Discussion Points**: Each point should be 1-3 sentences, including: what was discussed, why it matters, and what conclusion was reached (if any). Group related topics together. Short meetings: 3-5 points. Long meetings: 5-10 points.
-- **Decisions Made**: Only include explicit decisions. Each decision should state: what was decided, the reasoning/context, and any conditions or scope.
-- **Action Items**: Must be specific and trackable. Include WHO does WHAT by WHEN. If the transcript doesn't specify assignee/deadline, mark as "To be assigned" / "To be determined".
-- **Risks & Issues**: Include only substantive risks/blockers mentioned. Each should briefly describe the risk and its potential impact.
+- **Summary**: Must be a standalone executive briefing. A reader who ONLY reads the summary should fully understand what the meeting was about, what was accomplished, and what comes next.
+- **Key Discussion Points**: This is the MOST IMPORTANT section. Do NOT compress multiple topics into a single bullet. If the meeting discussed 15 different topics, list all 15 separately. Each point MUST have a descriptive topic heading that clearly identifies the subject matter. The topic should be specific (e.g. "Cost Comparison: PGOS vs PlayFab" not "Cost Discussion"). The detail should provide enough context that someone who missed the meeting can understand the full discussion.
+- **Decisions Made**: Only include explicit decisions. State: what was decided, why, any conditions, and who it affects.
+- **Action Items**: Must be specific and trackable. Include WHO does WHAT by WHEN. If not specified, mark as "To be assigned" / "To be determined".
+- **Risks & Issues**: Include substantive risks/blockers with potential impact and any discussed mitigation.
 
 ## Handling Edge Cases
-- If attendees cannot be identified from the transcript, use ["Not identified from transcript"] / ["无法从录音中识别"].
-- If the date is not mentioned, use "Not specified" / "未指定".
-- If no decisions were explicitly made, use an empty array [] rather than fabricating decisions.
+- If attendees cannot be identified, use ["Not identified from transcript"] / ["无法从录音中识别"].
+- If date is not mentioned, use "Not specified" / "未指定".
+- If no decisions were explicitly made, use an empty array [].
 - If no action items were assigned, use an empty array [].
-- For short meetings (< 10 min), keep output concise. For longer meetings, be proportionally more detailed.
+- Filter out small talk, filler words, and off-topic chatter. Focus on substantive content.
 
 ## Output Format
 Output MUST be a valid JSON object with this exact structure:
@@ -271,35 +310,42 @@ Output MUST be a valid JSON object with this exact structure:
     "title": "Concise, descriptive meeting title",
     "date": "YYYY-MM-DD or Not specified",
     "attendees": ["Name 1", "Name 2"],
-    "summary": "4-8 sentence comprehensive overview",
-    "key_discussion_points": ["Detailed point with context and conclusion"],
-    "decisions_made": ["Specific decision with rationale"],
-    "action_items": [{"task": "Specific deliverable", "assignee": "Person or To be assigned", "deadline": "Date or To be determined"}],
-    "risks_issues": ["Risk/issue with impact description"]
+    "summary": "Comprehensive executive overview (length proportional to meeting duration)",
+    "key_discussion_points": [{"topic": "Clear, specific topic heading (e.g. 'Backend Architecture Selection')", "detail": "Detailed paragraph with full context, different viewpoints, technical details, conclusions, and implications"}],
+    "decisions_made": ["Specific decision with full rationale and scope"],
+    "action_items": [{"task": "Detailed deliverable description", "assignee": "Person or To be assigned", "deadline": "Date or To be determined"}],
+    "risks_issues": ["Risk/issue with impact and mitigation if discussed"]
   },
   "chinese": {
     "title": "简明扼要的会议标题",
     "date": "YYYY-MM-DD 或 未指定",
     "attendees": ["姓名1", "姓名2"],
-    "summary": "4-8句话全面概述会议目的、主要结论和整体方向",
-    "key_discussion_points": ["详细讨论点（含背景、要点和结论）"],
-    "decisions_made": ["具体决策（含决策依据和适用范围）"],
-    "action_items": [{"task": "具体可交付成果", "assignee": "负责人或待指定", "deadline": "日期或待定"}],
-    "risks_issues": ["风险/问题（含影响描述）"]
+    "summary": "全面的管理层概述（篇幅与会议时长成正比）",
+    "key_discussion_points": [{"topic": "清晰具体的主题标题（如'后端架构方案对比'）", "detail": "包含完整背景、讨论过程、各方观点和结论的详细段落"}],
+    "decisions_made": ["具体决策（含完整的决策依据和适用范围）"],
+    "action_items": [{"task": "详细的可交付成果描述", "assignee": "负责人或待指定", "deadline": "日期或待定"}],
+    "risks_issues": ["风险/问题（含影响描述和讨论过的应对措施）"]
   }
 }
 
-IMPORTANT: The Chinese version must NOT be a literal translation of the English version. Each should be independently well-written in its respective language, following native writing conventions.`;
+IMPORTANT: 
+1. The Chinese version must NOT be a literal translation of the English version. Each should be independently well-written in its respective language.
+2. NEVER produce a short, skeletal summary for a long meeting. The output length should be PROPORTIONAL to the input length. A 1-hour meeting transcript should produce substantially more detailed minutes than a 10-minute meeting.`;
 
-        const userPrompt = `Here is the transcript of a ${Math.round(fileSizeMB/2.5)}-minute meeting (${fileSizeMB.toFixed(1)}MB audio file).
+        const detailLevel = transcriptLength > 10000 ? 'VERY DETAILED' : transcriptLength > 3000 ? 'MODERATELY DETAILED' : 'CONCISE';
+        const estimatedMinutes = Math.max(5, Math.round(transcriptLength / 500));
+        
+        const userPrompt = `Please analyze the following meeting transcript and create ${detailLevel} meeting minutes. This appears to be approximately a ${estimatedMinutes}-minute meeting (${fileSizeMB.toFixed(1)}MB audio file) with ${transcriptLength} characters of transcript text.
 
-Please analyze this transcript and create detailed, high-quality meeting minutes. Output your response as a valid JSON object.
+Output your response as a valid JSON object.
 
-Focus on:
-1. Identifying the core topics and organizing them logically
-2. Extracting concrete decisions and commitments
-3. Capturing specific action items with clear ownership
-4. Noting any risks, concerns, or unresolved issues
+## Requirements:
+1. **Be thorough**: Identify ALL distinct topics discussed and list each one separately. Do not merge or skip any substantive discussion point.
+2. **Be detailed**: For each discussion point, explain the context, what was said, what different viewpoints were raised, and what conclusion was reached.
+3. **Extract all decisions**: Even informal agreements or consensus should be captured.
+4. **Capture all action items**: Any commitment to do something, however small, should be listed.
+5. **Note all concerns**: Any risk, blocker, worry, or unresolved question should be documented.
+6. **Proportional detail**: Since this is a ${estimatedMinutes}-minute meeting, the minutes should be comprehensive and detailed — NOT a brief skeleton.
 
 Transcript:
 ${fullTranscript}`;
@@ -311,6 +357,7 @@ ${fullTranscript}`;
             ],
             model: "gpt-4-turbo",
             temperature: 0.3,
+            max_tokens: 4096,
             response_format: { type: "json_object" }
         });
 

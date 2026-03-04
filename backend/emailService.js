@@ -212,11 +212,20 @@ function generateEmailContent(minutesData) {
                 <div class="field-label">关键讨论点：</div>
                 <div class="field-content">
                     ${chinese.discussion_points.map((point, index) => `
-                        <div class="list-item">${index + 1}. ${point}</div>
+                        <div class="list-item">${index + 1}. ${typeof point === 'object' && point.topic ? `<strong>【${point.topic}】</strong><br>${point.detail || ''}` : point}</div>
                     `).join('')}
                 </div>
             </div>
-            ` : ''}
+            ` : (chinese.key_discussion_points && chinese.key_discussion_points.length > 0 ? `
+            <div class="field">
+                <div class="field-label">关键讨论点：</div>
+                <div class="field-content">
+                    ${chinese.key_discussion_points.map((point, index) => `
+                        <div class="list-item">${index + 1}. ${typeof point === 'object' && point.topic ? `<strong>【${point.topic}】</strong><br>${point.detail || ''}` : point}</div>
+                    `).join('')}
+                </div>
+            </div>
+            ` : '')}
             
             ${chinese.decisions && chinese.decisions.length > 0 ? `
             <div class="field">
@@ -287,11 +296,20 @@ function generateEmailContent(minutesData) {
                 <div class="field-label">Key Discussion Points:</div>
                 <div class="field-content">
                     ${english.discussion_points.map((point, index) => `
-                        <div class="list-item">${index + 1}. ${point}</div>
+                        <div class="list-item">${index + 1}. ${typeof point === 'object' && point.topic ? `<strong>[${point.topic}]</strong><br>${point.detail || ''}` : point}</div>
                     `).join('')}
                 </div>
             </div>
-            ` : ''}
+            ` : (english.key_discussion_points && english.key_discussion_points.length > 0 ? `
+            <div class="field">
+                <div class="field-label">Key Discussion Points:</div>
+                <div class="field-content">
+                    ${english.key_discussion_points.map((point, index) => `
+                        <div class="list-item">${index + 1}. ${typeof point === 'object' && point.topic ? `<strong>[${point.topic}]</strong><br>${point.detail || ''}` : point}</div>
+                    `).join('')}
+                </div>
+            </div>
+            ` : '')}
             
             ${english.decisions && english.decisions.length > 0 ? `
             <div class="field">
@@ -354,8 +372,11 @@ EchoFlow 会议纪要
 
 ${chinese.discussion_points && chinese.discussion_points.length > 0 ? `
 关键讨论点：
-${chinese.discussion_points.map((point, index) => `${index + 1}. ${point}`).join('\n')}
-` : ''}
+${chinese.discussion_points.map((point, index) => `${index + 1}. ${typeof point === 'object' && point.topic ? `【${point.topic}】${point.detail || ''}` : point}`).join('\n')}
+` : (chinese.key_discussion_points && chinese.key_discussion_points.length > 0 ? `
+关键讨论点：
+${chinese.key_discussion_points.map((point, index) => `${index + 1}. ${typeof point === 'object' && point.topic ? `【${point.topic}】${point.detail || ''}` : point}`).join('\n')}
+` : '')}
 
 ${chinese.decisions && chinese.decisions.length > 0 ? `
 决策事项：
@@ -383,8 +404,11 @@ Summary: ${english.summary || 'Not provided'}
 
 ${english.discussion_points && english.discussion_points.length > 0 ? `
 Key Discussion Points:
-${english.discussion_points.map((point, index) => `${index + 1}. ${point}`).join('\n')}
-` : ''}
+${english.discussion_points.map((point, index) => `${index + 1}. ${typeof point === 'object' && point.topic ? `[${point.topic}] ${point.detail || ''}` : point}`).join('\n')}
+` : (english.key_discussion_points && english.key_discussion_points.length > 0 ? `
+Key Discussion Points:
+${english.key_discussion_points.map((point, index) => `${index + 1}. ${typeof point === 'object' && point.topic ? `[${point.topic}] ${point.detail || ''}` : point}`).join('\n')}
+` : '')}
 
 ${english.decisions && english.decisions.length > 0 ? `
 Decisions:

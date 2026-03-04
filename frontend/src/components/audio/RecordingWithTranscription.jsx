@@ -227,7 +227,7 @@ export const RecordingWithTranscription = ({ uiLanguage = 'zh' }) => {
     try {
       notification.info(t.notifications.generatingSummary);
 
-      const response = await fetch('http://localhost:3000/api/generate-meeting-summary', {
+const response = await fetch('/api/generate-meeting-summary', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -381,7 +381,7 @@ export const RecordingWithTranscription = ({ uiLanguage = 'zh' }) => {
     try {
       notification.info(t.notifications.sendingEmail);
 
-      const response = await fetch('http://localhost:3000/api/send-email', {
+      const response = await fetch('/api/send-email', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

@@ -28,13 +28,13 @@ function getTransporter() {
 
 // 邮件发送API端点
 router.post('/send-email', async (req, res) => {
-    const { fileId, recipients } = req.body;
+    const { fileId, recipients, minutesData: directMinutesData } = req.body;
     
-    // 验证参数
-    if (!fileId || !recipients) {
+    // 验证收件人参数
+    if (!recipients) {
         return res.status(400).json({ 
             success: false, 
-            message: '缺少必需参数：fileId 或 recipients' 
+            message: '缺少必需参数：recipients' 
         });
     }
     
@@ -56,24 +56,40 @@ router.post('/send-email', async (req, res) => {
         });
     }
     
-    // 从processingStatus中获取会议纪要数据
-    const status = processManager.getStatus(fileId);
+    // 获取会议纪要数据：支持两种模式
+    // 模式1: 直接传入 minutesData（实时录音转写场景）
+    // 模式2: 通过 fileId 从内存状态中获取（文件上传场景）
+    let minutesData = null;
     
-    if (!status) {
-        return res.status(404).json({ 
-            success: false, 
-            message: '文件处理状态未找到' 
-        });
-    }
-    
-    if (status.status !== 'completed') {
+    if (directMinutesData) {
+        // 模式1: 前端直接传入会议纪要数据（实时录音转写）
+        logger('EMAIL', `使用前端直接传入的会议纪要数据发送邮件`);
+        minutesData = directMinutesData;
+    } else if (fileId) {
+        // 模式2: 通过fileId从内存状态获取（文件上传处理）
+        const status = processManager.getStatus(fileId);
+        
+        if (!status) {
+            return res.status(404).json({ 
+                success: false, 
+                message: '文件处理状态未找到' 
+            });
+        }
+        
+        if (status.status !== 'completed') {
+            return res.status(400).json({ 
+                success: false, 
+                message: '文件处理尚未完成，无法发送邮件' 
+            });
+        }
+        
+        minutesData = status.minutesData;
+    } else {
         return res.status(400).json({ 
             success: false, 
-            message: '文件处理尚未完成，无法发送邮件' 
+            message: '缺少必需参数：需要提供 fileId 或 minutesData' 
         });
     }
-    
-    const minutesData = status.minutesData;
     
     if (!minutesData) {
         return res.status(404).json({ 

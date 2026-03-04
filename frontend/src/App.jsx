@@ -1395,8 +1395,14 @@ const minutesResponse = await fetch(`/api/minutes/${encodeURIComponent(currentFi
         
         text += `3. Key Discussion Points\n`;
         if (data.key_discussion_points && data.key_discussion_points.length > 0) {
-            data.key_discussion_points.forEach(point => {
-                text += `- ${point}\n`;
+            data.key_discussion_points.forEach((point, index) => {
+                if (typeof point === 'object' && point.topic) {
+                    // 新格式：带topic主题的结构化讨论点
+                    text += `${index + 1}. 【${point.topic}】\n   ${point.detail || ''}\n\n`;
+                } else {
+                    // 旧格式：纯字符串
+                    text += `- ${point}\n`;
+                }
             });
         } else {
             text += `None\n`;
