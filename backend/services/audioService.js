@@ -99,8 +99,10 @@ const splitAudioWithFFmpegCLI = async (filePath, segmentTime = 600, fileId = nul
         .replace(/_+/g, '_')
         .replace(/^_+|_+$/g, '');
     
-    // 根据输入文件扩展名确定输出格式
+    // 根据输入文件扩展名确定输出格式和编码方式
     const inputExt = path.extname(filePath).toLowerCase();
+    // WAV/PCM格式不能直接流复制到m4a容器，需要转码；MP3保持原格式
+    const needTranscode = ['.wav', '.pcm', '.aiff', '.flac'].includes(inputExt);
     const outputExt = inputExt === '.mp3' ? '.mp3' : '.m4a';
     const outputPattern = path.join(splitDir, `${cleanBaseName}_%03d${outputExt}`);
     
@@ -116,7 +118,9 @@ const splitAudioWithFFmpegCLI = async (filePath, segmentTime = 600, fileId = nul
     }
     
     // 使用原生FFmpeg命令行，根据格式选择适当的编码方式
-    const command = `ffmpeg -i "${filePath}" -f segment -segment_time ${segmentTime} -c copy "${outputPattern}"`;
+    // WAV等PCM格式需要转码为AAC，其他格式使用流复制
+    const codecArgs = needTranscode ? '-c:a aac -b:a 128k' : '-c copy';
+    const command = `ffmpeg -i "${filePath}" -f segment -segment_time ${segmentTime} ${codecArgs} "${outputPattern}"`;
     logger('FFMPEG_CLI_CMD', `FFmpeg CLI命令: ${command}`);
     
     try {
@@ -234,8 +238,10 @@ const splitAudio = async (filePath, segmentTime = 600, fileId = null) => {
             .replace(/_+/g, '_')
             .replace(/^_+|_+$/g, '');
             
-        // 根据输入文件扩展名确定输出格式
+        // 根据输入文件扩展名确定输出格式和编码方式
         const inputExt = path.extname(filePath).toLowerCase();
+        // WAV/PCM格式不能直接流复制到m4a容器，需要转码；MP3保持原格式
+        const needTranscode = ['.wav', '.pcm', '.aiff', '.flac'].includes(inputExt);
         const outputExt = inputExt === '.mp3' ? '.mp3' : '.m4a';
         const outputPattern = path.join(splitDir, `${cleanBaseName}_%03d${outputExt}`);
         
@@ -257,11 +263,16 @@ const splitAudio = async (filePath, segmentTime = 600, fileId = null) => {
         
         logger('SPLIT_DETAIL', `使用fluent-ffmpeg处理: ${filePath} -> ${outputPattern}`);
         
+        // WAV等PCM格式需要转码为AAC，其他格式使用流复制
+        const codecOptions = needTranscode 
+            ? ['-c:a', 'aac', '-b:a', '128k'] 
+            : ['-c', 'copy'];
+        
         const ffmpegProcess = ffmpeg(filePath)
             .outputOptions([
                 '-f segment',
                 `-segment_time ${segmentTime}`,
-                '-c copy'
+                ...codecOptions
             ])
             .output(outputPattern)
             .on('start', (commandLine) => {
