@@ -20,7 +20,7 @@ router.get('/progress/:fileId', (req, res) => {
     }
     
     // 只在状态或进度发生变化时才打印日志，避免每秒轮询刷屏
-    const currentKey = `${status.status}_${status.progress}_${status.currentChunk || 0}`;
+    const currentKey = `${status.status}_${status.progress}_${status.currentChunk || 0}_${status.error || ''}`;
     const lastKey = processManager.getLastProgressLog(fileId);
     if (currentKey !== lastKey) {
         processManager.setLastProgressLog(fileId, currentKey);
@@ -29,10 +29,10 @@ router.get('/progress/:fileId', (req, res) => {
         if (status.currentChunk && status.totalChunks) {
             logger('PROGRESS_DETAIL', `转录进度: ${status.currentChunk}/${status.totalChunks} 个切片`);
         }
-    }
-    
-    if (status.error) {
-        logger('PROGRESS_ERROR', `文件处理错误: ${status.error}`);
+        
+        if (status.error) {
+            logger('PROGRESS_ERROR', `文件处理错误: ${status.error}`);
+        }
     }
     
     // 处理完成或失败时清理缓存
