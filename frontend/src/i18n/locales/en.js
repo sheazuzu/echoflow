@@ -267,13 +267,33 @@ export default {
   nav: {
     home: 'Home',
     features: 'Features',
-    solutions: 'Solutions',
-    about: 'About',
+    pricing: 'Pricing',
+    contact: 'Contact',
     login: 'Login',
     register: 'Register',
     mainNavigation: 'Main Navigation',
     mobileNavigation: 'Mobile Navigation',
     toggleMenu: 'Toggle Menu',
+  },
+
+  // Contact/Feedback Modal
+  contactModal: {
+    title: 'Contact Us',
+    subtitle: 'Have any questions or suggestions? We\'d love to hear from you!',
+    namePlaceholder: 'Your Name',
+    emailPlaceholder: 'Your Email',
+    messagePlaceholder: 'Describe your question or suggestion (at least 10 characters)',
+    submit: 'Submit Feedback',
+    submitting: 'Submitting...',
+    successTitle: 'Submitted Successfully!',
+    successMessage: 'Thank you for your feedback. We will get back to you as soon as possible.',
+    nameRequired: 'Please enter your name',
+    emailRequired: 'Please enter your email',
+    emailInvalid: 'Invalid email format',
+    messageRequired: 'Please enter your feedback',
+    messageTooShort: 'Feedback must be at least 10 characters',
+    messageTooLong: 'Feedback cannot exceed 5000 characters',
+    submitFailed: 'Submission failed, please try again later',
   },
 
   // Footer

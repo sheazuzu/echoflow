@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from '../../i18n/index.js';
 import { buildLanguagePath } from '../../i18n/utils.js';
 import LanguageSwitcher from '../LanguageSwitcher.jsx';
+import ContactModal from '../ContactModal.jsx';
 import './Header.css';
 import logo from '../../assets/logo.png';
 
@@ -11,6 +12,7 @@ const Header = () => {
   const navigate = useNavigate();
   const { lang } = useParams();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [contactModalOpen, setContactModalOpen] = useState(false);
 
   const toggleMobileMenu = () => {
     setMobileMenuOpen(!mobileMenuOpen);
@@ -20,6 +22,9 @@ const Header = () => {
     if (item.key === 'features') {
       // 跳转到产品功能页面
       navigate(buildLanguagePath(lang || 'zh', '/feature'));
+    } else if (item.key === 'contact') {
+      // 打开联系/反馈弹窗
+      setContactModalOpen(true);
     } else {
       // 其他导航项：先跳回首页，再滚动到对应锚点
       const homePath = buildLanguagePath(lang || 'zh', '/');
@@ -38,12 +43,13 @@ const Header = () => {
   const navItems = [
     { key: 'home', label: t('nav.home'), href: '#home' },
     { key: 'features', label: t('nav.features'), href: '#features' },
-    { key: 'solutions', label: t('nav.solutions'), href: '#solutions' },
-    { key: 'about', label: t('nav.about'), href: '#about' },
+    { key: 'pricing', label: t('nav.pricing'), href: '#pricing' },
+    { key: 'contact', label: t('nav.contact'), href: '#contact' },
   ];
 
   return (
-    <header className="enterprise-header">
+    <>
+      <header className="enterprise-header">
       <div className="header-container">
         {/* Logo 和品牌名称 */}
         <div className="header-brand">
@@ -141,7 +147,14 @@ const Header = () => {
           </ul>
         </nav>
       )}
-    </header>
+      </header>
+
+      {/* 联系/反馈弹窗 */}
+      <ContactModal
+        isOpen={contactModalOpen}
+        onClose={() => setContactModalOpen(false)}
+      />
+    </>
   );
 };
 

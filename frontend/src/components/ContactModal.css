@@ -1,0 +1,229 @@
+/* ContactModal 弹窗样式 */
+
+.contact-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 16px;
+  animation: overlay-fade-in 0.2s ease;
+}
+
+@keyframes overlay-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.contact-modal {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 40px;
+  width: 100%;
+  max-width: 480px;
+  position: relative;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+  animation: modal-slide-in 0.25s ease;
+}
+
+@keyframes modal-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* 关闭按钮 */
+.contact-modal-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: #f3f4f6;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6b7280;
+  transition: background 0.15s, color 0.15s;
+}
+
+.contact-modal-close:hover {
+  background: #e5e7eb;
+  color: #111827;
+}
+
+/* 头部 */
+.contact-modal-header {
+  margin-bottom: 28px;
+}
+
+.contact-modal-header h2 {
+  font-size: 22px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 8px 0;
+}
+
+.contact-modal-header p {
+  font-size: 14px;
+  color: #6b7280;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* 表单 */
+.contact-modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  position: relative;
+}
+
+.form-field input,
+.form-field textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 10px;
+  font-size: 14px;
+  color: #111827;
+  background: #f9fafb;
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+  outline: none;
+  box-sizing: border-box;
+  font-family: inherit;
+  resize: none;
+}
+
+.form-field input:focus,
+.form-field textarea:focus {
+  border-color: #6366f1;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.form-field.has-error input,
+.form-field.has-error textarea {
+  border-color: #ef4444;
+  background: #fff5f5;
+}
+
+.form-field.has-error input:focus,
+.form-field.has-error textarea:focus {
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+.field-error {
+  font-size: 12px;
+  color: #ef4444;
+  padding-left: 2px;
+}
+
+.char-count {
+  font-size: 11px;
+  color: #9ca3af;
+  text-align: right;
+  margin-top: 2px;
+}
+
+/* 提交错误 */
+.submit-error {
+  padding: 10px 14px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #dc2626;
+}
+
+/* 主按钮 */
+.contact-modal-btn-primary {
+  width: 100%;
+  padding: 13px;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: #ffffff;
+  border: none;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s;
+  font-family: inherit;
+}
+
+.contact-modal-btn-primary:hover:not(:disabled) {
+  opacity: 0.92;
+  transform: translateY(-1px);
+}
+
+.contact-modal-btn-primary:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.contact-modal-btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* 成功状态 */
+.contact-modal-success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 20px 0;
+  gap: 16px;
+}
+
+.success-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.contact-modal-success h3 {
+  font-size: 20px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0;
+}
+
+.contact-modal-success p {
+  font-size: 14px;
+  color: #6b7280;
+  margin: 0;
+  line-height: 1.6;
+}
+
+.contact-modal-success .contact-modal-btn-primary {
+  max-width: 200px;
+}
+
+/* 移动端适配 */
+@media (max-width: 480px) {
+  .contact-modal {
+    padding: 28px 20px;
+    border-radius: 12px;
+  }
+
+  .contact-modal-header h2 {
+    font-size: 20px;
+  }
+}

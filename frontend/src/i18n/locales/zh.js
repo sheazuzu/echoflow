@@ -267,13 +267,33 @@ export default {
   nav: {
     home: '首页',
     features: '产品功能',
-    solutions: '解决方案',
-    about: '关于我们',
+    pricing: '价格方案',
+    contact: '联系我们',
     login: '登录',
     register: '注册',
     mainNavigation: '主导航',
     mobileNavigation: '移动端导航',
     toggleMenu: '切换菜单',
+  },
+
+  // 联系/反馈弹窗
+  contactModal: {
+    title: '联系我们',
+    subtitle: '有任何问题或建议？欢迎告诉我们！',
+    namePlaceholder: '您的姓名',
+    emailPlaceholder: '您的邮箱',
+    messagePlaceholder: '请描述您的问题或建议（至少10个字符）',
+    submit: '提交反馈',
+    submitting: '提交中...',
+    successTitle: '提交成功！',
+    successMessage: '感谢您的反馈，我们会尽快回复您。',
+    nameRequired: '请输入您的姓名',
+    emailRequired: '请输入您的邮箱',
+    emailInvalid: '邮箱格式不正确',
+    messageRequired: '请输入反馈内容',
+    messageTooShort: '反馈内容至少需要10个字符',
+    messageTooLong: '反馈内容不能超过5000个字符',
+    submitFailed: '提交失败，请稍后重试',
   },
 
   // 页脚
