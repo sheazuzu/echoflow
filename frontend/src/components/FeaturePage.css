@@ -1,0 +1,232 @@
+/* ==================== 产品功能页面整体布局 ==================== */
+.feature-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: var(--color-bg-secondary);
+}
+
+.feature-page-main {
+  flex: 1;
+  padding-top: var(--header-height);
+}
+
+/* ==================== Hero 区域 ==================== */
+.feature-hero {
+  background: var(--gradient-hero);
+  padding: var(--spacing-4xl) 0 var(--spacing-3xl);
+  text-align: center;
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.feature-hero-title {
+  font-size: var(--font-size-4xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  margin: 0 0 var(--spacing-lg);
+  line-height: var(--line-height-tight);
+}
+
+.feature-hero-desc {
+  font-size: var(--font-size-lg);
+  color: var(--color-text-secondary);
+  max-width: 640px;
+  margin: 0 auto;
+  line-height: var(--line-height-relaxed);
+}
+
+/* ==================== 功能模块网格区域 ==================== */
+.feature-grid-section {
+  padding: var(--spacing-4xl) 0;
+}
+
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--spacing-xl);
+}
+
+/* ==================== 功能卡片 ==================== */
+.feature-card {
+  background: var(--color-bg-primary);
+  border: var(--card-border-width) solid var(--card-border-color);
+  border-radius: var(--card-border-radius);
+  padding: var(--card-padding);
+  box-shadow: var(--card-shadow);
+  transition: transform var(--transition-base), box-shadow var(--transition-base), border-color var(--transition-base);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  will-change: transform;
+}
+
+.feature-card:hover {
+  transform: translateY(-6px);
+  box-shadow: var(--card-shadow-hover);
+  border-color: var(--card-accent, var(--color-primary));
+}
+
+/* 顶部色条 */
+.feature-card-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--card-accent, var(--color-primary));
+  border-radius: var(--card-border-radius) var(--card-border-radius) 0 0;
+}
+
+/* 图标 */
+.feature-card-icon {
+  font-size: 40px;
+  line-height: 1;
+  margin-bottom: var(--spacing-md);
+  margin-top: var(--spacing-sm);
+  display: inline-block;
+  padding: var(--spacing-md);
+  background: var(--card-bg, rgba(0, 102, 204, 0.08));
+  border-radius: var(--radius-lg);
+  align-self: flex-start;
+}
+
+/* 标题 */
+.feature-card-title {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  margin: 0 0 var(--spacing-sm);
+  line-height: var(--line-height-tight);
+}
+
+/* 描述 */
+.feature-card-desc {
+  font-size: var(--font-size-base);
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-relaxed);
+  margin: 0 0 var(--spacing-lg);
+}
+
+/* 要点列表 */
+.feature-card-points {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  flex: 1;
+}
+
+.feature-card-point {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-sm);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  line-height: var(--line-height-normal);
+}
+
+.feature-card-point-dot {
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--card-accent, var(--color-primary));
+  margin-top: 6px;
+}
+
+/* ==================== CTA 区域 ==================== */
+.feature-cta-section {
+  padding: var(--spacing-4xl) 0;
+  background: var(--color-bg-primary);
+  border-top: 1px solid var(--color-border-light);
+}
+
+.feature-cta {
+  text-align: center;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.feature-cta-title {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  margin: 0 0 var(--spacing-md);
+  line-height: var(--line-height-tight);
+}
+
+.feature-cta-desc {
+  font-size: var(--font-size-lg);
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-relaxed);
+  margin: 0 0 var(--spacing-2xl);
+}
+
+.feature-cta-btn {
+  font-size: var(--font-size-base);
+  padding: var(--spacing-md) var(--spacing-2xl);
+  height: var(--button-height-lg);
+  border-radius: var(--radius-full);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition: transform var(--transition-base), box-shadow var(--transition-base);
+}
+
+.feature-cta-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hover);
+}
+
+/* ==================== 平板端响应式 ==================== */
+@media (max-width: 1024px) {
+  .feature-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .feature-hero-title {
+    font-size: var(--font-size-3xl);
+  }
+}
+
+/* ==================== 移动端响应式 ==================== */
+@media (max-width: 768px) {
+  .feature-hero {
+    padding: var(--spacing-3xl) 0 var(--spacing-2xl);
+  }
+
+  .feature-hero-title {
+    font-size: var(--font-size-2xl);
+  }
+
+  .feature-hero-desc {
+    font-size: var(--font-size-base);
+  }
+
+  .feature-grid-section {
+    padding: var(--spacing-3xl) 0;
+  }
+
+  .feature-grid {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-lg);
+  }
+
+  .feature-cta-section {
+    padding: var(--spacing-3xl) 0;
+  }
+
+  .feature-cta-title {
+    font-size: var(--font-size-2xl);
+  }
+
+  .feature-cta-desc {
+    font-size: var(--font-size-base);
+  }
+
+  .feature-cta-btn {
+    width: 100%;
+  }
+}

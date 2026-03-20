@@ -387,4 +387,17 @@ export default {
     subtitle: '录音同时实时转录为文字',
     startButton: '开始实时转录',
   },
+
+  // 产品功能页面
+  featurePage: {
+    hero: {
+      title: '产品功能全览',
+      description: 'Meet and Note 提供从录音到结构化会议纪要的完整 AI 工作流，让每一次会议都有价值。',
+    },
+    cta: {
+      title: '立即开始使用',
+      description: '无需注册，打开即用。上传音频或开始录音，AI 为您生成专业会议纪要。',
+      button: '返回首页，开始使用',
+    },
+  },
 };

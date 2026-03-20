@@ -1,15 +1,38 @@
 import React, { useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from '../../i18n/index.js';
+import { buildLanguagePath } from '../../i18n/utils.js';
 import LanguageSwitcher from '../LanguageSwitcher.jsx';
 import './Header.css';
 import logo from '../../assets/logo.png';
 
 const Header = () => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const { lang } = useParams();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const toggleMobileMenu = () => {
     setMobileMenuOpen(!mobileMenuOpen);
+  };
+
+  const handleNavClick = (item) => {
+    if (item.key === 'features') {
+      // 跳转到产品功能页面
+      navigate(buildLanguagePath(lang || 'zh', '/feature'));
+    } else {
+      // 其他导航项：先跳回首页，再滚动到对应锚点
+      const homePath = buildLanguagePath(lang || 'zh', '/');
+      navigate(homePath);
+      // 等待页面跳转后再滚动到锚点
+      setTimeout(() => {
+        const anchorId = item.href.replace('#', '');
+        const el = document.getElementById(anchorId);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth' });
+        }
+      }, 100);
+    }
   };
 
   const navItems = [
@@ -41,13 +64,13 @@ const Header = () => {
           <ul className="nav-list">
             {navItems.map((item) => (
               <li key={item.key} className="nav-item">
-                <a 
-                  href={item.href} 
-                  className="nav-link"
+                <button
+                  className="nav-link nav-link-btn"
                   aria-label={item.label}
+                  onClick={() => handleNavClick(item)}
                 >
                   {item.label}
-                </a>
+                </button>
               </li>
             ))}
           </ul>
@@ -92,14 +115,13 @@ const Header = () => {
           <ul className="nav-list">
             {navItems.map((item) => (
               <li key={item.key} className="nav-item">
-                <a 
-                  href={item.href} 
-                  className="nav-link"
-                  onClick={() => setMobileMenuOpen(false)}
+                <button
+                  className="nav-link nav-link-btn"
+                  onClick={() => { handleNavClick(item); setMobileMenuOpen(false); }}
                   aria-label={item.label}
                 >
                   {item.label}
-                </a>
+                </button>
               </li>
             ))}
             <li className="nav-item mobile-actions">

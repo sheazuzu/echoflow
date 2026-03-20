@@ -387,4 +387,17 @@ export default {
     subtitle: 'Record and transcribe to text simultaneously',
     startButton: 'Start Real-time Transcription',
   },
+
+  // Feature Page
+  featurePage: {
+    hero: {
+      title: 'Product Features',
+      description: 'Meet and Note provides a complete AI workflow from recording to structured meeting minutes, making every meeting valuable.',
+    },
+    cta: {
+      title: 'Get Started Now',
+      description: 'No registration required, open and use immediately. Upload audio or start recording, AI generates professional meeting minutes for you.',
+      button: 'Back to Home, Start Using',
+    },
+  },
 };

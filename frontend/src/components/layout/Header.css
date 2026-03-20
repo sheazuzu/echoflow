@@ -131,6 +131,16 @@
   border-radius: var(--radius-sm);
 }
 
+/* button 形式的导航链接重置 */
+.nav-link-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  width: 100%;
+  text-align: left;
+}
+
 /* ==================== 操作按钮区域 ==================== */
 
 .header-actions {
