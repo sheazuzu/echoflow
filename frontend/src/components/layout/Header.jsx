@@ -4,6 +4,7 @@ import { useTranslation } from '../../i18n/index.js';
 import { buildLanguagePath } from '../../i18n/utils.js';
 import LanguageSwitcher from '../LanguageSwitcher.jsx';
 import ContactModal from '../ContactModal.jsx';
+import PricingModal from '../PricingModal.jsx';
 import './Header.css';
 import logo from '../../assets/logo.png';
 
@@ -13,6 +14,7 @@ const Header = () => {
   const { lang } = useParams();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [contactModalOpen, setContactModalOpen] = useState(false);
+  const [pricingModalOpen, setPricingModalOpen] = useState(false);
 
   const toggleMobileMenu = () => {
     setMobileMenuOpen(!mobileMenuOpen);
@@ -25,6 +27,9 @@ const Header = () => {
     } else if (item.key === 'contact') {
       // 打开联系/反馈弹窗
       setContactModalOpen(true);
+    } else if (item.key === 'pricing') {
+      // 打开价格方案弹窗
+      setPricingModalOpen(true);
     } else {
       // 其他导航项：先跳回首页，再滚动到对应锚点
       const homePath = buildLanguagePath(lang || 'zh', '/');
@@ -153,6 +158,12 @@ const Header = () => {
       <ContactModal
         isOpen={contactModalOpen}
         onClose={() => setContactModalOpen(false)}
+      />
+
+      {/* 价格方案弹窗 */}
+      <PricingModal
+        isOpen={pricingModalOpen}
+        onClose={() => setPricingModalOpen(false)}
       />
     </>
   );

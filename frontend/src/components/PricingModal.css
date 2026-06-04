@@ -1,0 +1,265 @@
+/* PricingModal 价格方案弹窗样式 */
+
+.pricing-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 16px;
+  animation: overlay-fade-in 0.2s ease;
+}
+
+@keyframes overlay-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.pricing-modal {
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 40px 36px 32px;
+  width: 100%;
+  max-width: 860px;
+  position: relative;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.18);
+  animation: modal-slide-in 0.25s ease;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+@keyframes modal-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* 关闭按钮 */
+.pricing-modal-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: #f3f4f6;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6b7280;
+  transition: background 0.15s, color 0.15s;
+}
+
+.pricing-modal-close:hover {
+  background: #e5e7eb;
+  color: #111827;
+}
+
+/* 头部 */
+.pricing-modal-header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.pricing-modal-header h2 {
+  font-size: 26px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 8px 0;
+}
+
+.pricing-modal-header p {
+  font-size: 15px;
+  color: #6b7280;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* 价格卡片容器 */
+.pricing-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+/* 单个价格卡片 */
+.pricing-card {
+  border: 1.5px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 28px 24px;
+  position: relative;
+  transition: box-shadow 0.2s, border-color 0.2s;
+  background: #fafafa;
+}
+
+.pricing-card:hover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+/* 高亮卡片（推荐） */
+.pricing-card--highlight {
+  border-color: #6366f1;
+  background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
+  box-shadow: 0 8px 32px rgba(99, 102, 241, 0.15);
+}
+
+.pricing-card--highlight:hover {
+  box-shadow: 0 12px 40px rgba(99, 102, 241, 0.22);
+}
+
+/* 推荐徽章 */
+.pricing-badge {
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 14px;
+  border-radius: 20px;
+  white-space: nowrap;
+  letter-spacing: 0.3px;
+}
+
+/* 卡片头部 */
+.pricing-card-header {
+  margin-bottom: 16px;
+}
+
+.plan-name {
+  font-size: 18px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 6px 0;
+}
+
+.plan-description {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* 价格区域 */
+.plan-price-block {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-bottom: 20px;
+}
+
+.plan-price {
+  font-size: 36px;
+  font-weight: 800;
+  color: #111827;
+  line-height: 1;
+}
+
+.pricing-card--highlight .plan-price {
+  color: #6366f1;
+}
+
+.plan-period {
+  font-size: 13px;
+  color: #9ca3af;
+}
+
+/* 功能列表 */
+.plan-features {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 24px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.plan-feature-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  color: #374151;
+  line-height: 1.4;
+}
+
+.feature-check {
+  flex-shrink: 0;
+  color: #10b981;
+  margin-top: 1px;
+}
+
+.pricing-card--highlight .feature-check {
+  color: #6366f1;
+}
+
+/* CTA 按钮 */
+.plan-cta-btn {
+  width: 100%;
+  padding: 11px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s;
+  font-family: inherit;
+  border: none;
+}
+
+.plan-cta-btn--primary {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: #ffffff;
+}
+
+.plan-cta-btn--secondary {
+  background: #f3f4f6;
+  color: #374151;
+  border: 1.5px solid #e5e7eb;
+}
+
+.plan-cta-btn:hover {
+  opacity: 0.88;
+  transform: translateY(-1px);
+}
+
+.plan-cta-btn:active {
+  transform: translateY(0);
+}
+
+/* 底部提示 */
+.pricing-modal-footer {
+  text-align: center;
+  font-size: 12px;
+  color: #9ca3af;
+  margin: 24px 0 0 0;
+}
+
+/* 响应式 */
+@media (max-width: 700px) {
+  .pricing-modal {
+    padding: 32px 16px 24px;
+    border-radius: 14px;
+  }
+
+  .pricing-cards {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+
+  .pricing-modal-header h2 {
+    font-size: 22px;
+  }
+}

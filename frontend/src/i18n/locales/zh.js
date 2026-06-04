@@ -276,6 +276,62 @@ export default {
     toggleMenu: '切换菜单',
   },
 
+  // 价格方案弹窗
+  pricingModal: {
+    title: '价格方案',
+    subtitle: '选择适合您的方案，所有方案均为示例价格',
+    popularBadge: '最受欢迎',
+    footerNote: '* 以上价格均为示例，实际价格以正式发布为准。所有方案均含 14 天免费试用。',
+    plans: {
+      personal: {
+        name: '个人版',
+        price: '¥29',
+        period: '/ 月',
+        description: '适合个人用户日常会议记录',
+        features: [
+          '每月最多 10 小时录音',
+          '基础 AI 会议纪要',
+          '支持 MP3 / M4A / WAV',
+          '邮件导出',
+          '7 天历史记录',
+        ],
+        cta: '免费试用',
+      },
+      developer: {
+        name: '开发者版',
+        price: '¥99',
+        period: '/ 月',
+        description: '适合开发者和小型团队',
+        features: [
+          '每月最多 50 小时录音',
+          '高级 AI 结构化纪要',
+          '支持所有音频格式',
+          'API 访问权限',
+          '多格式导出（PDF / Word）',
+          '30 天历史记录',
+          '优先邮件支持',
+        ],
+        cta: '立即开始',
+      },
+      enterprise: {
+        name: '企业版',
+        price: '联系我们',
+        period: '',
+        description: '适合大型企业和团队定制化需求',
+        features: [
+          '无限录音时长',
+          '企业级 AI 定制模型',
+          '私有化部署选项',
+          '团队协作功能',
+          '无限历史记录',
+          '专属客户成功经理',
+          'SLA 服务保障',
+        ],
+        cta: '联系销售',
+      },
+    },
+  },
+
   // 联系/反馈弹窗
   contactModal: {
     title: '联系我们',

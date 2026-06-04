@@ -19,6 +19,7 @@ const minutesRoutes = require('./routes/minutes');
 const audioRoutes = require('./routes/audio');
 const emailRoutes = require('./routes/email');
 const feedbackRoutes = require('./routes/feedback');
+const recoveryRoutes = require('./routes/recovery');
 
 // 创建 Express 应用
 const app = express();
@@ -40,6 +41,7 @@ app.use('/api', minutesRoutes);
 app.use('/api', audioRoutes);
 app.use('/api', emailRoutes.router);
 app.use('/api', feedbackRoutes.router);
+app.use('/api', recoveryRoutes);
 
 // 注册错误处理中间件（必须在路由之后）
 app.use(errorHandler);

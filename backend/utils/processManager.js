@@ -117,10 +117,24 @@ function startCleanupTimer() {
     setInterval(() => {
         const now = Date.now();
         for (const [fileId, status] of processingStatus.entries()) {
-            // 假设文件名包含时间戳，超过30分钟清理
-            const fileTime = parseInt(fileId.split('-')[0]);
-            if (now - fileTime > 30 * 60 * 1000) {
-                processingStatus.delete(fileId);
+            // 从文件名中提取时间戳（格式：YYYYMMDD_HHMMSS）
+            const timestampMatch = fileId.match(/^(\d{8}_\d{6})/);
+            if (timestampMatch) {
+                const timestampStr = timestampMatch[1];
+                // 将 YYYYMMDD_HHMMSS 转换为 Date 对象
+                const year = parseInt(timestampStr.substring(0, 4));
+                const month = parseInt(timestampStr.substring(4, 6)) - 1; // 月份从0开始
+                const day = parseInt(timestampStr.substring(6, 8));
+                const hours = parseInt(timestampStr.substring(9, 11));
+                const minutes = parseInt(timestampStr.substring(11, 13));
+                const seconds = parseInt(timestampStr.substring(13, 15));
+                
+                const fileTime = new Date(year, month, day, hours, minutes, seconds).getTime();
+                
+                // 超过30分钟清理
+                if (now - fileTime > 30 * 60 * 1000) {
+                    processingStatus.delete(fileId);
+                }
             }
         }
     }, 5 * 60 * 1000); // 每5分钟清理一次

@@ -11,6 +11,27 @@ const logger = require('./utils/logger');
 const emailService = require('./emailService');
 const processManager = require('./utils/processManager');
 
+// 全局错误处理器，防止进程崩溃
+process.on('uncaughtException', (error) => {
+    logger('UNCAUGHT_EXCEPTION', `未捕获的异常: ${error.message}`);
+    logger('UNCAUGHT_EXCEPTION', `堆栈: ${error.stack}`);
+    
+    // 记录错误但不退出进程
+    if (error.code === 'EPIPE') {
+        logger('NETWORK_ERROR', `网络连接错误(EPIPE)，继续运行服务`);
+    } else {
+        logger('UNCAUGHT_ERROR', `其他未捕获错误，继续运行服务`);
+    }
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    logger('UNHANDLED_REJECTION', `未处理的Promise拒绝: ${reason}`);
+    logger('UNHANDLED_REJECTION', `Promise: ${promise}`);
+    
+    // 记录错误但不退出进程
+    logger('REJECTION_HANDLED', `Promise拒绝已处理，继续运行服务`);
+});
+
 // 初始化邮件传输器并注入到路由
 const emailTransporter = emailService.createTransporter();
 setEmailTransporter(emailTransporter);

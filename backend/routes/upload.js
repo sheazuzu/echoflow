@@ -204,6 +204,10 @@ async function processFile(fileId, cosKey, fileSizeMB) {
             // 记录转录进程
             processManager.registerProcess(fileId, { type: processManager.ProcessType.TRANSCRIBE, startTime: new Date(), totalChunks: chunks.length });
             
+            // 转录成功/失败计数（用于全失败时拦截，不生成空纪要）
+            let successfulChunks = 0;
+            let failedChunks = 0;
+            
             for (const [index, chunkPath] of chunks.entries()) {
                 const progress = 70 + Math.floor((index / chunks.length) * 20);
                 processManager.setStatus(fileId, { status: 'transcribing', progress, currentChunk: index + 1, totalChunks: chunks.length });
@@ -216,10 +220,25 @@ async function processFile(fileId, cosKey, fileSizeMB) {
                     break;
                 }
                 
-                const text = await openaiService.transcribeChunk(chunkPath, fileId);
-                fullTranscript += text + " ";
-                fs.unlinkSync(chunkPath);
-                logger('TRANSCRIBE_CHUNK', `切片 ${index + 1}/${chunks.length} 转录完成，累计文本长度: ${fullTranscript.length} 字符`);
+                try {
+                    const text = await openaiService.transcribeChunk(chunkPath, fileId);
+                    fullTranscript += text + " ";
+                    successfulChunks++;
+                    logger('TRANSCRIBE_CHUNK', `切片 ${index + 1}/${chunks.length} 转录完成，累计文本长度: ${fullTranscript.length} 字符`);
+                } catch (err) {
+                    failedChunks++;
+                    logger('TRANSCRIBE_CHUNK_ERROR', `切片 ${index + 1}/${chunks.length} 转录失败: ${err.message}（继续处理后续切片）`);
+                } finally {
+                    if (fs.existsSync(chunkPath)) fs.unlinkSync(chunkPath);
+                }
+            }
+            
+            // 所有切片都失败时，直接抛错，避免生成空纪要
+            if (successfulChunks === 0) {
+                throw new Error(`所有 ${chunks.length} 个音频切片转录全部失败，请检查网络连接或OpenAI API状态后重试`);
+            }
+            if (failedChunks > 0) {
+                logger('TRANSCRIBE_PARTIAL', `转录部分完成：成功 ${successfulChunks}/${chunks.length}，失败 ${failedChunks}/${chunks.length}`);
             }
         } else {
             logger('STEP_TRANSCRIBE', `步骤5: 开始转录音频内容（小文件直接转录）`);

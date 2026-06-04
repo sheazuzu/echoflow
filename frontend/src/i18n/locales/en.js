@@ -276,6 +276,62 @@ export default {
     toggleMenu: 'Toggle Menu',
   },
 
+  // Pricing Modal
+  pricingModal: {
+    title: 'Pricing Plans',
+    subtitle: 'Choose the plan that fits you best. All prices are for illustration purposes.',
+    popularBadge: 'Most Popular',
+    footerNote: '* All prices shown are examples. Actual pricing will be announced at launch. All plans include a 14-day free trial.',
+    plans: {
+      personal: {
+        name: 'Personal',
+        price: '$4',
+        period: '/ month',
+        description: 'Perfect for individuals tracking daily meetings',
+        features: [
+          'Up to 10 hours recording / month',
+          'Basic AI meeting minutes',
+          'MP3 / M4A / WAV support',
+          'Email export',
+          '7-day history',
+        ],
+        cta: 'Start Free Trial',
+      },
+      developer: {
+        name: 'Developer',
+        price: '$14',
+        period: '/ month',
+        description: 'Great for developers and small teams',
+        features: [
+          'Up to 50 hours recording / month',
+          'Advanced AI structured minutes',
+          'All audio formats supported',
+          'API access',
+          'Multi-format export (PDF / Word)',
+          '30-day history',
+          'Priority email support',
+        ],
+        cta: 'Get Started',
+      },
+      enterprise: {
+        name: 'Enterprise',
+        price: 'Contact Us',
+        period: '',
+        description: 'Custom solutions for large teams and enterprises',
+        features: [
+          'Unlimited recording hours',
+          'Enterprise-grade custom AI model',
+          'Private deployment option',
+          'Team collaboration features',
+          'Unlimited history',
+          'Dedicated customer success manager',
+          'SLA guarantee',
+        ],
+        cta: 'Contact Sales',
+      },
+    },
+  },
+
   // Contact/Feedback Modal
   contactModal: {
     title: 'Contact Us',

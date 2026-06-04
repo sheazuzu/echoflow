@@ -38,8 +38,11 @@ const getValidAudioExtension = (filePath) => {
 };
 
 // 初始化 OpenAI 客户端
+// 注意：转录大音频文件（17MB+）上传可能需要 50 秒以上，超时不能设得太短
 const openai = new OpenAI({
     apiKey: config.apiKey,
+    timeout: 600000, // 10分钟超时（音频上传 + 转录处理）
+    maxRetries: 3, // 最大重试次数
 });
 
 /**
@@ -83,35 +86,80 @@ const transcribeChunk = async (filePath, fileId = null) => {
     const cleanApiFileName = `audio${validExt}`;
     logger('TRANSCRIBE_API', `调用OpenAI Whisper API转录: ${fileName}，API文件名: ${cleanApiFileName}`);
     
-    try {
-        // 使用 toFile 自定义传给 API 的文件名，避免原始文件名中的特殊字符和双扩展名问题
-        const fileStream = fs.createReadStream(filePath);
-        const apiFile = await toFile(fileStream, cleanApiFileName);
-        const transcription = await openai.audio.transcriptions.create({
-            file: apiFile,
-            model: "whisper-1",
-        });
+    let fileStream = null;
+    // 重试逻辑：网络错误（EPIPE/ECONNRESET/ETIMEDOUT）时最多重试 3 次
+    const maxAttempts = 3;
+    let lastError = null;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+            // 使用 toFile 自定义传给 API 的文件名，避免原始文件名中的特殊字符和双扩展名问题
+            fileStream = fs.createReadStream(filePath);
+            const apiFile = await toFile(fileStream, cleanApiFileName);
 
-        const duration = ((Date.now() - startTime) / 1000).toFixed(2);
-        const textLength = transcription.text.length;
-        
-        logger('TRANSCRIBE_SUCCESS', `音频片段转录完成: ${fileName}，耗时 ${duration}s，生成文本 ${textLength} 字符`);
-        logger('TRANSCRIBE_DETAIL', `转录结果预览: ${transcription.text.substring(0, 100)}${textLength > 100 ? '...' : ''}`);
-        
-        return transcription.text;
-    } catch (error) {
-        const duration = ((Date.now() - startTime) / 1000).toFixed(2);
-        logger('TRANSCRIBE_ERROR', `Whisper API调用失败: ${fileName}，耗时 ${duration}s，错误: ${error.message}`);
-        
-        if (error.code) {
-            logger('TRANSCRIBE_ERROR', `错误代码: ${error.code}`);
+            // 直接交由 OpenAI SDK 控制超时（已在 client 层配置 10 分钟），不再叠加 30 秒超时
+            const transcription = await openai.audio.transcriptions.create({
+                file: apiFile,
+                model: "whisper-1",
+            });
+
+            const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+            const textLength = transcription.text.length;
+
+            logger('TRANSCRIBE_SUCCESS', `音频片段转录完成: ${fileName}，耗时 ${duration}s，生成文本 ${textLength} 字符（第 ${attempt} 次尝试）`);
+            logger('TRANSCRIBE_DETAIL', `转录结果预览: ${transcription.text.substring(0, 100)}${textLength > 100 ? '...' : ''}`);
+
+            return transcription.text;
+        } catch (error) {
+            lastError = error;
+            const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+            logger('TRANSCRIBE_ERROR', `Whisper API调用失败: ${fileName}，耗时 ${duration}s，第 ${attempt}/${maxAttempts} 次尝试，错误: ${error.message}`);
+
+            if (error.code) {
+                logger('TRANSCRIBE_ERROR', `错误代码: ${error.code}`);
+            }
+            if (error.status) {
+                logger('TRANSCRIBE_ERROR', `HTTP状态码: ${error.status}`);
+            }
+
+            // 关闭已创建的文件流
+            if (fileStream && !fileStream.destroyed) {
+                fileStream.destroy();
+                fileStream = null;
+            }
+
+            // 不可重试的错误：API key 问题（401）、配额问题（429）、客户端取消
+            if (error.status === 401) {
+                logger('TRANSCRIBE_ERROR', `OpenAI API密钥无效或过期，请检查.env文件中的OPENAI_API_KEY配置`);
+                throw new Error(`OpenAI API密钥无效（401）：${error.message}`);
+            }
+            if (error.status === 429) {
+                logger('TRANSCRIBE_ERROR', `OpenAI API配额已用完，请检查API使用情况`);
+                throw new Error(`OpenAI API配额耗尽（429）：${error.message}`);
+            }
+
+            // 网络错误，等待后重试
+            const isRetriable = error.code === 'ECONNRESET' || error.code === 'ETIMEDOUT'
+                || error.code === 'EPIPE' || error.code === 'ENETUNREACH'
+                || error.status >= 500;
+
+            if (isRetriable && attempt < maxAttempts) {
+                const waitMs = 2000 * attempt; // 指数退避：2s, 4s
+                logger('TRANSCRIBE_RETRY', `网络问题，${waitMs}ms 后重试（${attempt + 1}/${maxAttempts}）...`);
+                await new Promise(resolve => setTimeout(resolve, waitMs));
+                continue;
+            }
+
+            // 不可重试或已达最大次数，向上抛出错误（不再静默返回空文本，避免生成空纪要）
+            throw new Error(`音频片段 ${fileName} 转录失败（已尝试 ${attempt} 次）：${error.message}`);
+        } finally {
+            // 兜底关闭流，防止资源泄漏
+            if (fileStream && !fileStream.destroyed) {
+                fileStream.destroy();
+            }
         }
-        if (error.status) {
-            logger('TRANSCRIBE_ERROR', `HTTP状态码: ${error.status}`);
-        }
-        
-        throw error;
     }
+    // 理论上不会走到这里，保险起见
+    throw lastError || new Error(`音频片段 ${fileName} 转录失败：未知错误`);
 };
 
 /**

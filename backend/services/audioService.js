@@ -13,7 +13,7 @@ const processManager = require('../utils/processManager');
 
 /**
  * 获取音频文件时长（增强版，支持webm等格式）
- * 降级策略: ffprobe → 命令行 ffprobe → 文件大小估算
+ * 降级策略: 命令行 ffprobe → 文件大小估算 → 默认时长
  * @param {string} filePath - 音频文件路径
  * @returns {Promise<number>} 音频时长（秒）
  */
@@ -34,49 +34,29 @@ const getAudioDuration = (filePath) => {
         const fileSizeMB = fileSizeBytes / (1024 * 1024);
         logger('DURATION_INFO', `文件大小: ${fileSizeMB.toFixed(2)}MB`);
         
-        // 方案1: 使用 ffprobe
-        ffmpeg.ffprobe(filePath, (err, metadata) => {
-            if (err) {
-                logger('DURATION_WARN', `方案1(ffprobe)获取时长失败: ${err.message}`);
-                logger('DURATION_INFO', `尝试方案2: 使用命令行ffprobe`);
-                
-                // 方案2: 使用命令行 ffprobe（对webm格式更可靠）
-                exec(`ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${filePath}"`, 
-                    (error, stdout, stderr) => {
-                    if (error || !stdout.trim()) {
-                            logger('DURATION_WARN', `方案2(命令行ffprobe)也失败，降级到方案3: 使用文件大小估算时长`);
-                            // 方案3: 根据文件大小估算（假设平均码率 128kbps）
-                            const estimatedDuration = Math.ceil((fileSizeMB * 8 * 1024) / 128);
-                logger('DURATION_ESTIMATE_INFO', `文件大小 ${fileSizeMB.toFixed(2)}MB，估算时长 ${Math.round(estimatedDuration/60)} 分钟 (基于128kbps码率计算)`);
-                            resolve(Math.max(estimatedDuration, 600)); // 至少10分钟
-                        } else {
-                            const duration = parseFloat(stdout.trim());
-                            if (isNaN(duration) || duration <= 0) {
-                                logger('DURATION_WARN', `解析时长失败(值: ${stdout.trim()})，使用文件大小估算`);
-                                const estimatedDuration = Math.ceil((fileSizeMB * 8 * 1024) / 128);
-                                resolve(Math.max(estimatedDuration, 600));
-                            } else {
-                                logger('DURATION_SUCCESS', `方案2(命令行ffprobe)成功获取文件时长: ${Math.round(duration/60)} 分钟 (${duration.toFixed(1)}秒)`);
-                                resolve(duration);
-                            }
-                        }
+        // 方案1: 使用命令行 ffprobe（最稳定，避免fluent-ffmpeg的EPIPE问题）
+        exec(`ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${filePath}"`, 
+            (error, stdout, stderr) => {
+            if (error || !stdout.trim()) {
+                    logger('DURATION_WARN', `方案1(命令行ffprobe)获取时长失败: ${error ? error.message : '无输出'}，尝试方案2: 文件大小估算`);
+                    
+                    // 方案2: 根据文件大小估算（假设平均码率 128kbps）
+                    const estimatedDuration = Math.ceil((fileSizeMB * 8 * 1024) / 128);
+                    logger('DURATION_ESTIMATE_INFO', `文件大小 ${fileSizeMB.toFixed(2)}MB，估算时长 ${Math.round(estimatedDuration/60)} 分钟 (基于128kbps码率计算)`);
+                    resolve(Math.max(estimatedDuration, 600)); // 至少10分钟
+                } else {
+                    const duration = parseFloat(stdout.trim());
+                    if (isNaN(duration) || duration <= 0) {
+                        logger('DURATION_WARN', `解析时长失败(值: ${stdout.trim()})，使用文件大小估算`);
+                        const estimatedDuration = Math.ceil((fileSizeMB * 8 * 1024) / 128);
+                        resolve(Math.max(estimatedDuration, 600));
+                    } else {
+                        logger('DURATION_SUCCESS', `方案1(命令行ffprobe)成功获取文件时长: ${Math.round(duration/60)} 分钟 (${duration.toFixed(1)}秒)`);
+                        resolve(duration);
                     }
-                );
-                return;
+                }
             }
-            
-            // 成功获取元数据
-            const duration = metadata?.format?.duration;
-            if (!duration || isNaN(duration) || duration <= 0) {
-                logger('DURATION_WARN', `元数据中时长无效(值: ${duration})，使用文件大小估算`);
-                const estimatedDuration = Math.ceil((fileSizeMB * 8 * 1024) / 128);
-                logger('DURATION_ESTIMATE_INFO', `文件大小 ${fileSizeMB.toFixed(2)}MB，估算时长 ${Math.round(estimatedDuration/60)} 分钟`);
-                resolve(Math.max(estimatedDuration, 600));
-            } else {
-                logger('DURATION_SUCCESS', `方案1(ffprobe)成功获取文件时长: ${Math.round(duration/60)} 分钟 (${duration}s)`);
-                resolve(duration);
-            }
-        });
+        );
     });
 };
 
