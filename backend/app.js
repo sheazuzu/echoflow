@@ -9,6 +9,7 @@ const config = require('./config');
 const requestLogger = require('./middleware/requestLogger');
 const errorHandler = require('./middleware/errorHandler');
 const { ensureUploadDirs } = require('./utils/fileHelper');
+const { attachClientIdentity } = require('./utils/requestIdentity');
 
 // 路由模块
 const healthRoutes = require('./routes/health');
@@ -20,6 +21,7 @@ const audioRoutes = require('./routes/audio');
 const emailRoutes = require('./routes/email');
 const feedbackRoutes = require('./routes/feedback');
 const recoveryRoutes = require('./routes/recovery');
+const adminRoutes = require('./routes/admin');
 
 // 创建 Express 应用
 const app = express();
@@ -31,6 +33,7 @@ ensureUploadDirs();
 app.use(cors(config.corsOptions));
 app.use(express.json());
 app.use(requestLogger);
+app.use(attachClientIdentity);
 
 // 注册路由
 app.use('/api', healthRoutes);
@@ -42,6 +45,7 @@ app.use('/api', audioRoutes);
 app.use('/api', emailRoutes.router);
 app.use('/api', feedbackRoutes.router);
 app.use('/api', recoveryRoutes);
+app.use('/api', adminRoutes);
 
 // 注册错误处理中间件（必须在路由之后）
 app.use(errorHandler);

@@ -58,11 +58,18 @@ const corsOptions = {
     },
     credentials: true,  // 允许携带凭证
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Client-Id', 'X-Client-Label']
 };
 
 // 服务端口
 const PORT = process.env.PORT || 3000;
+
+const adminConfig = {
+    password: process.env.ADMIN_PASSWORD || '',
+    sessionSecret: process.env.ADMIN_SESSION_SECRET || '',
+    sessionTtlHours: Number(process.env.ADMIN_SESSION_TTL_HOURS || 12),
+    cookieName: process.env.ADMIN_COOKIE_NAME || 'echoflow_admin_session'
+};
 
 module.exports = {
     PORT,
@@ -70,5 +77,6 @@ module.exports = {
     cosConfig,
     isCosConfigured,
     allowedOrigins,
-    corsOptions
+    corsOptions,
+    admin: adminConfig
 };

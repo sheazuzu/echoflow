@@ -10,6 +10,8 @@ const logger = require('../utils/logger');
 const upload = require('../middleware/upload');
 const { getUploadDir, cleanExpiredTempFiles } = require('../utils/fileHelper');
 const openaiService = require('../services/openaiService');
+const adminActivityStore = require('../utils/adminActivityStore');
+const { buildRequesterMetadata } = require('../utils/requestIdentity');
 
 // 实时转录API端点
 router.post('/transcribe/stream', upload.single('audio'), async (req, res) => {
@@ -102,6 +104,7 @@ router.post('/transcribe/stream', upload.single('audio'), async (req, res) => {
 // 生成会议记录API端点
 router.post('/generate-meeting-summary', express.json(), async (req, res) => {
     const { transcript } = req.body;
+    const requester = buildRequesterMetadata(req);
 
     if (!transcript) {
         logger('SUMMARY_ERROR', '会议记录生成失败：未提供转录文字');
@@ -124,6 +127,15 @@ router.post('/generate-meeting-summary', express.json(), async (req, res) => {
 
     try {
         const result = await openaiService.generateMeetingSummary(transcript);
+
+        adminActivityStore.recordSummaryActivity({
+            source: 'realtime_summary',
+            meetingTopic: req.body?.meetingTopic || '',
+            meetingTitle: result.summary?.chinese?.title || result.summary?.english?.title || '实时会议总结',
+            meetingDate: result.summary?.chinese?.date || result.summary?.english?.date || '',
+            summary: result.summary,
+            requester,
+        });
 
         logger('SUMMARY_API_SUCCESS', `会议记录生成完成，耗时: ${result.duration}s`);
 

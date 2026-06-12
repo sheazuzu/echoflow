@@ -10,6 +10,7 @@ const config = require('./config');
 const logger = require('./utils/logger');
 const emailService = require('./emailService');
 const processManager = require('./utils/processManager');
+const { initializeAdminActivityStore } = require('./utils/adminActivityStore');
 
 // 全局错误处理器，防止进程崩溃
 process.on('uncaughtException', (error) => {
@@ -38,6 +39,7 @@ setEmailTransporter(emailTransporter);
 
 // 启动状态定时清理
 processManager.startCleanupTimer();
+initializeAdminActivityStore();
 
 // 启动 HTTP 服务器
 app.listen(config.PORT, async () => {

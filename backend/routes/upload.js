@@ -13,6 +13,8 @@ const processManager = require('../utils/processManager');
 const cosService = require('../services/cosService');
 const audioService = require('../services/audioService');
 const openaiService = require('../services/openaiService');
+const adminActivityStore = require('../utils/adminActivityStore');
+const { buildRequesterMetadata } = require('../utils/requestIdentity');
 
 // 上传与处理接口
 router.post('/upload', upload.single('file'), async (req, res) => {
@@ -26,6 +28,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     
     // 获取会议主题（如果前端传递了）
     const meetingTopic = req.body.meetingTopic || '';
+    const requester = buildRequesterMetadata(req);
     
     // 生成标准化文件名：YYYYMMDD_HHMMSS_会议主题_原始文件名
     const now = new Date();
@@ -113,7 +116,12 @@ router.post('/upload', upload.single('file'), async (req, res) => {
         // 2. 开始处理文件
         logger('STEP_PROCESS', `步骤2: 开始音频处理流程`);
         logger('PROCESS_INFO', `文件已上传到COS: ${cosKey}`);
-        await processFile(fileId, cosKey, fileSizeMB);
+        await processFile(fileId, cosKey, fileSizeMB, {
+            requester,
+            meetingTopic,
+            originalFilename: req.file.originalname,
+            normalizedFilename: cleanFileName,
+        });
         
     } catch (error) {
         logger('PROCESS_ERROR', `文件处理流程异常: ${error.message}`);
@@ -134,7 +142,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
 });
 
 // 异步文件处理函数
-async function processFile(fileId, cosKey, fileSizeMB) {
+async function processFile(fileId, cosKey, fileSizeMB, metadata = {}) {
     const uploadDir = getUploadDir();
     const splitDir = getSplitDir();
     let localFilePath = null;
@@ -396,7 +404,24 @@ ${fullTranscript}`;
             minutesData: aiResult,
             transcript: fullTranscript,
             transcriptCosKey: transcriptCosKey,
-            cosKey: cosKey
+            cosKey: cosKey,
+            createdAt: new Date().toISOString(),
+            requester: metadata.requester,
+            meetingTopic: metadata.meetingTopic || '',
+            originalFilename: metadata.originalFilename || '',
+            normalizedFilename: metadata.normalizedFilename || ''
+        });
+        
+        adminActivityStore.recordSummaryActivity({
+            source: 'upload',
+            fileId,
+            meetingTopic: metadata.meetingTopic || '',
+            originalFilename: metadata.originalFilename || '',
+            normalizedFilename: metadata.normalizedFilename || '',
+            meetingTitle: aiResult.chinese?.title || aiResult.english?.title || metadata.meetingTopic || fileId,
+            meetingDate: aiResult.chinese?.date || aiResult.english?.date || '',
+            summary: aiResult,
+            requester: metadata.requester,
         });
         
         // 输出会议纪要简介到日志

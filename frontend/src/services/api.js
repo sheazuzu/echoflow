@@ -28,12 +28,46 @@ const DEFAULT_CONFIG = {
   retryDelay: 1000,
 };
 
+const CLIENT_ID_STORAGE_KEY = 'echoflow_client_id';
+
+const shouldLogAdminRequest = (url = '') => url.startsWith('/api/admin');
+
+const logAdminRequest = (stage, payload = {}) => {
+  console.info(`[ADMIN_API] ${stage}`, payload);
+};
+
+const getOrCreateClientId = () => {
+  const existingClientId = localStorage.getItem(CLIENT_ID_STORAGE_KEY);
+  if (existingClientId) {
+    return existingClientId;
+  }
+
+  const newClientId = `web_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+  localStorage.setItem(CLIENT_ID_STORAGE_KEY, newClientId);
+  return newClientId;
+};
+
+const getClientLabel = () => {
+  const clientId = getOrCreateClientId();
+  return `网页访客-${clientId.slice(-6)}`;
+};
+
+const createClientIdentityHeaders = () => ({
+  'X-Client-Id': getOrCreateClientId(),
+});
+
+export const getClientIdentity = () => ({
+  clientId: getOrCreateClientId(),
+  clientLabel: getClientLabel(),
+});
+
 /**
  * 创建请求头
  */
 const createHeaders = (customHeaders = {}) => {
   const headers = {
     'Content-Type': 'application/json',
+    ...createClientIdentityHeaders(),
     ...customHeaders,
   };
 
@@ -121,7 +155,7 @@ const handleError = (error) => {
         message = ERROR_MESSAGES.FILE_TOO_LARGE;
         break;
       case 500:
-        message = ERROR_MESSAGES.SERVER_ERROR;
+        message = error.message || ERROR_MESSAGES.SERVER_ERROR;
         break;
       case 503:
         message = '服务暂时不可用，请稍后重试';
@@ -165,20 +199,56 @@ const request = async (url, options = {}, config = {}) => {
 
   for (let attempt = 0; attempt <= retryCount; attempt++) {
     try {
+      const method = options.method || HTTP_METHODS.GET;
+      const requestUrl = `${API_BASE_URL}${url}`;
+
+      if (shouldLogAdminRequest(url)) {
+        logAdminRequest('request:start', {
+          method,
+          url: requestUrl,
+          attempt: attempt + 1,
+          retryCount,
+        });
+      }
+
       // 创建 AbortController 用于超时控制
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-      const response = await fetch(`${API_BASE_URL}${url}`, {
+      const response = await fetch(requestUrl, {
         ...options,
         signal: controller.signal,
+        credentials: 'include',
       });
 
       clearTimeout(timeoutId);
 
+      if (shouldLogAdminRequest(url)) {
+        logAdminRequest('request:response', {
+          method,
+          url: requestUrl,
+          status: response.status,
+          ok: response.ok,
+          contentType: response.headers.get('content-type'),
+        });
+      }
+
       return await handleResponse(response);
     } catch (error) {
       lastError = error;
+
+      if (shouldLogAdminRequest(url)) {
+        logAdminRequest('request:error', {
+          method: options.method || HTTP_METHODS.GET,
+          url: `${API_BASE_URL}${url}`,
+          attempt: attempt + 1,
+          retryCount,
+          name: error.name,
+          message: error.message,
+          status: error.status,
+          details: error.data || null,
+        });
+      }
 
       // 如果是最后一次尝试，或者是不应该重试的错误，直接抛出
       if (
@@ -343,6 +413,13 @@ const apiClient = {
         if (token) {
           xhr.setRequestHeader('Authorization', `Bearer ${token}`);
         }
+
+        const identityHeaders = createClientIdentityHeaders();
+        Object.entries(identityHeaders).forEach(([key, value]) => {
+          xhr.setRequestHeader(key, value);
+        });
+
+        xhr.withCredentials = true;
 
         xhr.send(formData);
       });

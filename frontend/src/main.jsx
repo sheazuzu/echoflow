@@ -9,6 +9,7 @@ import { getCurrentLanguage } from './i18n/utils.js'
 import { AudioProvider } from './contexts/AudioContext.jsx'
 import { NotificationProvider } from './contexts/NotificationContext.jsx'
 import FeaturePage from './components/FeaturePage.jsx'
+import AdminDashboard from './components/AdminDashboard.jsx'
 
 // 获取初始语言
 const initialLanguage = getCurrentLanguage()
@@ -23,6 +24,9 @@ createRoot(document.getElementById('root')).render(
               {/* 根路径 - 将重定向到带语言前缀的路径 */}
               <Route path="/" element={<LanguageRouter><App /></LanguageRouter>} />
               
+              {/* 管理页 */}
+              <Route path="/admin" element={<AdminDashboard />} />
+               
               {/* 产品功能页面 */}
               <Route path="/:lang/feature" element={<LanguageRouter><FeaturePage /></LanguageRouter>} />
 

@@ -22,6 +22,7 @@ services:
       - SMTP_USER=${SMTP_USER}
       - SMTP_PASS=${SMTP_PASS}
       - SMTP_FROM_NAME=${SMTP_FROM_NAME}
+
     volumes:
       - ./backend/uploads:/app/uploads
     restart: unless-stopped
