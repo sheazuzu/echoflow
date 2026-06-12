@@ -60,6 +60,35 @@ cp .env.example .env
 # 后端：http://localhost:3000
 ```
 
+### 部署脚本与 CI/CD
+
+#### 首次部署
+
+- 交互式模式：直接运行 `./deploy.sh`，脚本会提示输入部署模式、域名和邮箱。
+- 非交互模式：可通过环境变量跳过提示。
+
+```bash
+DEPLOY_MODE=2 DOMAIN_NAME=meetandnote.com ACME_EMAIL=myemail@example.com ./deploy.sh
+```
+
+- `DEPLOY_MODE`：`1` 表示自签名证书，`2` 表示 Let's Encrypt。
+- `DOMAIN_NAME`：当 `DEPLOY_MODE=2` 时必填。
+- `ACME_EMAIL`：当 `DEPLOY_MODE=2` 时必填。
+
+#### CI/CD 更新部署
+
+- GitHub Actions 会在推送到 `main` 分支后自动执行 `.github/workflows/deploy.yml`。
+- 自托管 Runner 只会运行 `./deploy-update.sh`，用于拉取镜像、重新构建并重启容器，不会修改证书、Traefik 配置或服务器上的 `.env`。
+
+#### 严格 CI 模式
+
+- 当 `CI=true` 时，`deploy.sh` 不会等待任何人工输入。
+- 若缺少必需参数，脚本会立即失败。
+
+```bash
+CI=true DEPLOY_MODE=2 DOMAIN_NAME=meetandnote.com ACME_EMAIL=myemail@example.com ./deploy.sh
+```
+
 ### 方式二：本地开发
 
 ```bash

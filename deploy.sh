@@ -1,9 +1,71 @@
 #!/bin/bash
 
+set -e
+
 # MeetAndNote 一键部署脚本
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
+is_true() {
+    case "${1:-}" in
+        true|TRUE|True|1|yes|YES|Yes|on|ON|On)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+set_env_var() {
+    local file="$1"
+    local key="$2"
+    local value="$3"
+    local tmp_file
+
+    tmp_file="$(mktemp)"
+
+    if grep -q "^${key}=" "$file"; then
+        awk -v key="$key" -v value="$value" '
+            BEGIN { updated = 0 }
+            $0 ~ ("^" key "=") {
+                print key "=" value
+                updated = 1
+                next
+            }
+            { print }
+            END {
+                if (!updated) {
+                    print key "=" value
+                }
+            }
+        ' "$file" > "$tmp_file"
+    else
+        cat "$file" > "$tmp_file"
+        printf '%s=%s\n' "$key" "$value" >> "$tmp_file"
+    fi
+
+    mv "$tmp_file" "$file"
+}
+
+remove_env_keys() {
+    local file="$1"
+    local tmp_file
+
+    tmp_file="$(mktemp)"
+    grep -vE '^(FRONTEND_RULE|BACKEND_RULE)=' "$file" > "$tmp_file" || true
+    mv "$tmp_file" "$file"
+}
 
 echo "🚀 Echoflow 容器化部署脚本"
 echo "================================"
+
+CI_MODE=false
+if is_true "${CI:-}"; then
+    CI_MODE=true
+    echo "🤖 检测到 CI 模式：已禁用所有交互式输入"
+fi
 
 # 检查 Docker 是否安装
 if ! command -v docker &> /dev/null; then
@@ -21,7 +83,7 @@ else
     exit 1
 fi
 
-echo "✅ 使用 Docker Compose 命令: $DOCKER_COMPOSE_CMD"Ï
+echo "✅ 使用 Docker Compose 命令: $DOCKER_COMPOSE_CMD"
 
 # 检查环境变量文件
 if [ ! -f ".env" ]; then
@@ -41,12 +103,66 @@ fi
 echo "✅ 环境检查通过"
 echo ""
 
-# 证书管理配置
-echo "🔒 配置 HTTPS 证书..."
-echo "请选择部署环境:"
-echo "1) 私有部署 (使用自签名证书，适合内网或测试)"
-echo "2) 云服务器部署 (使用 Let's Encrypt 免费证书，需要公网IP和域名)"
-read -p "请输入选项 (1/2): " deploy_mode
+# 读取部署参数：优先使用环境变量，未提供时再进入交互式输入
+DEPLOY_MODE_VALUE="${DEPLOY_MODE:-}"
+DOMAIN_NAME_VALUE="${DOMAIN_NAME:-}"
+ACME_EMAIL_VALUE="${ACME_EMAIL:-}"
+
+if [ -z "$DEPLOY_MODE_VALUE" ]; then
+    if [ "$CI_MODE" = "true" ]; then
+        echo "❌ CI 模式下必须提供 DEPLOY_MODE 环境变量（1=自签名证书，2=Let's Encrypt）"
+        exit 1
+    fi
+
+    echo "🔒 配置 HTTPS 证书..."
+    echo "请选择部署环境:"
+    echo "1) 私有部署 (使用自签名证书，适合内网或测试)"
+    echo "2) 云服务器部署 (使用 Let's Encrypt 免费证书，需要公网IP和域名)"
+    read -r -p "请输入选项 (1/2): " DEPLOY_MODE_VALUE
+else
+    echo "🔒 使用环境变量指定的部署模式: $DEPLOY_MODE_VALUE"
+fi
+
+case "$DEPLOY_MODE_VALUE" in
+    1|2)
+        ;;
+    *)
+        if [ "$CI_MODE" = "true" ] || [ -n "${DEPLOY_MODE:-}" ]; then
+            echo "❌ DEPLOY_MODE 必须为 1 或 2"
+            exit 1
+        fi
+        echo "⚠️  无效选项，默认使用私有部署模式"
+        DEPLOY_MODE_VALUE="1"
+        ;;
+esac
+
+if [ "$DEPLOY_MODE_VALUE" = "2" ]; then
+    if [ -z "$DOMAIN_NAME_VALUE" ]; then
+        if [ "$CI_MODE" = "true" ]; then
+            echo "❌ CI 模式下 DEPLOY_MODE=2 时必须提供 DOMAIN_NAME"
+            exit 1
+        fi
+        read -r -p "请输入您的域名 (例如: example.com): " DOMAIN_NAME_VALUE
+    fi
+
+    if [ -z "$DOMAIN_NAME_VALUE" ]; then
+        echo "❌ 域名不能为空"
+        exit 1
+    fi
+
+    if [ -z "$ACME_EMAIL_VALUE" ]; then
+        if [ "$CI_MODE" = "true" ]; then
+            echo "❌ CI 模式下 DEPLOY_MODE=2 时必须提供 ACME_EMAIL"
+            exit 1
+        fi
+        read -r -p "请输入您的邮箱地址 (用于 Let's Encrypt 通知): " ACME_EMAIL_VALUE
+    fi
+
+    if [ -z "$ACME_EMAIL_VALUE" ]; then
+        echo "❌ 邮箱不能为空"
+        exit 1
+    fi
+fi
 
 # 创建必要的目录
 mkdir -p traefik/certs
@@ -54,14 +170,11 @@ mkdir -p traefik/dynamic
 mkdir -p traefik/letsencrypt
 
 # 清理旧的规则配置 (确保从干净的状态开始)
-if [ -f .env ]; then
-    sed -i '' '/FRONTEND_RULE/d' .env
-    sed -i '' '/BACKEND_RULE/d' .env
-fi
+remove_env_keys .env
 
-if [ "$deploy_mode" = "1" ]; then
+if [ "$DEPLOY_MODE_VALUE" = "1" ]; then
     echo "🏠 正在配置私有部署环境..."
-    
+
     # 生成自签名证书
     if [ ! -f "traefik/certs/server.crt" ]; then
         echo "Generating self-signed certificate..."
@@ -83,30 +196,16 @@ EOF
 
     # 清理 override 文件（如果存在）
     rm -f docker-compose.override.yml
-    
+
     echo "✅ 自签名证书配置完成"
 
-elif [ "$deploy_mode" = "2" ]; then
+elif [ "$DEPLOY_MODE_VALUE" = "2" ]; then
     echo "☁️  正在配置云服务器环境..."
-    
-    read -p "请输入您的域名 (例如: example.com): " domain_name
-    if [ -z "$domain_name" ]; then
-        echo "❌ 域名不能为空"
-        exit 1
-    fi
 
-    read -p "请输入您的邮箱地址 (用于 Let's Encrypt 通知): " acme_email
-    
-    # 更新 .env 中的邮箱
-    if grep -q "ACME_EMAIL=" .env; then
-        sed -i '' "s/ACME_EMAIL=.*/ACME_EMAIL=$acme_email/" .env
-    else
-        echo "ACME_EMAIL=$acme_email" >> .env
-    fi
-
-    # 配置路由规则到 .env
-    echo "FRONTEND_RULE=Host(\`$domain_name\`)" >> .env
-    echo "BACKEND_RULE=Host(\`$domain_name\`) && PathPrefix(\`/api\`)" >> .env
+    # 更新 .env 中的邮箱与路由规则
+    set_env_var .env "ACME_EMAIL" "$ACME_EMAIL_VALUE"
+    set_env_var .env "FRONTEND_RULE" "Host(\`$DOMAIN_NAME_VALUE\`)"
+    set_env_var .env "BACKEND_RULE" "Host(\`$DOMAIN_NAME_VALUE\`) && PathPrefix(\`/api\`)"
 
     # 确保 acme.json 存在且权限正确 (600)
     if [ ! -f "traefik/letsencrypt/acme.json" ]; then
@@ -126,13 +225,10 @@ services:
       - "traefik.http.routers.backend.tls.certresolver=myresolver"
 EOF
 
-    # 清理动态 TLS 配置（避免冲突，或者保留为空）
+    # 清理动态 TLS 配置（避免冲突）
     rm -f traefik/dynamic/tls.yml
-    
-    echo "✅ Let's Encrypt 配置完成 (域名: $domain_name)"
-else
-    echo "❌ 无效选项，默认使用私有部署模式"
-    # 默认为私有部署逻辑...
+
+    echo "✅ Let's Encrypt 配置完成 (域名: $DOMAIN_NAME_VALUE)"
 fi
 
 # 构建和启动服务
@@ -149,7 +245,7 @@ echo "   等待Traefik和服务完全启动..."
 
 # 等待容器完全健康
 for i in {1..30}; do
-    if docker compose ps | grep -q "healthy"; then
+    if $DOCKER_COMPOSE_CMD ps | grep -q "healthy"; then
         echo "✅ 所有服务已健康启动"
         break
     fi
@@ -193,13 +289,13 @@ if [ -f ".env" ]; then
     SMTP_HOST=$(grep "^SMTP_HOST=" .env | cut -d '=' -f2)
     SMTP_USER=$(grep "^SMTP_USER=" .env | cut -d '=' -f2)
     SMTP_PASS=$(grep "^SMTP_PASS=" .env | cut -d '=' -f2)
-    
+
     # 检查哪些配置缺失
     MISSING_CONFIGS=()
     [ -z "$SMTP_HOST" ] && MISSING_CONFIGS+=("SMTP_HOST")
     [ -z "$SMTP_USER" ] && MISSING_CONFIGS+=("SMTP_USER")
     [ -z "$SMTP_PASS" ] && MISSING_CONFIGS+=("SMTP_PASS")
-    
+
     if [ ${#MISSING_CONFIGS[@]} -gt 0 ]; then
         echo "⚠️  SMTP配置不完整，邮件发送功能将不可用"
         echo ""
@@ -230,16 +326,16 @@ if [ -f ".env" ]; then
         # 读取所有SMTP配置
         SMTP_PORT=$(grep "^SMTP_PORT=" .env | cut -d '=' -f2)
         SMTP_SECURE=$(grep "^SMTP_SECURE=" .env | cut -d '=' -f2)
-        
+
         # 设置默认值
         SMTP_PORT=${SMTP_PORT:-587}
         SMTP_SECURE=${SMTP_SECURE:-false}
-        
+
         echo "✅ SMTP配置已找到 (服务器: $SMTP_HOST)"
         echo "   正在测试SMTP连通性..."
-        
+
         # 使用Node.js测试SMTP连接，直接传递配置值
-        SMTP_TEST_RESULT=$(docker compose exec -T backend node -e "
+        SMTP_TEST_RESULT=$($DOCKER_COMPOSE_CMD exec -T backend node -e "
 const nodemailer = require('nodemailer');
 const transporter = nodemailer.createTransport({
     host: '$SMTP_HOST',
@@ -250,15 +346,15 @@ const transporter = nodemailer.createTransport({
         pass: '$SMTP_PASS',
     },
     // 增加超时时间，解决网络不稳定导致的DNS解析失败
-    connectionTimeout: 60000,  // 连接超时：60秒
-    greetingTimeout: 30000,    // 握手超时：30秒
-    socketTimeout: 60000,      // Socket超时：60秒
+    connectionTimeout: 60000,
+    greetingTimeout: 30000,
+    socketTimeout: 60000,
 });
 transporter.verify()
     .then(() => console.log('SUCCESS'))
     .catch(err => console.log('FAILED:' + err.message));
 " 2>&1)
-        
+
         if echo "$SMTP_TEST_RESULT" | grep -q "SUCCESS"; then
             echo "   ✅ SMTP服务器连接成功，邮件发送功能已就绪"
         else
