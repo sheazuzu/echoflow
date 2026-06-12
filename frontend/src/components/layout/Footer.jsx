@@ -6,6 +6,7 @@ import logo from '../../assets/logo.png';
 const Footer = () => {
   const { t } = useTranslation();
   const currentYear = new Date().getFullYear();
+  const appVersion = `v${import.meta.env.APP_VERSION || 'dev'}`;
 
   return (
     <footer className="enterprise-footer">
@@ -30,11 +31,16 @@ const Footer = () => {
             {t('footer.companyDescription')}
           </p>
 
-          {/* 版权信息 */}
-          <div className="footer-copyright">
-            <p>
-              © {currentYear} {t('common.appName')}. {t('footer.allRightsReserved')}
-            </p>
+          {/* 页脚元信息 */}
+          <div className="footer-meta">
+            <div className="footer-version" aria-label="Application version">
+              {appVersion}
+            </div>
+            <div className="footer-copyright">
+              <p>
+                © {currentYear} {t('common.appName')}. {t('footer.allRightsReserved')}
+              </p>
+            </div>
           </div>
         </div>
       </div>
