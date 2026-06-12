@@ -1,4 +1,4 @@
-name: Deploy
+name: Deploy MeetAndNote
 
 on:
   push:
@@ -10,8 +10,16 @@ jobs:
     runs-on: self-hosted
 
     steps:
-      - name: Test
+      - uses: actions/checkout@v4
+
+      - name: Deploy
         run: |
-          whoami
-          hostname
-          pwd
+          cd $GITHUB_WORKSPACE
+
+          docker compose down
+
+          docker compose build
+
+          docker compose up -d
+
+          docker image prune -f
