@@ -2,7 +2,7 @@
 
 set -e
 
-# MeetAndNote 一键部署脚本
+# MeetAndNote one-click deployment script
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
@@ -58,69 +58,69 @@ remove_env_keys() {
     mv "$tmp_file" "$file"
 }
 
-echo "🚀 Echoflow 容器化部署脚本"
+echo "Echoflow container deployment script"
 echo "================================"
 
 CI_MODE=false
 if is_true "${CI:-}"; then
     CI_MODE=true
-    echo "🤖 检测到 CI 模式：已禁用所有交互式输入"
+    echo "CI mode detected: all interactive prompts have been disabled"
 fi
 
-# 检查 Docker 是否安装
+# Check whether Docker is installed
 if ! command -v docker &> /dev/null; then
-    echo "❌ Docker 未安装，请先安装 Docker"
+    echo "Docker is not installed. Please install Docker first"
     exit 1
 fi
 
-# 检查 Docker Compose 是否安装（支持两种格式）
+# Check whether Docker Compose is installed (supports both formats)
 if command -v docker-compose &> /dev/null; then
     DOCKER_COMPOSE_CMD="docker-compose"
 elif docker compose version &> /dev/null; then
     DOCKER_COMPOSE_CMD="docker compose"
 else
-    echo "❌ Docker Compose 未安装，请先安装 Docker Compose"
+    echo "Docker Compose is not installed. Please install Docker Compose first"
     exit 1
 fi
 
-echo "✅ 使用 Docker Compose 命令: $DOCKER_COMPOSE_CMD"
+echo "Using Docker Compose command: $DOCKER_COMPOSE_CMD"
 
-# 检查环境变量文件
+# Check the environment variable file
 if [ ! -f ".env" ]; then
-    echo "⚠️  未找到 .env 文件，正在创建模板..."
+    echo ".env file not found. Creating a template..."
     cp .env.example .env
-    echo "📝 请编辑 .env 文件，配置 OpenAI API Key"
+    echo "Please edit the .env file and configure your OpenAI API key"
     echo "   OPENAI_API_KEY=sk-your-actual-api-key"
     exit 1
 fi
 
-# 检查 API Key 是否配置
+# Check whether the API key is configured
 if grep -q "OPENAI_API_KEY=sk-your-openai-api-key-here" .env; then
-    echo "❌ 请先在 .env 文件中配置有效的 OpenAI API Key"
+    echo "Please configure a valid OpenAI API key in the .env file first"
     exit 1
 fi
 
-echo "✅ 环境检查通过"
+echo "Environment checks passed"
 echo ""
 
-# 读取部署参数：优先使用环境变量，未提供时再进入交互式输入
+# Read deployment parameters: prefer environment variables, otherwise prompt interactively
 DEPLOY_MODE_VALUE="${DEPLOY_MODE:-}"
 DOMAIN_NAME_VALUE="${DOMAIN_NAME:-}"
 ACME_EMAIL_VALUE="${ACME_EMAIL:-}"
 
 if [ -z "$DEPLOY_MODE_VALUE" ]; then
     if [ "$CI_MODE" = "true" ]; then
-        echo "❌ CI 模式下必须提供 DEPLOY_MODE 环境变量（1=自签名证书，2=Let's Encrypt）"
+        echo "DEPLOY_MODE must be provided in CI mode (1=self-signed certificate, 2=Let's Encrypt)"
         exit 1
     fi
 
-    echo "🔒 配置 HTTPS 证书..."
-    echo "请选择部署环境:"
-    echo "1) 私有部署 (使用自签名证书，适合内网或测试)"
-    echo "2) 云服务器部署 (使用 Let's Encrypt 免费证书，需要公网IP和域名)"
-    read -r -p "请输入选项 (1/2): " DEPLOY_MODE_VALUE
+    echo "Configure HTTPS certificates..."
+    echo "Select deployment mode:"
+    echo "1) Private deployment (use a self-signed certificate, suitable for internal networks or testing)"
+    echo "2) Cloud server deployment (use a free Let's Encrypt certificate, requires a public IP and a domain name)"
+    read -r -p "Enter your choice (1/2): " DEPLOY_MODE_VALUE
 else
-    echo "🔒 使用环境变量指定的部署模式: $DEPLOY_MODE_VALUE"
+    echo "Using deployment mode from environment variables: $DEPLOY_MODE_VALUE"
 fi
 
 case "$DEPLOY_MODE_VALUE" in
@@ -128,10 +128,10 @@ case "$DEPLOY_MODE_VALUE" in
         ;;
     *)
         if [ "$CI_MODE" = "true" ] || [ -n "${DEPLOY_MODE:-}" ]; then
-            echo "❌ DEPLOY_MODE 必须为 1 或 2"
+            echo "DEPLOY_MODE must be 1 or 2"
             exit 1
         fi
-        echo "⚠️  无效选项，默认使用私有部署模式"
+        echo "Invalid option. Falling back to private deployment mode"
         DEPLOY_MODE_VALUE="1"
         ;;
 esac
@@ -139,43 +139,43 @@ esac
 if [ "$DEPLOY_MODE_VALUE" = "2" ]; then
     if [ -z "$DOMAIN_NAME_VALUE" ]; then
         if [ "$CI_MODE" = "true" ]; then
-            echo "❌ CI 模式下 DEPLOY_MODE=2 时必须提供 DOMAIN_NAME"
+            echo "DOMAIN_NAME must be provided when DEPLOY_MODE=2 in CI mode"
             exit 1
         fi
-        read -r -p "请输入您的域名 (例如: example.com): " DOMAIN_NAME_VALUE
+        read -r -p "Enter your domain name (for example: example.com): " DOMAIN_NAME_VALUE
     fi
 
     if [ -z "$DOMAIN_NAME_VALUE" ]; then
-        echo "❌ 域名不能为空"
+        echo "Domain name cannot be empty"
         exit 1
     fi
 
     if [ -z "$ACME_EMAIL_VALUE" ]; then
         if [ "$CI_MODE" = "true" ]; then
-            echo "❌ CI 模式下 DEPLOY_MODE=2 时必须提供 ACME_EMAIL"
+            echo "ACME_EMAIL must be provided when DEPLOY_MODE=2 in CI mode"
             exit 1
         fi
-        read -r -p "请输入您的邮箱地址 (用于 Let's Encrypt 通知): " ACME_EMAIL_VALUE
+        read -r -p "Enter your email address (used for Let's Encrypt notifications): " ACME_EMAIL_VALUE
     fi
 
     if [ -z "$ACME_EMAIL_VALUE" ]; then
-        echo "❌ 邮箱不能为空"
+        echo "Email address cannot be empty"
         exit 1
     fi
 fi
 
-# 创建必要的目录
+# Create required directories
 mkdir -p traefik/certs
 mkdir -p traefik/dynamic
 mkdir -p traefik/letsencrypt
 
-# 清理旧的规则配置 (确保从干净的状态开始)
+# Clean old routing rules to ensure a clean state
 remove_env_keys .env
 
 if [ "$DEPLOY_MODE_VALUE" = "1" ]; then
-    echo "🏠 正在配置私有部署环境..."
+    echo "Configuring private deployment environment..."
 
-    # 生成自签名证书
+    # Generate a self-signed certificate
     if [ ! -f "traefik/certs/server.crt" ]; then
         echo "Generating self-signed certificate..."
         openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
@@ -184,7 +184,7 @@ if [ "$DEPLOY_MODE_VALUE" = "1" ]; then
             -subj "/CN=localhost"
     fi
 
-    # 生成动态配置文件以加载证书
+    # Generate the dynamic configuration file to load the certificate
     cat > traefik/dynamic/tls.yml <<EOF
 tls:
   stores:
@@ -194,26 +194,26 @@ tls:
         keyFile: /certs/server.key
 EOF
 
-    # 清理 override 文件（如果存在）
+    # Remove the override file if it exists
     rm -f docker-compose.override.yml
 
-    echo "✅ 自签名证书配置完成"
+    echo "Self-signed certificate configuration completed"
 
 elif [ "$DEPLOY_MODE_VALUE" = "2" ]; then
-    echo "☁️  正在配置云服务器环境..."
+    echo "Configuring cloud server environment..."
 
-    # 更新 .env 中的邮箱与路由规则
+    # Update email and routing rules in .env
     set_env_var .env "ACME_EMAIL" "$ACME_EMAIL_VALUE"
     set_env_var .env "FRONTEND_RULE" "Host(\`$DOMAIN_NAME_VALUE\`)"
     set_env_var .env "BACKEND_RULE" "Host(\`$DOMAIN_NAME_VALUE\`) && PathPrefix(\`/api\`)"
 
-    # 确保 acme.json 存在且权限正确 (600)
+    # Ensure acme.json exists and has the correct permission (600)
     if [ ! -f "traefik/letsencrypt/acme.json" ]; then
         touch traefik/letsencrypt/acme.json
     fi
     chmod 600 traefik/letsencrypt/acme.json
 
-    # 创建 override 文件以启用 ACME resolver
+    # Create the override file to enable the ACME resolver
     cat > docker-compose.override.yml <<EOF
 version: '3'
 services:
@@ -225,116 +225,116 @@ services:
       - "traefik.http.routers.backend.tls.certresolver=myresolver"
 EOF
 
-    # 清理动态 TLS 配置（避免冲突）
+    # Remove the dynamic TLS configuration to avoid conflicts
     rm -f traefik/dynamic/tls.yml
 
-    echo "✅ Let's Encrypt 配置完成 (域名: $DOMAIN_NAME_VALUE)"
+    echo "Let's Encrypt configuration completed (domain: $DOMAIN_NAME_VALUE)"
 fi
 
-# 构建和启动服务
-echo "🔨 开始构建 Docker 镜像..."
+# Build and start services
+echo "Building Docker images..."
 $DOCKER_COMPOSE_CMD build
 
 echo ""
-echo "🚀 启动服务..."
+echo "Starting services..."
 $DOCKER_COMPOSE_CMD up -d
 
 echo ""
-echo "⏳ 等待服务启动..."
-echo "   等待Traefik和服务完全启动..."
+echo "Waiting for services to start..."
+echo "   Waiting for Traefik and services to fully start..."
 
-# 等待容器完全健康
+# Wait until containers become healthy
 for i in {1..30}; do
     if $DOCKER_COMPOSE_CMD ps | grep -q "healthy"; then
-        echo "✅ 所有服务已健康启动"
+        echo "All services are healthy"
         break
     fi
     if [ $i -eq 30 ]; then
-        echo "⚠️  超时：部分服务仍在启动中，继续健康检查..."
+        echo "Timeout reached: some services are still starting, continuing with health checks..."
     fi
     sleep 2
 done
 
-echo "   等待Traefik路由注册..."
+echo "   Waiting for Traefik routes to be registered..."
 sleep 5
 
-# 检查服务状态
+# Check service status
 echo ""
-echo "📊 服务状态检查:"
+echo "Service status:"
 $DOCKER_COMPOSE_CMD ps
 
 echo ""
-echo "🔍 服务健康检查:"
+echo "Service health checks:"
 
-# 检查后端服务（通过Traefik）
+# Check the backend service through Traefik
 if curl -f http://localhost/api/health > /dev/null 2>&1; then
-    echo "✅ 后端服务运行正常 (通过Traefik: /api/health)"
+    echo "Backend service is running normally (through Traefik: /api/health)"
 else
-    echo "❌ 后端服务启动失败（无法通过Traefik访问 /api/health）"
+    echo "Backend service failed to start (cannot access /api/health through Traefik)"
 fi
 
-# 检查前端服务（通过Traefik）
+# Check the frontend service through Traefik
 if curl -f http://localhost/ > /dev/null 2>&1; then
-    echo "✅ 前端服务运行正常 (通过Traefik: /)"
+    echo "Frontend service is running normally (through Traefik: /)"
 else
-    echo "❌ 前端服务启动失败（无法通过Traefik访问 /）"
+    echo "Frontend service failed to start (cannot access / through Traefik)"
 fi
 
-# 检查SMTP配置和连通性
+# Check SMTP configuration and connectivity
 echo ""
-echo "📧 SMTP邮件服务检查:"
+echo "SMTP mail service check:"
 
-# 检查.env文件中是否配置了SMTP
+# Check whether SMTP is configured in the .env file
 if [ -f ".env" ]; then
     SMTP_HOST=$(grep "^SMTP_HOST=" .env | cut -d '=' -f2)
     SMTP_USER=$(grep "^SMTP_USER=" .env | cut -d '=' -f2)
     SMTP_PASS=$(grep "^SMTP_PASS=" .env | cut -d '=' -f2)
 
-    # 检查哪些配置缺失
+    # Check which configuration items are missing
     MISSING_CONFIGS=()
     [ -z "$SMTP_HOST" ] && MISSING_CONFIGS+=("SMTP_HOST")
     [ -z "$SMTP_USER" ] && MISSING_CONFIGS+=("SMTP_USER")
     [ -z "$SMTP_PASS" ] && MISSING_CONFIGS+=("SMTP_PASS")
 
     if [ ${#MISSING_CONFIGS[@]} -gt 0 ]; then
-        echo "⚠️  SMTP配置不完整，邮件发送功能将不可用"
+        echo "SMTP configuration is incomplete. Email sending will not be available"
         echo ""
-        echo "❌ 缺失的配置项:"
+        echo "Missing configuration items:"
         for config in "${MISSING_CONFIGS[@]}"; do
             case $config in
                 "SMTP_HOST")
-                    echo "   ❌ $config - 请输入SMTP服务器地址 (例如: smtp.gmail.com)"
+                    echo "   $config - Enter the SMTP server address (for example: smtp.gmail.com)"
                     ;;
                 "SMTP_USER")
-                    echo "   ❌ $config - 请输入发件人邮箱地址 (例如: your-email@gmail.com)"
+                    echo "   $config - Enter the sender email address (for example: your-email@gmail.com)"
                     ;;
                 "SMTP_PASS")
-                    echo "   ❌ $config - 请输入邮箱密码或应用专用密码"
-                    echo "      提示: Gmail需要使用应用专用密码，不是普通登录密码"
+                    echo "   $config - Enter the email password or app-specific password"
+                    echo "      Tip: Gmail requires an app-specific password, not your regular sign-in password"
                     ;;
             esac
         done
         echo ""
-        echo "📝 请在项目根目录的 .env 文件中配置以上参数"
-        echo "   示例配置:"
+        echo "Please configure the above variables in the .env file under the project root"
+        echo "   Example configuration:"
         echo "   SMTP_HOST=smtp.gmail.com"
         echo "   SMTP_PORT=587"
         echo "   SMTP_SECURE=false"
         echo "   SMTP_USER=your-email@gmail.com"
         echo "   SMTP_PASS=your-app-password"
     else
-        # 读取所有SMTP配置
+        # Read all SMTP configuration values
         SMTP_PORT=$(grep "^SMTP_PORT=" .env | cut -d '=' -f2)
         SMTP_SECURE=$(grep "^SMTP_SECURE=" .env | cut -d '=' -f2)
 
-        # 设置默认值
+        # Set default values
         SMTP_PORT=${SMTP_PORT:-587}
         SMTP_SECURE=${SMTP_SECURE:-false}
 
-        echo "✅ SMTP配置已找到 (服务器: $SMTP_HOST)"
-        echo "   正在测试SMTP连通性..."
+        echo "SMTP configuration found (server: $SMTP_HOST)"
+        echo "   Testing SMTP connectivity..."
 
-        # 使用Node.js测试SMTP连接，直接传递配置值
+        # Use Node.js to test SMTP connectivity and pass configuration values directly
         SMTP_TEST_RESULT=$($DOCKER_COMPOSE_CMD exec -T backend node -e "
 const nodemailer = require('nodemailer');
 const transporter = nodemailer.createTransport({
@@ -345,7 +345,7 @@ const transporter = nodemailer.createTransport({
         user: '$SMTP_USER',
         pass: '$SMTP_PASS',
     },
-    // 增加超时时间，解决网络不稳定导致的DNS解析失败
+    // Increase timeouts to reduce failures caused by unstable networks or DNS resolution issues
     connectionTimeout: 60000,
     greetingTimeout: 30000,
     socketTimeout: 60000,
@@ -356,32 +356,32 @@ transporter.verify()
 " 2>&1)
 
         if echo "$SMTP_TEST_RESULT" | grep -q "SUCCESS"; then
-            echo "   ✅ SMTP服务器连接成功，邮件发送功能已就绪"
+            echo "   SMTP server connection succeeded. Email sending is ready"
         else
-            echo "   ❌ SMTP服务器连接失败"
+            echo "   SMTP server connection failed"
             ERROR_MSG=$(echo "$SMTP_TEST_RESULT" | grep "FAILED:" | cut -d ':' -f2-)
             if [ -n "$ERROR_MSG" ]; then
-                echo "   错误信息: $ERROR_MSG"
+                echo "   Error message: $ERROR_MSG"
             fi
-            echo "   请检查SMTP配置是否正确"
-            echo "   当前配置: $SMTP_HOST:$SMTP_PORT (secure=$SMTP_SECURE)"
+            echo "   Please check whether the SMTP configuration is correct"
+            echo "   Current configuration: $SMTP_HOST:$SMTP_PORT (secure=$SMTP_SECURE)"
         fi
     fi
 else
-    echo "⚠️  未找到.env文件，无法检查SMTP配置"
+    echo ".env file not found. Unable to check SMTP configuration"
 fi
 
 echo ""
-echo "🎉 部署完成！"
+echo "Deployment completed"
 echo ""
-echo "🌐 访问地址:"
-echo "   前端界面: http://localhost/"
-echo "   后端API: http://localhost/api/"
-echo "   Traefik仪表板: http://localhost:8080/ (仅开发环境)"
+echo "Access URLs:"
+echo "   Frontend: http://localhost/"
+echo "   Backend API: http://localhost/api/"
+echo "   Traefik dashboard: http://localhost:8080/ (development environment only)"
 echo ""
-echo "📋 常用命令:"
-echo "   查看日志: $DOCKER_COMPOSE_CMD logs -f"
-echo "   停止服务: $DOCKER_COMPOSE_CMD down"
-echo "   重新部署: $DOCKER_COMPOSE_CMD up -d --build"
+echo "Common commands:"
+echo "   View logs: $DOCKER_COMPOSE_CMD logs -f"
+echo "   Stop services: $DOCKER_COMPOSE_CMD down"
+echo "   Redeploy: $DOCKER_COMPOSE_CMD up -d --build"
 echo ""
-echo "💡 提示: 首次使用请确保在 .env 文件中配置了正确的 OpenAI API Key"
+echo "Tip: Before first use, make sure you have configured a valid OpenAI API key in the .env file"
