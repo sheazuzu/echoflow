@@ -14,3 +14,4 @@
 .codebuddy/
 server.crt
 server.key
+node_modules/
