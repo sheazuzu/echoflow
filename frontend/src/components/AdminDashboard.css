@@ -306,6 +306,242 @@
   background: #f8fafc;
 }
 
+.admin-secondary-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* 警示卡片（登录失败次数等） */
+.admin-card-warn {
+  background: linear-gradient(135deg, #fff7ed, #ffedd5);
+  border-color: #fdba74;
+}
+
+.admin-card-warn span {
+  color: #9a3412;
+}
+
+.admin-card-warn strong {
+  color: #c2410c;
+}
+
+/* 徽章扩展 */
+.admin-badge.success {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+/* 自动刷新与数据新鲜度 */
+.admin-auto-refresh {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.92rem;
+  color: #334e68;
+  cursor: pointer;
+  user-select: none;
+}
+
+.admin-auto-refresh input {
+  margin: 0;
+  cursor: pointer;
+}
+
+.admin-freshness {
+  font-size: 0.9rem;
+  color: #52606d;
+  margin-left: auto;
+  align-self: center;
+}
+
+/* 筛选栏 */
+.admin-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+}
+
+.admin-filter-input {
+  flex: 1 1 240px;
+  min-width: 0;
+  padding: 10px 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  outline: none;
+  background: #fff;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.admin-filter-input:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.admin-filter-select {
+  padding: 10px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  background: #fff;
+  cursor: pointer;
+  outline: none;
+}
+
+.admin-filter-count {
+  font-size: 0.9rem;
+  color: #52606d;
+  margin-left: auto;
+}
+
+/* 分页控件 */
+.admin-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 18px;
+  flex-wrap: wrap;
+}
+
+.admin-pagination-info {
+  font-size: 0.92rem;
+  color: #52606d;
+}
+
+/* 摘要行内文字按钮 */
+.admin-link-button {
+  background: none;
+  border: none;
+  color: #2563eb;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0 4px;
+  margin-left: 6px;
+  font-size: inherit;
+}
+
+.admin-link-button:hover {
+  text-decoration: underline;
+}
+
+.admin-summary-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* 详情抽屉 */
+.admin-drawer-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  justify-content: flex-end;
+  z-index: 1000;
+  animation: admin-drawer-fade-in 0.18s ease;
+}
+
+@keyframes admin-drawer-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.admin-drawer {
+  width: min(560px, 100%);
+  height: 100%;
+  background: #fff;
+  box-shadow: -20px 0 40px rgba(15, 23, 42, 0.18);
+  display: flex;
+  flex-direction: column;
+  animation: admin-drawer-slide-in 0.22s ease;
+}
+
+@keyframes admin-drawer-slide-in {
+  from { transform: translateX(40px); opacity: 0.6; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+.admin-drawer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 24px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.admin-drawer-header h2 {
+  margin: 0;
+  font-size: 1.15rem;
+  color: #102a43;
+  word-break: break-word;
+}
+
+.admin-drawer-close {
+  border: none;
+  background: transparent;
+  font-size: 1.6rem;
+  line-height: 1;
+  cursor: pointer;
+  color: #52606d;
+  padding: 4px 10px;
+  border-radius: 8px;
+}
+
+.admin-drawer-close:hover {
+  background: #f1f5f9;
+  color: #102a43;
+}
+
+.admin-drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 24px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.admin-drawer-section {
+  border-top: 1px dashed #e2e8f0;
+  padding-top: 16px;
+}
+
+.admin-drawer-section:first-of-type {
+  border-top: none;
+  padding-top: 0;
+}
+
+.admin-drawer-section h3 {
+  margin: 0 0 10px;
+  font-size: 1rem;
+  color: #1e293b;
+}
+
+.admin-drawer-section p {
+  margin: 6px 0;
+  color: #243b53;
+  line-height: 1.65;
+  word-break: break-word;
+}
+
+.admin-drawer-text {
+  white-space: pre-wrap;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
 @media (max-width: 960px) {
   .admin-sections {
     grid-template-columns: 1fr;
@@ -332,5 +568,24 @@
 
   .admin-timestamp {
     white-space: normal;
+  }
+
+  .admin-filter-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .admin-filter-count,
+  .admin-freshness {
+    margin-left: 0;
+  }
+
+  .admin-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .admin-drawer {
+    width: 100%;
   }
 }

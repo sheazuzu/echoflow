@@ -9,28 +9,48 @@ const { app, setEmailTransporter } = require('./app');
 const config = require('./config');
 const logger = require('./utils/logger');
 const emailService = require('./emailService');
+const cosService = require('./services/cosService');
 const processManager = require('./utils/processManager');
 const { initializeAdminActivityStore } = require('./utils/adminActivityStore');
 
 // 全局错误处理器，防止进程崩溃
 process.on('uncaughtException', (error) => {
-    logger('UNCAUGHT_EXCEPTION', `未捕获的异常: ${error.message}`);
-    logger('UNCAUGHT_EXCEPTION', `堆栈: ${error.stack}`);
-    
+    logger.error('UNCAUGHT_EXCEPTION', {
+        error: error && error.message,
+        code: error && error.code,
+        stack: error && error.stack,
+    });
+
     // 记录错误但不退出进程
-    if (error.code === 'EPIPE') {
-        logger('NETWORK_ERROR', `网络连接错误(EPIPE)，继续运行服务`);
+    if (error && error.code === 'EPIPE') {
+        logger.warn('NETWORK_ERROR', {
+            reason: 'EPIPE',
+            message: '网络连接错误(EPIPE)，继续运行服务',
+        });
     } else {
-        logger('UNCAUGHT_ERROR', `其他未捕获错误，继续运行服务`);
+        logger.warn('UNCAUGHT_ERROR_HANDLED', {
+            message: '其他未捕获错误，继续运行服务',
+        });
     }
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-    logger('UNHANDLED_REJECTION', `未处理的Promise拒绝: ${reason}`);
-    logger('UNHANDLED_REJECTION', `Promise: ${promise}`);
-    
-    // 记录错误但不退出进程
-    logger('REJECTION_HANDLED', `Promise拒绝已处理，继续运行服务`);
+    const isError = reason instanceof Error;
+    logger.error('UNHANDLED_REJECTION', {
+        reason: isError ? reason.message : String(reason),
+        stack: isError ? reason.stack : undefined,
+    });
+    logger.warn('REJECTION_HANDLED', {
+        message: 'Promise拒绝已处理，继续运行服务',
+    });
+});
+
+// 启动日志
+logger.info('APPLICATION_STARTED', {
+    node_version: process.version,
+    environment: process.env.NODE_ENV || 'development',
+    pid: process.pid,
+    port: config.PORT,
 });
 
 // 初始化邮件传输器并注入到路由
@@ -43,16 +63,35 @@ initializeAdminActivityStore();
 
 // 启动 HTTP 服务器
 app.listen(config.PORT, async () => {
-    logger('SYSTEM', `EchoFlow 后端服务已启动: http://localhost:${config.PORT}`);
-    
+    logger.info('SERVER_LISTENING', {
+        message: 'EchoFlow 后端服务已启动',
+        url: `http://localhost:${config.PORT}`,
+        port: config.PORT,
+    });
+
     // 测试SMTP服务器连通性
-    logger('SYSTEM', '正在测试SMTP服务器连通性...');
+    logger.info('SMTP_CHECK_START', { message: '正在测试SMTP服务器连通性...' });
     const smtpTestResult = await emailService.testSMTPConnection(emailTransporter);
-    
+
     if (smtpTestResult.success) {
-        logger('SYSTEM', `✓ ${smtpTestResult.message}`);
+        logger.info('SMTP_CHECK_OK', { message: smtpTestResult.message });
     } else {
-        logger('SMTP_ERROR', `✗ ${smtpTestResult.message}`);
-        logger('SMTP_ERROR', '邮件发送功能将不可用，请检查.env文件中的SMTP配置');
+        logger.error('SMTP_CHECK_FAILED', {
+            message: smtpTestResult.message,
+            hint: '邮件发送功能将不可用，请检查.env文件中的SMTP配置',
+        });
+    }
+
+    // 测试COS连接连通性
+    logger.info('COS_CHECK_START', { message: '正在测试COS连接连通性...' });
+    const cosTestResult = await cosService.checkCOSConnection();
+
+    if (cosTestResult.success) {
+        logger.info('COS_CHECK_OK', { message: cosTestResult.message });
+    } else {
+        logger.error('COS_CHECK_FAILED', {
+            message: cosTestResult.message,
+            hint: 'COS上传功能将不可用，将回退到本地文件存储模式',
+        });
     }
 });

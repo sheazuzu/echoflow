@@ -9,9 +9,10 @@ const logger = require('../utils/logger');
 const apiKey = process.env.OPENAI_API_KEY || "";
 
 if (!apiKey) {
-    console.error("【启动警告】未检测到 OpenAI API Key！");
-    console.error("请在项目根目录下创建 .env 文件，内容为: OPENAI_API_KEY=sk-...");
-    console.error("或者直接在 server.js 代码中填入 Key。");
+    logger.error('CONFIG_MISSING_OPENAI_KEY', {
+        message: '未检测到 OpenAI API Key',
+        hint: '请在项目根目录下创建 .env 文件，内容为: OPENAI_API_KEY=sk-...，或者直接在配置中填入 Key。',
+    });
 }
 
 // 腾讯云COS配置
@@ -26,13 +27,16 @@ const cosConfig = {
 // 检查COS配置
 const isCosConfigured = !!(cosConfig.SecretId && cosConfig.SecretKey && cosConfig.Bucket && cosConfig.Endpoint);
 if (!isCosConfigured) {
-    console.warn("【COS配置警告】腾讯云COS配置不完整，将使用本地文件存储模式");
-    console.warn("请在.env文件中配置以下环境变量：");
-    console.warn("COS_SECRET_ID=您的SecretId");
-    console.warn("COS_SECRET_KEY=您的SecretKey");
-    console.warn("COS_BUCKET=您的存储桶名称");
-    console.warn("COS_ENDPOINT=您的COS Endpoint");
-    console.warn("COS_REGION=您的存储桶区域（可选，默认ap-guangzhou）");
+    logger.warn('CONFIG_COS_INCOMPLETE', {
+        message: '腾讯云COS配置不完整，将使用本地文件存储模式',
+        required_env: [
+            'COS_SECRET_ID',
+            'COS_SECRET_KEY',
+            'COS_BUCKET',
+            'COS_ENDPOINT',
+            'COS_REGION (可选，默认 ap-guangzhou)',
+        ],
+    });
 }
 
 // CORS 配置 - 支持多个来源
@@ -48,11 +52,14 @@ const corsOptions = {
     origin: function (origin, callback) {
         // 允许没有 origin 的请求（如 Postman、服务器到服务器的请求）
         if (!origin) return callback(null, true);
-        
+
         if (allowedOrigins.indexOf(origin) !== -1) {
             callback(null, true);
         } else {
-            console.warn(`⚠️ CORS 阻止了来自 ${origin} 的请求`);
+            logger.warn('CORS_BLOCKED', {
+                origin,
+                message: 'CORS 阻止了非白名单来源的请求',
+            });
             callback(new Error('Not allowed by CORS'));
         }
     },

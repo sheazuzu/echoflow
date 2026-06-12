@@ -150,8 +150,42 @@ const downloadFromCOS = (cosKey) => {
     });
 };
 
+/**
+ * 检查COS连接可用性
+ * 使用headBucket方法验证存储桶连通性，非阻塞式检查
+ * @returns {Promise<{success: boolean, message: string}>}
+ */
+const checkCOSConnection = () => {
+    return new Promise((resolve) => {
+        if (!config.isCosConfigured) {
+            logger('COS_CHECK', 'COS配置不完整，跳过连接检查，将使用本地文件存储模式');
+            resolve({ success: false, message: 'COS配置不完整，跳过检查' });
+            return;
+        }
+
+        logger('COS_CHECK', `正在检查COS连接... Bucket: ${config.cosConfig.Bucket}, Region: ${config.cosConfig.Region}`);
+
+        cos.headBucket({
+            Bucket: config.cosConfig.Bucket,
+            Region: config.cosConfig.Region,
+        }, (err, data) => {
+            if (err) {
+                const statusCode = err.statusCode || 'unknown';
+                const errorMsg = err.message || err.error || '未知错误';
+                logger('COS_CHECK', `✗ COS连接检查失败 [HTTP ${statusCode}]: ${errorMsg}`);
+                logger('COS_CHECK', '请检查COS配置：SecretId、SecretKey、Bucket、Endpoint是否正确，以及网络是否可达');
+                resolve({ success: false, message: `连接失败: ${errorMsg}`, statusCode });
+            } else {
+                logger('COS_CHECK', `✓ COS连接检查成功 - Bucket: ${config.cosConfig.Bucket}, Region: ${config.cosConfig.Region}`);
+                resolve({ success: true, message: 'COS连接正常' });
+            }
+        });
+    });
+};
+
 module.exports = {
     uploadToCOS,
     uploadTranscriptToCOS,
-    downloadFromCOS
+    downloadFromCOS,
+    checkCOSConnection
 };

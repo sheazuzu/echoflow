@@ -13,11 +13,16 @@ function errorHandler(err, req, res, next) {
     const statusCode = err.statusCode || 500;
     const requestId = req.requestId || 'unknown';
 
-    // 记录详细错误日志
-    logger('ERROR', `[${requestId}] ${req.method} ${req.path} - ${err.message}`);
-    if (err.stack) {
-        console.error(`[${requestId}] 详细错误信息:`, err);
-    }
+    // 记录详细错误日志（结构化 JSON）
+    logger.error('REQUEST_ERROR', {
+        request_id: requestId,
+        method: req.method,
+        path: req.path,
+        status: statusCode,
+        error: err.message,
+        code: err.code,
+        stack: err.stack,
+    });
 
     res.status(statusCode).json({
         success: false,

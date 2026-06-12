@@ -25,6 +25,7 @@ services:
 
     volumes:
       - ./backend/uploads:/app/uploads
+      - ./backend/logs:/app/logs
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "node", "-e", "process.exit(0)"]
