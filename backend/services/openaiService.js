@@ -84,7 +84,7 @@ const transcribeChunk = async (filePath, fileId = null) => {
     // 使用干净的文件名避免特殊字符和双扩展名导致的格式识别错误
     const validExt = getValidAudioExtension(filePath);
     const cleanApiFileName = `audio${validExt}`;
-    logger('TRANSCRIBE_API', `调用OpenAI Whisper API转录: ${fileName}，API文件名: ${cleanApiFileName}`);
+    logger('TRANSCRIBE_API', `调用OpenAI Transcription API转录: ${fileName}，API文件名: ${cleanApiFileName}`);
     
     let fileStream = null;
     // 重试逻辑：网络错误（EPIPE/ECONNRESET/ETIMEDOUT）时最多重试 3 次
@@ -99,7 +99,7 @@ const transcribeChunk = async (filePath, fileId = null) => {
             // 直接交由 OpenAI SDK 控制超时（已在 client 层配置 10 分钟），不再叠加 30 秒超时
             const transcription = await openai.audio.transcriptions.create({
                 file: apiFile,
-                model: "whisper-1",
+                model: "gpt-4o-mini-transcribe",
             });
 
             const duration = ((Date.now() - startTime) / 1000).toFixed(2);
@@ -112,7 +112,7 @@ const transcribeChunk = async (filePath, fileId = null) => {
         } catch (error) {
             lastError = error;
             const duration = ((Date.now() - startTime) / 1000).toFixed(2);
-            logger('TRANSCRIBE_ERROR', `Whisper API调用失败: ${fileName}，耗时 ${duration}s，第 ${attempt}/${maxAttempts} 次尝试，错误: ${error.message}`);
+            logger('TRANSCRIBE_ERROR', `OpenAI Transcription API调用失败: ${fileName}，耗时 ${duration}s，第 ${attempt}/${maxAttempts} 次尝试，错误: ${error.message}`);
 
             if (error.code) {
                 logger('TRANSCRIBE_ERROR', `错误代码: ${error.code}`);
@@ -179,7 +179,7 @@ const transcribeStream = async (audioBuffer, language, tempFilePath, fileExists 
     // 调用 Whisper API 进行转录
     const transcriptionParams = {
         file: fs.createReadStream(tempFilePath),
-        model: "whisper-1",
+        model: "gpt-4o-mini-transcribe",
     };
     
     // 如果指定了语言（非自动检测），添加语言参数
@@ -193,7 +193,7 @@ const transcribeStream = async (audioBuffer, language, tempFilePath, fileExists 
     
     // 验证转录结果
     if (!transcription || typeof transcription.text === 'undefined') {
-        throw new Error('Whisper API返回无效的转录结果');
+        throw new Error('OpenAI Transcription API返回无效的转录结果');
     }
     
     // 清理临时文件
@@ -310,9 +310,9 @@ ${transcript}`;
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt }
         ],
-        model: "gpt-4-turbo",
-        temperature: 0.3,
-        max_tokens: 4096,
+        model: "gpt-4.1-mini",
+        temperature: 0.1,
+        max_tokens: 8192,
         response_format: { type: "json_object" }
     });
 
