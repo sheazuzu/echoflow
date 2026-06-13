@@ -42,6 +42,7 @@ if (!isCosConfigured) {
 // CORS 配置 - 支持多个来源
 const allowedOrigins = [
     'http://localhost:5173',  // 开发环境
+    'http://127.0.0.1:5173',  // 开发环境（Vite 本地预览）
     'https://localhost',       // 生产环境（Traefik 反向代理）
     'http://localhost',         // 生产环境（HTTP）
     'https://echoflow.zhenyuxie.com',  // 生产域名
