@@ -10,8 +10,10 @@ const requestLogger = require('./middleware/requestLogger');
 const errorHandler = require('./middleware/errorHandler');
 const { ensureUploadDirs } = require('./utils/fileHelper');
 const { attachClientIdentity } = require('./utils/requestIdentity');
+const { attachAuthenticatedUser } = require('./middleware/auth');
 
 // 路由模块
+const authRoutes = require('./routes/auth');
 const healthRoutes = require('./routes/health');
 const transcribeRoutes = require('./routes/transcribe');
 const uploadRoutes = require('./routes/upload');
@@ -34,9 +36,11 @@ app.use(cors(config.corsOptions));
 app.use(express.json());
 app.use(requestLogger);
 app.use(attachClientIdentity);
+app.use(attachAuthenticatedUser);
 
 // 注册路由
 app.use('/api', healthRoutes);
+app.use('/api', authRoutes);
 app.use('/api', transcribeRoutes);
 app.use('/api', uploadRoutes);
 app.use('/api', progressRoutes);

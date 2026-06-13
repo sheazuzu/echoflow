@@ -15,3 +15,5 @@
 server.crt
 server.key
 node_modules/
+backend/data/
+backend/logs/

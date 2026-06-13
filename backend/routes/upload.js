@@ -15,9 +15,10 @@ const audioService = require('../services/audioService');
 const openaiService = require('../services/openaiService');
 const adminActivityStore = require('../utils/adminActivityStore');
 const { buildRequesterMetadata } = require('../utils/requestIdentity');
+const { requireAuth } = require('../middleware/auth');
 
 // 上传与处理接口
-router.post('/upload', upload.single('file'), async (req, res) => {
+router.post('/upload', requireAuth, upload.single('file'), async (req, res) => {
     if (!req.file) {
         logger('UPLOAD', '失败：未收到文件');
         return res.status(400).json({ message: "未上传文件" });
@@ -29,6 +30,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     // 获取会议主题（如果前端传递了）
     const meetingTopic = req.body.meetingTopic || '';
     const requester = buildRequesterMetadata(req);
+    const currentUser = req.auth.user;
     
     // 生成标准化文件名：YYYYMMDD_HHMMSS_会议主题_原始文件名
     const now = new Date();
@@ -118,6 +120,8 @@ router.post('/upload', upload.single('file'), async (req, res) => {
         logger('PROCESS_INFO', `文件已上传到COS: ${cosKey}`);
         await processFile(fileId, cosKey, fileSizeMB, {
             requester,
+            userId: currentUser.id,
+            workspaceId: currentUser.workspace?.id || null,
             meetingTopic,
             originalFilename: req.file.originalname,
             normalizedFilename: cleanFileName,
@@ -407,6 +411,8 @@ ${fullTranscript}`;
             cosKey: cosKey,
             createdAt: new Date().toISOString(),
             requester: metadata.requester,
+            userId: metadata.userId || null,
+            workspaceId: metadata.workspaceId || null,
             meetingTopic: metadata.meetingTopic || '',
             originalFilename: metadata.originalFilename || '',
             normalizedFilename: metadata.normalizedFilename || ''

@@ -6,6 +6,7 @@ import { useTranslation, useDocumentLanguage, getCurrentLanguage } from './i18n/
 import { RecordingWithTranscription } from './components/audio/RecordingWithTranscription.jsx';
 import Header from './components/layout/Header.jsx';
 import Footer from './components/layout/Footer.jsx';
+import { useAuth } from './contexts/AuthContext.jsx';
 
 // 导入腾讯云logo
 import tencentCloudLogo from './assets/tencentcloud.png';
@@ -18,6 +19,7 @@ const App = () => {
     useDocumentLanguage(); // 自动更新文档语言属性
     const currentLanguage = getCurrentLanguage(); // 获取当前语言
     const navigate = useNavigate(); // 路由导航
+    const { isAuthenticated, loading: authLoading } = useAuth();
     
     const [appState, setAppState] = useState('idle'); // idle, processing, completed
     const [minutesData, setMinutesData] = useState(null);
@@ -743,6 +745,11 @@ const App = () => {
     };
 
     const startProcessing = async (fileObj) => {
+        if (!authLoading && !isAuthenticated) {
+            navigate(`/${currentLanguage}/login?next=${encodeURIComponent(`/${currentLanguage}/`)}`);
+            return;
+        }
+
         // 清理下载相关状态
         setShowDownloadOption(false);
         setDownloadBlob(null);
@@ -767,6 +774,12 @@ const App = () => {
             const response = await fetch('/api/upload', {
                 method: 'POST',
                 body: formData,
+                credentials: 'include',
+                headers: {
+                    ...(localStorage.getItem('auth_token')
+                        ? { Authorization: `Bearer ${localStorage.getItem('auth_token')}` }
+                        : {}),
+                },
             });
 
             if (!response.ok) {

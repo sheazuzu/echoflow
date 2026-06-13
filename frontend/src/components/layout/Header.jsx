@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from '../../i18n/index.js';
 import { buildLanguagePath } from '../../i18n/utils.js';
+import { useAuth } from '../../contexts/AuthContext.jsx';
 import LanguageSwitcher from '../LanguageSwitcher.jsx';
 import ContactModal from '../ContactModal.jsx';
 import PricingModal from '../PricingModal.jsx';
@@ -12,6 +13,7 @@ const Header = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { lang } = useParams();
+  const { user, isAuthenticated, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [contactModalOpen, setContactModalOpen] = useState(false);
   const [pricingModalOpen, setPricingModalOpen] = useState(false);
@@ -43,6 +45,17 @@ const Header = () => {
         }
       }, 100);
     }
+  };
+
+  const goToAuth = (mode) => {
+    navigate(buildLanguagePath(lang || 'zh', mode === 'register' ? '/register' : '/login'));
+    setMobileMenuOpen(false);
+  };
+
+  const handleLogout = async () => {
+    await logout();
+    setMobileMenuOpen(false);
+    navigate(buildLanguagePath(lang || 'zh', '/'));
   };
 
   const navItems = [
@@ -92,19 +105,35 @@ const Header = () => {
           {/* 语言切换器 */}
           <LanguageSwitcher />
 
-          {/* 登录/注册按钮（占位） */}
-          <button 
-            className="btn-secondary header-btn"
-            aria-label={t('nav.login')}
-          >
-            {t('nav.login')}
-          </button>
-          <button 
-            className="btn-primary header-btn"
-            aria-label={t('nav.register')}
-          >
-            {t('nav.register')}
-          </button>
+          {isAuthenticated ? (
+            <div className="header-account">
+              <span className="account-pill" title={user.email}>{user.name || user.email}</span>
+              <button
+                className="btn-secondary header-btn"
+                onClick={handleLogout}
+                aria-label="退出登录"
+              >
+                退出
+              </button>
+            </div>
+          ) : (
+            <>
+              <button 
+                className="btn-secondary header-btn"
+                aria-label={t('nav.login')}
+                onClick={() => goToAuth('login')}
+              >
+                {t('nav.login')}
+              </button>
+              <button 
+                className="btn-primary header-btn"
+                aria-label={t('nav.register')}
+                onClick={() => goToAuth('register')}
+              >
+                {t('nav.register')}
+              </button>
+            </>
+          )}
 
           {/* 移动端汉堡菜单按钮 */}
           <button 
@@ -136,18 +165,34 @@ const Header = () => {
               </li>
             ))}
             <li className="nav-item mobile-actions">
-              <button 
-                className="btn-secondary mobile-btn"
-                aria-label={t('nav.login')}
-              >
-                {t('nav.login')}
-              </button>
-              <button 
-                className="btn-primary mobile-btn"
-                aria-label={t('nav.register')}
-              >
-                {t('nav.register')}
-              </button>
+              {isAuthenticated ? (
+                <>
+                  <span className="mobile-account-label">{user.name || user.email}</span>
+                  <button 
+                    className="btn-secondary mobile-btn"
+                    onClick={handleLogout}
+                  >
+                    退出
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button 
+                    className="btn-secondary mobile-btn"
+                    aria-label={t('nav.login')}
+                    onClick={() => goToAuth('login')}
+                  >
+                    {t('nav.login')}
+                  </button>
+                  <button 
+                    className="btn-primary mobile-btn"
+                    aria-label={t('nav.register')}
+                    onClick={() => goToAuth('register')}
+                  >
+                    {t('nav.register')}
+                  </button>
+                </>
+              )}
             </li>
           </ul>
         </nav>

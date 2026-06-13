@@ -8,9 +8,10 @@ const fs = require('fs');
 const logger = require('../utils/logger');
 const processManager = require('../utils/processManager');
 const cosService = require('../services/cosService');
+const { requireAuth } = require('../middleware/auth');
 
 // 获取会议纪要数据接口
-router.get('/minutes/:fileId', (req, res) => {
+router.get('/minutes/:fileId', requireAuth, (req, res) => {
     const fileId = req.params.fileId;
     const status = processManager.getStatus(fileId);
     
@@ -41,7 +42,7 @@ router.get('/minutes/:fileId', (req, res) => {
 });
 
 // 获取转录结果接口
-router.get('/transcript/:fileId', async (req, res) => {
+router.get('/transcript/:fileId', requireAuth, async (req, res) => {
     const fileId = req.params.fileId;
     const status = processManager.getStatus(fileId);
     

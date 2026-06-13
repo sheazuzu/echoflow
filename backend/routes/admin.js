@@ -6,6 +6,9 @@ const {
     buildRequesterMetadata,
     getClientIdentityFromRequest,
 } = require('../utils/requestIdentity');
+const { requireAdmin } = require('../middleware/auth');
+
+router.use('/admin', requireAdmin);
 
 router.get('/admin/session', (req, res) => {
     const identity = getClientIdentityFromRequest(req);
@@ -17,6 +20,7 @@ router.get('/admin/session', (req, res) => {
         actor: {
             clientId: identity.clientId,
             clientLabel: identity.clientLabel,
+            user: req.auth.user,
         },
     });
 });
@@ -84,6 +88,7 @@ router.get('/admin/dashboard', (req, res) => {
             actor: {
                 clientId: identity.clientId,
                 clientLabel: identity.clientLabel,
+                user: req.auth.user,
             },
             ...dashboardData,
         });

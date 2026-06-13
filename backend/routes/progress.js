@@ -8,9 +8,10 @@ const fs = require('fs');
 const path = require('path');
 const logger = require('../utils/logger');
 const processManager = require('../utils/processManager');
+const { requireAuth } = require('../middleware/auth');
 
 // 进度查询接口
-router.get('/progress/:fileId', (req, res) => {
+router.get('/progress/:fileId', requireAuth, (req, res) => {
     const fileId = req.params.fileId;
     const status = processManager.getStatus(fileId);
     
@@ -51,7 +52,7 @@ router.get('/progress/:fileId', (req, res) => {
 });
 
 // 取消处理接口
-router.post('/cancel/:fileId', (req, res) => {
+router.post('/cancel/:fileId', requireAuth, (req, res) => {
     const fileId = req.params.fileId;
     
     logger('CANCEL_REQUEST', `收到取消处理请求，文件ID: ${fileId}`);
