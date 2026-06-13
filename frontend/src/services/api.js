@@ -143,7 +143,7 @@ const handleError = (error) => {
         message = error.message || '请求参数错误';
         break;
       case 401:
-        message = '未授权，请登录';
+        message = error.message || '未授权，请登录';
         break;
       case 403:
         message = '没有权限访问';
