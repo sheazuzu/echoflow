@@ -46,18 +46,22 @@ const AuthPage = ({ initialMode = 'login' }) => {
     setSubmitting(true);
     setError('');
 
-    const response = mode === 'register'
-      ? await register(form)
-      : await login({ email: form.email, password: form.password });
+    try {
+      const response = mode === 'register'
+        ? await register(form)
+        : await login({ email: form.email, password: form.password });
 
-    setSubmitting(false);
+      if (!response.success) {
+        setError(response.message || response.error?.message || '认证失败，请稍后重试');
+        return;
+      }
 
-    if (!response.success) {
-      setError(response.message || '认证失败，请稍后重试');
-      return;
+      navigate(nextPath, { replace: true });
+    } catch (error) {
+      setError(error.message || '认证失败，请稍后重试');
+    } finally {
+      setSubmitting(false);
     }
-
-    navigate(nextPath, { replace: true });
   };
 
   const handleModeToggle = () => {

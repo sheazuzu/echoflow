@@ -5,8 +5,10 @@
 
 import { ERROR_MESSAGES, TIME_CONFIG } from '../constants';
 
-// API 基础 URL
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+// API 基础 URL。本地开发优先走 Vite /api proxy，避免 127.0.0.1 与 localhost 混用导致认证请求被浏览器取消。
+const isLocalBrowser = typeof window !== 'undefined'
+  && ['localhost', '127.0.0.1'].includes(window.location.hostname);
+const API_BASE_URL = isLocalBrowser ? '' : (import.meta.env.VITE_API_BASE_URL || '');
 
 /**
  * HTTP 请求方法
