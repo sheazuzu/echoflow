@@ -1,22 +1,5 @@
 services:
 
-  # MySQL 数据库（账号系统）
-  mysql:
-    image: mysql:8.4
-    environment:
-      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
-      - MYSQL_DATABASE=${MYSQL_DATABASE:-echoflow}
-      - MYSQL_USER=${MYSQL_USER:-echoflow}
-      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
-    volumes:
-      - mysql_data:/var/lib/mysql
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u${MYSQL_USER:-echoflow} -p${MYSQL_PASSWORD} --silent"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-
   # 后端服务
   backend:
     build:
@@ -32,13 +15,13 @@ services:
       - COS_ENDPOINT=${COS_ENDPOINT}
       - COS_REGION=${COS_REGION}
 
-      # MySQL 用户账号库配置
+      # MySQL 用户账号库配置（连接外部/云端 MySQL 实例）
       - USER_STORE_DRIVER=${USER_STORE_DRIVER:-mysql}
-      - MYSQL_HOST=${MYSQL_HOST:-mysql}
+      - MYSQL_HOST=${MYSQL_HOST}
       - MYSQL_PORT=${MYSQL_PORT:-3306}
-      - MYSQL_USER=${MYSQL_USER:-echoflow}
+      - MYSQL_USER=${MYSQL_USER}
       - MYSQL_PASSWORD=${MYSQL_PASSWORD}
-      - MYSQL_DATABASE=${MYSQL_DATABASE:-echoflow}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
       - MYSQL_CONNECTION_LIMIT=${MYSQL_CONNECTION_LIMIT:-10}
       - AUTH_SESSION_SECRET=${AUTH_SESSION_SECRET}
       
@@ -49,10 +32,6 @@ services:
       - SMTP_USER=${SMTP_USER}
       - SMTP_PASS=${SMTP_PASS}
       - SMTP_FROM_NAME=${SMTP_FROM_NAME}
-
-    depends_on:
-      mysql:
-        condition: service_healthy
 
     volumes:
       - ./backend/uploads:/app/uploads
@@ -143,6 +122,3 @@ services:
       - "./traefik/letsencrypt:/letsencrypt"
       - "./traefik/certs:/certs"
     restart: unless-stopped
-
-volumes:
-  mysql_data:
