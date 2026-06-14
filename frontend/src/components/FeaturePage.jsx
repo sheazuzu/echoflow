@@ -1,9 +1,6 @@
 import React from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from '../i18n/index.js';
 import Header from './layout/Header.jsx';
-import Footer from './layout/Footer.jsx';
-import { buildLanguagePath } from '../i18n/utils.js';
 import './FeaturePage.css';
 
 // 每个功能模块对应的主题色（与首页保持一致）
@@ -153,7 +150,6 @@ const FeaturePage = () => {
   return (
     <div className="feature-page">
       <Header />
-
       <main className="feature-page-main">
         {/* Hero 区域 */}
         <section className="feature-hero">
@@ -216,8 +212,6 @@ const FeaturePage = () => {
           </div>
         </section>
       </main>
-
-      <Footer />
     </div>
   );
 };

@@ -271,9 +271,175 @@ export default {
     contact: '联系我们',
     login: '登录',
     register: '注册',
+    account: '账号设置',
+    history: '历史记录',
+    admin: '管理汇总',
+    logout: '退出登录',
+    backHome: '返回主页',
     mainNavigation: '主导航',
     mobileNavigation: '移动端导航',
     toggleMenu: '切换菜单',
+  },
+
+  // 认证文案
+  auth: {
+    fields: {
+      email: '邮箱',
+      displayName: '显示名称',
+      password: '密码',
+      confirmPassword: '确认密码',
+      resetToken: '重置令牌',
+    },
+    placeholders: {
+      email: '请输入登录邮箱',
+      displayName: '请输入您的名称',
+      password: '请输入密码（至少 8 位，含字母和数字）',
+      confirmPassword: '请再次输入密码',
+      resetToken: '请输入重置令牌',
+    },
+    validation: {
+      passwordMismatch: '两次输入的密码不一致',
+    },
+    messages: {
+      genericError: '账号操作失败，请稍后重试',
+      submitting: '提交中...',
+      resetRequested: '如果邮箱存在，我们已生成重置流程。',
+      resetCompleted: '密码重置成功，请重新登录。',
+    },
+    login: {
+      title: '欢迎回来',
+      description: '登录后继续处理您的会议录音和纪要。',
+      submit: '登录',
+      switch: '已有账号？去登录',
+    },
+    register: {
+      title: '创建账号',
+      description: '注册后即可安全保存您的处理任务和会议成果。',
+      submit: '注册并进入产品',
+      switch: '没有账号？去注册',
+    },
+    forgot: {
+      title: '忘记密码',
+      description: '输入注册邮箱，我们会生成一个可用于重置密码的令牌。',
+      submit: '生成重置令牌',
+      link: '忘记密码',
+      tokenHint: '开发环境重置令牌：',
+    },
+    reset: {
+      title: '重置密码',
+      description: '输入重置令牌并设置新密码。',
+      submit: '确认重置密码',
+      link: '已有重置令牌',
+    },
+  },
+
+  // 账号设置文案
+  account: {
+    eyebrow: '账号中心',
+    title: '账号设置',
+    description: '管理您的基础资料、登录信息与安全设置。',
+    meta: {
+      email: '登录邮箱',
+      role: '账号角色',
+      createdAt: '注册时间',
+      lastLoginAt: '最近登录',
+    },
+    messages: {
+      profileSaved: '账号资料已保存',
+      profileError: '保存资料失败',
+      passwordSaved: '密码已更新',
+      passwordError: '更新密码失败',
+    },
+    profile: {
+      title: '基础资料',
+      description: '您可以在这里维护显示名称、时区和个人说明。',
+      timezone: '时区',
+      timezonePlaceholder: '例如：Asia/Shanghai',
+      bio: '个人说明',
+      bioPlaceholder: '一句话介绍您自己或当前使用场景',
+      submit: '保存资料',
+    },
+    password: {
+      title: '修改密码',
+      description: '建议定期更新密码以确保账号安全。',
+      current: '当前密码',
+      new: '新密码',
+      submit: '更新密码',
+    },
+  },
+
+  history: {
+    title: '业务历史',
+    subtitle: '查看您之前的转录处理、会议纪要生成及相关处理结果。',
+    summaryTitle: '历史概览',
+    emptyTitle: '还没有业务记录',
+    emptyDescription: '当您上传音频并完成转录或会议纪要生成后，这里会显示对应记录。',
+    noMatchTitle: '没有匹配的记录',
+    noMatchDescription: '请尝试清空筛选条件或调整关键词。',
+    filters: {
+      keyword: '搜索关键词',
+      keywordPlaceholder: '搜索标题、摘要、文件名或类型',
+      activityType: '活动类型',
+      status: '处理状态',
+      dateFrom: '开始时间',
+      dateTo: '结束时间',
+      clear: '清空筛选',
+      allTypes: '全部类型',
+      allStatuses: '全部状态',
+    },
+    pagination: {
+      previous: '上一页',
+      next: '下一页',
+      pageInfo: '第 {page} / {totalPages} 页',
+    },
+    analytics: {
+      totalRecords: '总记录数',
+      activityTypes: '活动类型数',
+      successRecords: '成功记录数',
+      recentDays: '近 14 天趋势',
+    },
+    activityTypes: {
+      upload_task: '转录与纪要任务',
+    },
+    statuses: {
+      processing: '处理中',
+      completed: '已完成',
+      failed: '失败',
+      cancelled: '已取消',
+    },
+    detail: {
+      title: '记录详情',
+      close: '关闭',
+      summary: '结果摘要',
+      metadata: '扩展信息',
+    },
+    messages: {
+      loadFailed: '加载历史记录失败，请稍后重试。',
+    },
+  },
+
+  adminDashboard: {
+    title: '管理员业务汇总',
+    subtitle: '查看所有用户的核心业务记录、筛选结果与整体趋势分析。',
+    viewer: '当前管理员',
+    filters: {
+      keywordPlaceholder: '搜索用户、标题、摘要、文件名',
+      user: '全部用户',
+      activityType: '全部类型',
+      status: '全部状态',
+      clear: '清空筛选',
+    },
+    overview: {
+      totalRecords: '总记录数',
+      activeUsers: '活跃用户数',
+      statusDistribution: '状态分布',
+      typeDistribution: '类型分布',
+    },
+    empty: '当前筛选条件下没有记录。',
+    messages: {
+      loadFailed: '加载管理员汇总失败，请稍后重试。',
+      noPermission: '您没有访问管理员汇总的权限。',
+    },
   },
 
   // 价格方案弹窗

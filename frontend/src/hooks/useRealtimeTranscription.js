@@ -7,6 +7,8 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { AudioSegmentRecorder } from '../utils/AudioSegmentRecorder';
 import { useNotification } from '../contexts/NotificationContext';
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+
 export const useRealtimeTranscription = (options = {}) => {
   const notification = useNotification();
   const { language = 'auto' } = options;
@@ -81,7 +83,7 @@ export const useRealtimeTranscription = (options = {}) => {
       const timeoutId = setTimeout(() => controller.abort(), 30000); // 30秒超时
 
       console.log(`[${requestId}] 🚀 发送请求到转录服务...`);
-      const response = await fetch('http://localhost:3000/api/transcribe/stream', {
+      const response = await fetch(`${API_BASE_URL}/api/transcribe/stream`, {
         method: 'POST',
         body: formData,
         signal: controller.signal,
@@ -370,11 +372,12 @@ export const useRealtimeTranscription = (options = {}) => {
       notification.info('正在生成会议记录，请稍候...');
 
       // 调用后端API生成会议记录
-      const response = await fetch('http://localhost:3000/api/generate-meeting-summary', {
+      const response = await fetch(`${API_BASE_URL}/api/generate-meeting-summary`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
+        credentials: 'include',
         body: JSON.stringify({
           transcript: transcriptionText
         })

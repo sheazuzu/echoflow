@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from '../../i18n/index.js';
 import { buildLanguagePath } from '../../i18n/utils.js';
+import { useAuth } from '../../contexts/AuthContext.jsx';
 import LanguageSwitcher from '../LanguageSwitcher.jsx';
 import ContactModal from '../ContactModal.jsx';
 import PricingModal from '../PricingModal.jsx';
@@ -12,6 +13,7 @@ const Header = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { lang } = useParams();
+  const auth = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [contactModalOpen, setContactModalOpen] = useState(false);
   const [pricingModalOpen, setPricingModalOpen] = useState(false);
@@ -51,6 +53,39 @@ const Header = () => {
     { key: 'pricing', label: t('nav.pricing'), href: '#pricing' },
     { key: 'contact', label: t('nav.contact'), href: '#contact' },
   ];
+
+  const currentLang = lang || 'zh';
+
+  const handleLoginClick = () => {
+    navigate(buildLanguagePath(currentLang, '/login'));
+    setMobileMenuOpen(false);
+  };
+
+  const handleRegisterClick = () => {
+    navigate(buildLanguagePath(currentLang, '/register'));
+    setMobileMenuOpen(false);
+  };
+
+  const handleAccountClick = () => {
+    navigate(buildLanguagePath(currentLang, '/account'));
+    setMobileMenuOpen(false);
+  };
+
+  const handleHistoryClick = () => {
+    navigate(buildLanguagePath(currentLang, '/history'));
+    setMobileMenuOpen(false);
+  };
+
+  const handleAdminClick = () => {
+    navigate('/admin');
+    setMobileMenuOpen(false);
+  };
+
+  const handleLogoutClick = async () => {
+    await auth.logout();
+    navigate(buildLanguagePath(currentLang, '/login'));
+    setMobileMenuOpen(false);
+  };
 
   return (
     <>
@@ -92,19 +127,60 @@ const Header = () => {
           {/* 语言切换器 */}
           <LanguageSwitcher />
 
-          {/* 登录/注册按钮（占位） */}
-          <button 
-            className="btn-secondary header-btn"
-            aria-label={t('nav.login')}
-          >
-            {t('nav.login')}
-          </button>
-          <button 
-            className="btn-primary header-btn"
-            aria-label={t('nav.register')}
-          >
-            {t('nav.register')}
-          </button>
+          {auth.isAuthenticated ? (
+            <>
+              <div className="header-user-pill" title={auth.user?.email || ''}>
+                {auth.user?.displayName || auth.user?.email}
+              </div>
+              <button 
+                className="btn-secondary header-btn"
+                aria-label={t('nav.history')}
+                onClick={handleHistoryClick}
+              >
+                {t('nav.history')}
+              </button>
+              {String(auth.user?.role || '').toLowerCase() === 'admin' && (
+                <button 
+                  className="btn-secondary header-btn"
+                  aria-label={t('nav.admin')}
+                  onClick={handleAdminClick}
+                >
+                  {t('nav.admin')}
+                </button>
+              )}
+              <button 
+                className="btn-secondary header-btn"
+                aria-label={t('nav.account')}
+                onClick={handleAccountClick}
+              >
+                {t('nav.account')}
+              </button>
+              <button 
+                className="btn-primary header-btn"
+                aria-label={t('nav.logout')}
+                onClick={handleLogoutClick}
+              >
+                {t('nav.logout')}
+              </button>
+            </>
+          ) : (
+            <>
+              <button 
+                className="btn-secondary header-btn"
+                aria-label={t('nav.login')}
+                onClick={handleLoginClick}
+              >
+                {t('nav.login')}
+              </button>
+              <button 
+                className="btn-primary header-btn"
+                aria-label={t('nav.register')}
+                onClick={handleRegisterClick}
+              >
+                {t('nav.register')}
+              </button>
+            </>
+          )}
 
           {/* 移动端汉堡菜单按钮 */}
           <button 
@@ -136,18 +212,57 @@ const Header = () => {
               </li>
             ))}
             <li className="nav-item mobile-actions">
-              <button 
-                className="btn-secondary mobile-btn"
-                aria-label={t('nav.login')}
-              >
-                {t('nav.login')}
-              </button>
-              <button 
-                className="btn-primary mobile-btn"
-                aria-label={t('nav.register')}
-              >
-                {t('nav.register')}
-              </button>
+              {auth.isAuthenticated ? (
+                <>
+                  <button 
+                    className="btn-secondary mobile-btn"
+                    aria-label={t('nav.history')}
+                    onClick={handleHistoryClick}
+                  >
+                    {t('nav.history')}
+                  </button>
+                  {String(auth.user?.role || '').toLowerCase() === 'admin' && (
+                    <button 
+                      className="btn-secondary mobile-btn"
+                      aria-label={t('nav.admin')}
+                      onClick={handleAdminClick}
+                    >
+                      {t('nav.admin')}
+                    </button>
+                  )}
+                  <button 
+                    className="btn-secondary mobile-btn"
+                    aria-label={t('nav.account')}
+                    onClick={handleAccountClick}
+                  >
+                    {t('nav.account')}
+                  </button>
+                  <button 
+                    className="btn-primary mobile-btn"
+                    aria-label={t('nav.logout')}
+                    onClick={handleLogoutClick}
+                  >
+                    {t('nav.logout')}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button 
+                    className="btn-secondary mobile-btn"
+                    aria-label={t('nav.login')}
+                    onClick={handleLoginClick}
+                  >
+                    {t('nav.login')}
+                  </button>
+                  <button 
+                    className="btn-primary mobile-btn"
+                    aria-label={t('nav.register')}
+                    onClick={handleRegisterClick}
+                  >
+                    {t('nav.register')}
+                  </button>
+                </>
+              )}
             </li>
           </ul>
         </nav>

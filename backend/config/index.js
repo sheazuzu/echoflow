@@ -5,6 +5,34 @@
 
 const logger = require('../utils/logger');
 
+function normalizeAuthCookieSameSite(value) {
+    const normalized = String(value || 'lax').trim().toLowerCase();
+    if (['lax', 'strict', 'none'].includes(normalized)) {
+        return normalized;
+    }
+
+    logger.warn('CONFIG_INVALID_AUTH_COOKIE_SAME_SITE', {
+        message: 'AUTH_COOKIE_SAME_SITE 配置无效，已回退到 lax',
+        provided: value,
+        supported: ['lax', 'strict', 'none'],
+    });
+    return 'lax';
+}
+
+function normalizeAuthCookieSecure(value) {
+    const normalized = String(value || 'auto').trim().toLowerCase();
+    if (['auto', 'always', 'never'].includes(normalized)) {
+        return normalized;
+    }
+
+    logger.warn('CONFIG_INVALID_AUTH_COOKIE_SECURE', {
+        message: 'AUTH_COOKIE_SECURE 配置无效，已回退到 auto',
+        provided: value,
+        supported: ['auto', 'always', 'never'],
+    });
+    return 'auto';
+}
+
 // OpenAI 配置
 const apiKey = process.env.OPENAI_API_KEY || "";
 
@@ -41,16 +69,15 @@ if (!isCosConfigured) {
 
 // CORS 配置 - 支持多个来源
 const allowedOrigins = [
-    'http://localhost:5173',  // 开发环境
-    'https://localhost',       // 生产环境（Traefik 反向代理）
-    'http://localhost',         // 生产环境（HTTP）
-    'https://echoflow.zhenyuxie.com',  // 生产域名
-    'https://meetandnote.com'  // 生产域名
+    'http://localhost:5173',
+    'https://localhost',
+    'http://localhost',
+    'https://echoflow.zhenyuxie.com',
+    'https://meetandnote.com'
 ];
 
 const corsOptions = {
     origin: function (origin, callback) {
-        // 允许没有 origin 的请求（如 Postman、服务器到服务器的请求）
         if (!origin) return callback(null, true);
 
         if (allowedOrigins.indexOf(origin) !== -1) {
@@ -63,7 +90,7 @@ const corsOptions = {
             callback(new Error('Not allowed by CORS'));
         }
     },
-    credentials: true,  // 允许携带凭证
+    credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Client-Id', 'X-Client-Label']
 };
@@ -78,6 +105,48 @@ const adminConfig = {
     cookieName: process.env.ADMIN_COOKIE_NAME || 'echoflow_admin_session'
 };
 
+const mysqlConfig = {
+    host: process.env.MYSQL_HOST || '127.0.0.1',
+    port: Number(process.env.MYSQL_PORT || 3306),
+    user: process.env.MYSQL_USER || '',
+    password: process.env.MYSQL_PASSWORD || '',
+    database: process.env.MYSQL_DATABASE || '',
+    connectionLimit: Number(process.env.MYSQL_CONNECTION_LIMIT || 10),
+    queueLimit: Number(process.env.MYSQL_QUEUE_LIMIT || 0),
+    charset: process.env.MYSQL_CHARSET || 'utf8mb4',
+    timezone: process.env.MYSQL_TIMEZONE || 'Z',
+};
+
+const isMysqlConfigured = !!(mysqlConfig.host && mysqlConfig.user && mysqlConfig.database);
+if (!isMysqlConfigured) {
+    logger.warn('CONFIG_MYSQL_INCOMPLETE', {
+        message: 'MySQL 配置不完整，认证存储初始化时将失败',
+        required_env: [
+            'MYSQL_HOST (可选，默认 127.0.0.1)',
+            'MYSQL_PORT (可选，默认 3306)',
+            'MYSQL_USER',
+            'MYSQL_PASSWORD (可选)',
+            'MYSQL_DATABASE',
+        ],
+    });
+}
+
+const authConfig = {
+    cookieName: process.env.AUTH_COOKIE_NAME || 'echoflow_user_session',
+    cookieSameSite: normalizeAuthCookieSameSite(process.env.AUTH_COOKIE_SAME_SITE),
+    cookieSecure: normalizeAuthCookieSecure(process.env.AUTH_COOKIE_SECURE),
+    sessionSecret: process.env.AUTH_SESSION_SECRET || '',
+    sessionTtlHours: Number(process.env.AUTH_SESSION_TTL_HOURS || 168),
+    resetTokenTtlMinutes: Number(process.env.AUTH_RESET_TOKEN_TTL_MINUTES || 30),
+    exposeResetToken: process.env.AUTH_EXPOSE_RESET_TOKEN === 'true' || process.env.NODE_ENV !== 'production',
+    maxFailedAttempts: Number(process.env.AUTH_MAX_FAILED_ATTEMPTS || 5),
+    failedLoginWindowMinutes: Number(process.env.AUTH_FAILED_LOGIN_WINDOW_MINUTES || 15),
+    lockoutMinutes: Number(process.env.AUTH_LOCKOUT_MINUTES || 15),
+    defaultRole: process.env.AUTH_DEFAULT_ROLE || 'user',
+    passwordSaltLength: Number(process.env.AUTH_PASSWORD_SALT_LENGTH || 16),
+    passwordKeyLength: Number(process.env.AUTH_PASSWORD_KEY_LENGTH || 64),
+};
+
 module.exports = {
     PORT,
     apiKey,
@@ -85,5 +154,8 @@ module.exports = {
     isCosConfigured,
     allowedOrigins,
     corsOptions,
-    admin: adminConfig
+    admin: adminConfig,
+    auth: authConfig,
+    mysql: mysqlConfig,
+    isMysqlConfigured,
 };

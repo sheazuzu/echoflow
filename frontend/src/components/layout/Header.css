@@ -149,6 +149,19 @@
   gap: var(--spacing-md);
 }
 
+.header-user-pill {
+  max-width: 220px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(0, 102, 204, 0.08);
+  color: var(--color-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .header-btn {
   padding: var(--spacing-sm) var(--spacing-lg);
   border-radius: var(--radius-md);
@@ -303,6 +316,10 @@
     padding: var(--spacing-sm) var(--spacing-md);
     font-size: var(--font-size-xs);
   }
+
+  .header-user-pill {
+    max-width: 160px;
+  }
 }
 
 /* 移动端 */
@@ -312,6 +329,10 @@
   }
   
   .header-btn {
+    display: none;
+  }
+
+  .header-user-pill {
     display: none;
   }
   

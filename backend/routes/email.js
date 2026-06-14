@@ -7,6 +7,7 @@ const router = express.Router();
 const logger = require('../utils/logger');
 const processManager = require('../utils/processManager');
 const emailService = require('../emailService');
+const { requireAuth, assertResourceOwner } = require('../middleware/auth');
 
 // 邮件传输器（在模块级别缓存）
 let emailTransporter = null;
@@ -27,7 +28,7 @@ function getTransporter() {
 }
 
 // 邮件发送API端点
-router.post('/send-email', async (req, res) => {
+router.post('/send-email', requireAuth, async (req, res) => {
     const { fileId, recipients, minutesData: directMinutesData } = req.body;
     
     // 验证收件人参数
@@ -75,6 +76,8 @@ router.post('/send-email', async (req, res) => {
                 message: '文件处理状态未找到' 
             });
         }
+
+        assertResourceOwner(req, status);
         
         if (status.status !== 'completed') {
             return res.status(400).json({ 

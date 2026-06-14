@@ -8,9 +8,13 @@ const fs = require('fs');
 const path = require('path');
 const logger = require('../utils/logger');
 const processManager = require('../utils/processManager');
+const userStore = require('../utils/userStore');
+const { requireAuth, assertResourceOwner } = require('../middleware/auth');
+
+const { PROCESSING_JOB } = userStore.BUSINESS_ACTIVITY_TYPES;
 
 // 进度查询接口
-router.get('/progress/:fileId', (req, res) => {
+router.get('/progress/:fileId', requireAuth, (req, res) => {
     const fileId = req.params.fileId;
     const status = processManager.getStatus(fileId);
     
@@ -18,6 +22,8 @@ router.get('/progress/:fileId', (req, res) => {
         logger('PROGRESS_QUERY', `进度查询失败: 文件ID ${fileId} 的状态未找到`);
         return res.status(404).json({ message: "文件处理状态未找到" });
     }
+
+    assertResourceOwner(req, status);
     
     // 只在状态或进度发生变化时才打印日志，避免每秒轮询刷屏
     const currentKey = `${status.status}_${status.progress}_${status.currentChunk || 0}_${status.error || ''}`;
@@ -51,7 +57,7 @@ router.get('/progress/:fileId', (req, res) => {
 });
 
 // 取消处理接口
-router.post('/cancel/:fileId', (req, res) => {
+router.post('/cancel/:fileId', requireAuth, (req, res) => {
     const fileId = req.params.fileId;
     
     logger('CANCEL_REQUEST', `收到取消处理请求，文件ID: ${fileId}`);
@@ -66,6 +72,8 @@ router.post('/cancel/:fileId', (req, res) => {
             fileId: fileId
         });
     }
+
+    assertResourceOwner(req, status);
     
     logger('CANCEL_INFO', `当前处理状态: ${status.status}, 进度: ${status.progress}%`);
     
@@ -152,6 +160,27 @@ router.post('/cancel/:fileId', (req, res) => {
     }
     
     logger('CANCEL_COMPLETE', `用户成功取消了文件处理: ${fileId}`);
+
+    userStore.recordUserActivity({
+        dedupeKey: `upload-task:${req.auth.user.id}:${fileId}`,
+        userId: req.auth.user.id,
+        fileId,
+        activityType: PROCESSING_JOB,
+        status: 'cancelled',
+        title: status.meetingTopic || status.originalFilename || fileId,
+        summary: '用户取消了处理任务。',
+        detail: {
+            cancelledAt: new Date().toISOString(),
+            lastStatus: status.status || '',
+        },
+        metadata: {
+            meetingTopic: status.meetingTopic || '',
+            originalFilename: status.originalFilename || '',
+            normalizedFilename: status.normalizedFilename || '',
+        },
+    }).catch((error) => {
+        logger('CANCEL_ACTIVITY_WARN', `记录取消历史失败: ${fileId}, 错误: ${error.message}`);
+    });
     
     res.json({
         code: 200,

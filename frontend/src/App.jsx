@@ -767,6 +767,7 @@ const App = () => {
             const response = await fetch('/api/upload', {
                 method: 'POST',
                 body: formData,
+                credentials: 'include',
             });
 
             if (!response.ok) {
@@ -835,7 +836,9 @@ const App = () => {
             
             window.progressInterval = setInterval(async () => {
                 try {
-const response = await fetch(`/api/progress/${encodeURIComponent(currentFileId)}`);
+const response = await fetch(`/api/progress/${encodeURIComponent(currentFileId)}`, {
+                        credentials: 'include',
+                    });
                     if (response.ok) {
                         const progressData = await response.json();
                         
@@ -1012,7 +1015,9 @@ const response = await fetch(`/api/progress/${encodeURIComponent(currentFileId)}
                         // 如果处理完成，更新应用状态并获取会议纪要数据
                         if (nextStatus === 'completed') {
                             try {
-const minutesResponse = await fetch(`/api/minutes/${encodeURIComponent(currentFileId)}`);
+const minutesResponse = await fetch(`/api/minutes/${encodeURIComponent(currentFileId)}`, {
+                                    credentials: 'include',
+                                });
                                 if (minutesResponse.ok) {
                                     const minutesResult = await minutesResponse.json();
                                     setMinutesData(minutesResult.minutesData);
@@ -1173,6 +1178,7 @@ const minutesResponse = await fetch(`/api/minutes/${encodeURIComponent(currentFi
                     fileId: currentFileId,
                     recipients: meetingRecipients, // 发送多个收件人
                 }),
+                credentials: 'include',
             });
 
             const data = await response.json();
@@ -2289,7 +2295,8 @@ fetch(`/api/cancel/${encodeURIComponent(fileIdToCancel)}`, {
                                             method: 'POST',
                                             headers: {
                                                 'Content-Type': 'application/json'
-                                            }
+                                            },
+                                            credentials: 'include',
                                         }).catch(err => {
                                             console.error('❌ 取消请求失败:', err);
                                         });
@@ -2572,7 +2579,9 @@ fetch(`/api/cancel/${encodeURIComponent(fileIdToCancel)}`, {
                                                     console.log('录音文件下载成功:', downloadFileName);
                                                 } else {
                                                     // 否则从后端下载上传的文件
-const response = await fetch(`/api/audio/${encodeURIComponent(currentFileId)}/download`);
+const response = await fetch(`/api/audio/${encodeURIComponent(currentFileId)}/download`, {
+                                                        credentials: 'include',
+                                                    });
                                                     if (!response.ok) {
                                                         throw new Error('下载失败');
                                                     }

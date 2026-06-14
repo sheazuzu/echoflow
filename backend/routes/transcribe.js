@@ -11,10 +11,10 @@ const upload = require('../middleware/upload');
 const { getUploadDir, cleanExpiredTempFiles } = require('../utils/fileHelper');
 const openaiService = require('../services/openaiService');
 const adminActivityStore = require('../utils/adminActivityStore');
-const { buildRequesterMetadata } = require('../utils/requestIdentity');
+const { requireAuth, buildAuthenticatedRequester } = require('../middleware/auth');
 
 // 实时转录API端点
-router.post('/transcribe/stream', upload.single('audio'), async (req, res) => {
+router.post('/transcribe/stream', requireAuth, upload.single('audio'), async (req, res) => {
     const requestId = `REQ-${Date.now()}-${Math.random().toString(36).substring(7)}`;
     const uploadDir = getUploadDir();
     
@@ -102,9 +102,9 @@ router.post('/transcribe/stream', upload.single('audio'), async (req, res) => {
 });
 
 // 生成会议记录API端点
-router.post('/generate-meeting-summary', express.json(), async (req, res) => {
+router.post('/generate-meeting-summary', requireAuth, express.json(), async (req, res) => {
     const { transcript } = req.body;
-    const requester = buildRequesterMetadata(req);
+    const requester = buildAuthenticatedRequester(req);
 
     if (!transcript) {
         logger('SUMMARY_ERROR', '会议记录生成失败：未提供转录文字');

@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const config = require('../config');
 
 const CLIENT_ID_COOKIE_NAME = 'echoflow_client_id';
 const CLIENT_ID_MAX_AGE_MS = 365 * 24 * 60 * 60 * 1000;
@@ -27,6 +28,28 @@ function createClientId() {
 
 function isSecureRequest(req) {
     return req.secure || req.headers['x-forwarded-proto'] === 'https';
+}
+
+function getClientCookieSameSite() {
+    return config.auth.cookieSameSite || 'lax';
+}
+
+function shouldUseSecureClientCookie(req) {
+    const secureMode = config.auth.cookieSecure || 'auto';
+
+    if (secureMode === 'always') {
+        return true;
+    }
+
+    if (secureMode === 'never') {
+        return false;
+    }
+
+    if (getClientCookieSameSite() === 'none') {
+        return true;
+    }
+
+    return isSecureRequest(req);
 }
 
 function sanitizeLabel(label) {
@@ -93,8 +116,8 @@ function attachClientIdentity(req, res, next) {
     if (!cookies[CLIENT_ID_COOKIE_NAME] || cookies[CLIENT_ID_COOKIE_NAME] !== identity.clientId) {
         res.cookie(CLIENT_ID_COOKIE_NAME, identity.clientId, {
             httpOnly: true,
-            sameSite: 'lax',
-            secure: isSecureRequest(req),
+            sameSite: getClientCookieSameSite(),
+            secure: shouldUseSecureClientCookie(req),
             maxAge: CLIENT_ID_MAX_AGE_MS,
             path: '/',
         });

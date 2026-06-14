@@ -38,7 +38,11 @@ function getStatus(fileId) {
  * @param {object} status
  */
 function setStatus(fileId, status) {
-    processingStatus.set(fileId, status);
+    const currentStatus = processingStatus.get(fileId) || {};
+    processingStatus.set(fileId, {
+        ...currentStatus,
+        ...status,
+    });
 }
 
 /**

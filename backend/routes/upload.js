@@ -14,10 +14,37 @@ const cosService = require('../services/cosService');
 const audioService = require('../services/audioService');
 const openaiService = require('../services/openaiService');
 const adminActivityStore = require('../utils/adminActivityStore');
-const { buildRequesterMetadata } = require('../utils/requestIdentity');
+const userStore = require('../utils/userStore');
+const { requireAuth, buildAuthenticatedRequester } = require('../middleware/auth');
+
+async function recordUploadActivity(payload = {}) {
+    if (!payload.userId || !payload.fileId) {
+        return;
+    }
+
+    await userStore.recordUserActivity({
+        dedupeKey: payload.dedupeKey,
+        userId: payload.userId,
+        fileId: payload.fileId,
+        activityType: payload.activityType || 'upload_task',
+        status: payload.status,
+        title: payload.title || payload.meetingTopic || payload.originalFilename || payload.fileId,
+        summary: payload.summary || '',
+        detail: payload.detail || {},
+        metadata: {
+            meetingTopic: payload.meetingTopic || '',
+            originalFilename: payload.originalFilename || '',
+            normalizedFilename: payload.normalizedFilename || '',
+            cosKey: payload.cosKey || '',
+            transcriptCosKey: payload.transcriptCosKey || '',
+            requester: payload.requester || null,
+            ...(payload.metadata || {}),
+        },
+    });
+}
 
 // 上传与处理接口
-router.post('/upload', upload.single('file'), async (req, res) => {
+router.post('/upload', requireAuth, upload.single('file'), async (req, res) => {
     if (!req.file) {
         logger('UPLOAD', '失败：未收到文件');
         return res.status(400).json({ message: "未上传文件" });
@@ -28,7 +55,9 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     
     // 获取会议主题（如果前端传递了）
     const meetingTopic = req.body.meetingTopic || '';
-    const requester = buildRequesterMetadata(req);
+    const requester = buildAuthenticatedRequester(req);
+    const ownerUserId = req.auth.user.id;
+    const ownerDisplayName = req.auth.user.displayName;
     
     // 生成标准化文件名：YYYYMMDD_HHMMSS_会议主题_原始文件名
     const now = new Date();
@@ -93,9 +122,34 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     });
 
     // 初始化处理状态
-    processManager.setStatus(fileId, { status: 'uploading_to_cos', progress: 5 });
+    processManager.setStatus(fileId, {
+        status: 'uploading_to_cos',
+        progress: 5,
+        ownerUserId,
+        ownerDisplayName,
+        requester,
+        meetingTopic,
+        originalFilename: req.file.originalname,
+        normalizedFilename: cleanFileName,
+    });
 
     try {
+        await recordUploadActivity({
+            dedupeKey: `upload-task:${ownerUserId}:${fileId}`,
+            userId: ownerUserId,
+            fileId,
+            status: 'processing',
+            title: meetingTopic || req.file.originalname || fileId,
+            summary: '已接收音频文件，正在处理。',
+            meetingTopic,
+            originalFilename: req.file.originalname,
+            normalizedFilename: cleanFileName,
+            requester,
+            detail: {
+                progress: 5,
+                stage: 'uploading_to_cos',
+            },
+        });
         // 1. 上传文件到COS（从磁盘文件读取buffer）
         logger('PROCESS_START', `开始处理文件: ${fileId} (${fileSizeMB.toFixed(2)}MB)`);
         logger('STEP_UPLOAD', `步骤1: 上传文件到COS存储`);
@@ -117,6 +171,8 @@ router.post('/upload', upload.single('file'), async (req, res) => {
         logger('STEP_PROCESS', `步骤2: 开始音频处理流程`);
         logger('PROCESS_INFO', `文件已上传到COS: ${cosKey}`);
         await processFile(fileId, cosKey, fileSizeMB, {
+            ownerUserId,
+            ownerDisplayName,
             requester,
             meetingTopic,
             originalFilename: req.file.originalname,
@@ -128,6 +184,23 @@ router.post('/upload', upload.single('file'), async (req, res) => {
         logger('ERROR_DETAIL', `错误堆栈: ${error.stack}`);
         processManager.setStatus(fileId, { status: 'error', progress: 0, error: error.message });
         console.error(error);
+        await recordUploadActivity({
+            dedupeKey: `upload-task:${ownerUserId}:${fileId}`,
+            userId: ownerUserId,
+            fileId,
+            status: 'failed',
+            title: meetingTopic || req.file.originalname || fileId,
+            summary: error.message || '文件处理失败',
+            meetingTopic,
+            originalFilename: req.file.originalname,
+            normalizedFilename: cleanFileName,
+            requester,
+            detail: {
+                progress: 0,
+                stage: 'error',
+                error: error.message || '',
+            },
+        });
         
         // 异常时清理multer临时上传文件（如果还未被清理）
         try {
@@ -406,10 +479,51 @@ ${fullTranscript}`;
             transcriptCosKey: transcriptCosKey,
             cosKey: cosKey,
             createdAt: new Date().toISOString(),
+            ownerUserId: metadata.ownerUserId || null,
+            ownerDisplayName: metadata.ownerDisplayName || metadata.requester?.userDisplayName || '',
             requester: metadata.requester,
             meetingTopic: metadata.meetingTopic || '',
             originalFilename: metadata.originalFilename || '',
             normalizedFilename: metadata.normalizedFilename || ''
+        });
+
+        await recordUploadActivity({
+            dedupeKey: `upload-task:${metadata.ownerUserId || ''}:${fileId}`,
+            userId: metadata.ownerUserId,
+            fileId,
+            status: 'completed',
+            title: aiResult.chinese?.title || aiResult.english?.title || metadata.meetingTopic || metadata.originalFilename || fileId,
+            summary: aiResult.chinese?.summary || aiResult.english?.summary || '会议纪要已生成。',
+            meetingTopic: metadata.meetingTopic || '',
+            originalFilename: metadata.originalFilename || '',
+            normalizedFilename: metadata.normalizedFilename || '',
+            requester: metadata.requester,
+            cosKey,
+            transcriptCosKey,
+            detail: {
+                progress: 100,
+                stage: 'completed',
+                meetingDate: aiResult.chinese?.date || aiResult.english?.date || '',
+                attendees: aiResult.chinese?.attendees || aiResult.english?.attendees || [],
+                keyDiscussionCount: Array.isArray(aiResult.chinese?.key_discussion_points)
+                    ? aiResult.chinese.key_discussion_points.length
+                    : Array.isArray(aiResult.english?.key_discussion_points)
+                        ? aiResult.english.key_discussion_points.length
+                        : 0,
+                decisionsCount: Array.isArray(aiResult.chinese?.decisions_made)
+                    ? aiResult.chinese.decisions_made.length
+                    : Array.isArray(aiResult.english?.decisions_made)
+                        ? aiResult.english.decisions_made.length
+                        : 0,
+                actionItemCount: Array.isArray(aiResult.chinese?.action_items)
+                    ? aiResult.chinese.action_items.length
+                    : Array.isArray(aiResult.english?.action_items)
+                        ? aiResult.english.action_items.length
+                        : 0,
+            },
+            metadata: {
+                minutesData: aiResult,
+            },
         });
         
         adminActivityStore.recordSummaryActivity({
@@ -422,6 +536,7 @@ ${fullTranscript}`;
             meetingDate: aiResult.chinese?.date || aiResult.english?.date || '',
             summary: aiResult,
             requester: metadata.requester,
+            userDisplayName: metadata.ownerDisplayName || metadata.requester?.userDisplayName || metadata.requester?.clientLabel,
         });
         
         // 输出会议纪要简介到日志
@@ -454,6 +569,25 @@ ${fullTranscript}`;
         logger('ERROR_STACK', `错误堆栈: ${error.stack}`);
         
         processManager.setStatus(fileId, { status: 'error', progress: 0, error: error.message });
+        await recordUploadActivity({
+            dedupeKey: `upload-task:${metadata.ownerUserId || ''}:${fileId}`,
+            userId: metadata.ownerUserId,
+            fileId,
+            status: 'failed',
+            title: metadata.meetingTopic || metadata.originalFilename || fileId,
+            summary: error.message || '文件处理失败',
+            meetingTopic: metadata.meetingTopic || '',
+            originalFilename: metadata.originalFilename || '',
+            normalizedFilename: metadata.normalizedFilename || '',
+            requester: metadata.requester,
+            cosKey,
+            transcriptCosKey,
+            detail: {
+                progress: 0,
+                stage: 'error',
+                error: error.message || '',
+            },
+        });
         
         // 异常情况下清理文件
         try {

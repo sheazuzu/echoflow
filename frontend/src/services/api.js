@@ -3,7 +3,7 @@
  * 提供统一的请求拦截器、错误处理和重试机制
  */
 
-import { ERROR_MESSAGES, TIME_CONFIG } from '../constants';
+import { ERROR_MESSAGES, TIME_CONFIG } from '../constants/index.js';
 
 // API 基础 URL
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
@@ -23,7 +23,7 @@ const HTTP_METHODS = {
  * 请求配置
  */
 const DEFAULT_CONFIG = {
-  timeout: TIME_CONFIG.REQUEST_TIMEOUT,
+  timeout: TIME_CONFIG.REQUEST_TIMEOUT || 30000,
   retryCount: 3,
   retryDelay: 1000,
 };
@@ -120,7 +120,7 @@ const handleError = (error) => {
   if (error.name === 'TypeError' && error.message === 'Failed to fetch') {
     return {
       success: false,
-      message: ERROR_MESSAGES.NETWORK_ERROR,
+      message: ERROR_MESSAGES.NETWORK_ERROR || '网络连接失败，请检查网络后重试',
       error,
     };
   }
@@ -129,21 +129,21 @@ const handleError = (error) => {
   if (error.name === 'AbortError') {
     return {
       success: false,
-      message: ERROR_MESSAGES.TIMEOUT_ERROR,
+      message: ERROR_MESSAGES.TIMEOUT_ERROR || '请求超时，请稍后重试',
       error,
     };
   }
 
   // HTTP 错误
   if (error.status) {
-    let message = ERROR_MESSAGES.SERVER_ERROR;
+    let message = ERROR_MESSAGES.SERVER_ERROR || '服务器错误，请稍后重试或联系支持团队';
 
     switch (error.status) {
       case 400:
         message = error.message || '请求参数错误';
         break;
       case 401:
-        message = '未授权，请登录';
+        message = error.message || '未授权，请登录';
         break;
       case 403:
         message = '没有权限访问';
@@ -152,16 +152,16 @@ const handleError = (error) => {
         message = '请求的资源不存在';
         break;
       case 413:
-        message = ERROR_MESSAGES.FILE_TOO_LARGE;
+        message = ERROR_MESSAGES.FILE_TOO_LARGE || '文件大小超过限制';
         break;
       case 500:
-        message = error.message || ERROR_MESSAGES.SERVER_ERROR;
+        message = error.message || ERROR_MESSAGES.SERVER_ERROR || '服务器错误，请稍后重试或联系支持团队';
         break;
       case 503:
         message = '服务暂时不可用，请稍后重试';
         break;
       default:
-        message = error.message || ERROR_MESSAGES.SERVER_ERROR;
+        message = error.message || ERROR_MESSAGES.SERVER_ERROR || '服务器错误，请稍后重试或联系支持团队';
     }
 
     return {
@@ -175,7 +175,7 @@ const handleError = (error) => {
   // 未知错误
   return {
     success: false,
-    message: error.message || ERROR_MESSAGES.UNKNOWN_ERROR,
+    message: error.message || ERROR_MESSAGES.UNKNOWN_ERROR || '发生未知错误，请刷新页面重试',
     error,
   };
 };
@@ -215,13 +215,16 @@ const request = async (url, options = {}, config = {}) => {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-      const response = await fetch(requestUrl, {
-        ...options,
-        signal: controller.signal,
-        credentials: 'include',
-      });
-
-      clearTimeout(timeoutId);
+      let response;
+      try {
+        response = await fetch(requestUrl, {
+          ...options,
+          signal: controller.signal,
+          credentials: 'include',
+        });
+      } finally {
+        clearTimeout(timeoutId);
+      }
 
       if (shouldLogAdminRequest(url)) {
         logAdminRequest('request:response', {

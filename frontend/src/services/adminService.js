@@ -1,7 +1,5 @@
-import apiClient from './api';
+import authService from './authService.js';
 
-const ADMIN_BASE = '/api/admin';
-
-export const getAdminDashboard = async () => {
-  return await apiClient.get(`${ADMIN_BASE}/dashboard`, { retryCount: 0 });
+export const getAdminDashboard = async (params = {}) => {
+  return await authService.getAdminDashboard(params);
 };

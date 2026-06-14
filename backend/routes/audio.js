@@ -8,9 +8,10 @@ const fs = require('fs');
 const logger = require('../utils/logger');
 const processManager = require('../utils/processManager');
 const cosService = require('../services/cosService');
+const { requireAuth, assertResourceOwner } = require('../middleware/auth');
 
 // 下载音频文件接口
-router.get('/audio/:fileId/download', async (req, res) => {
+router.get('/audio/:fileId/download', requireAuth, async (req, res) => {
     const fileId = req.params.fileId;
     const status = processManager.getStatus(fileId);
     
@@ -20,6 +21,8 @@ router.get('/audio/:fileId/download', async (req, res) => {
         logger('DOWNLOAD_ERROR', `下载失败: 文件处理状态未找到: ${fileId}`);
         return res.status(404).json({ message: "文件未找到" });
     }
+
+    assertResourceOwner(req, status);
     
     if (!status.cosKey) {
         logger('DOWNLOAD_ERROR', `下载失败: COS键未找到: ${fileId}`);

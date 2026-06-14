@@ -8,9 +8,10 @@ const fs = require('fs');
 const logger = require('../utils/logger');
 const processManager = require('../utils/processManager');
 const cosService = require('../services/cosService');
+const { requireAuth, assertResourceOwner } = require('../middleware/auth');
 
 // 获取会议纪要数据接口
-router.get('/minutes/:fileId', (req, res) => {
+router.get('/minutes/:fileId', requireAuth, (req, res) => {
     const fileId = req.params.fileId;
     const status = processManager.getStatus(fileId);
     
@@ -25,6 +26,8 @@ router.get('/minutes/:fileId', (req, res) => {
         logger('MINUTES_WARN', `会议纪要获取失败: 文件处理尚未完成: ${fileId}, 当前状态: ${status.status}`);
         return res.status(400).json({ message: "文件处理尚未完成" });
     }
+
+    assertResourceOwner(req, status);
     
     if (!status.minutesData) {
         logger('MINUTES_ERROR', `会议纪要获取失败: 纪要数据未找到: ${fileId}`);
@@ -41,7 +44,7 @@ router.get('/minutes/:fileId', (req, res) => {
 });
 
 // 获取转录结果接口
-router.get('/transcript/:fileId', async (req, res) => {
+router.get('/transcript/:fileId', requireAuth, async (req, res) => {
     const fileId = req.params.fileId;
     const status = processManager.getStatus(fileId);
     
@@ -56,6 +59,8 @@ router.get('/transcript/:fileId', async (req, res) => {
         logger('TRANSCRIPT_WARN', `转录结果获取失败: 文件处理尚未完成: ${fileId}, 当前状态: ${status.status}`);
         return res.status(400).json({ message: "文件处理尚未完成" });
     }
+
+    assertResourceOwner(req, status);
     
     if (!status.transcriptCosKey) {
         logger('TRANSCRIPT_ERROR', `转录结果获取失败: COS键未找到: ${fileId}`);
