@@ -770,14 +770,25 @@ const App = () => {
                 credentials: 'include',
             });
 
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+            const responseText = await response.text();
+            let resData = null;
+
+            if (responseText) {
+                try {
+                    resData = JSON.parse(responseText);
+                } catch (parseError) {
+                    if (response.ok) {
+                        throw new Error(`服务器返回格式错误：${responseText.slice(0, 120)}`);
+                    }
+                }
             }
 
-            const resData = await response.json();
+            if (!response.ok) {
+                const serverMessage = resData?.message || responseText?.trim();
+                throw new Error(serverMessage || `HTTP ${response.status}: ${response.statusText}`);
+            }
             
-            if (resData.code === 200) {
+            if (resData?.code === 200) {
                 // 文件接收成功，开始异步处理，设置文件ID用于进度轮询
                 setCurrentFileId(resData.fileId);
                 // 保持uploading状态，直到进度轮询检测到状态变化，避免状态闪断
@@ -787,7 +798,7 @@ const App = () => {
                 
                 // 不立即设置completed状态，等待进度轮询更新状态
             } else {
-                throw new Error(resData.message || '处理失败');
+                throw new Error(resData?.message || '处理失败');
             }
         } catch (error) {
             console.error("处理失败:", error);
@@ -802,6 +813,8 @@ const App = () => {
                 errorMessage = "文件过大，请上传小于50MB的文件";
             } else if (error.message.includes('400')) {
                 errorMessage = "文件格式不支持，请上传MP3/M4A/WAV格式音频";
+            } else if (error.message.includes('502') || error.message.includes('Bad Gateway')) {
+                errorMessage = "后端服务暂时不可用（502 Bad Gateway），请检查网关或后端服务状态";
             } else if (error.message.includes('500')) {
                 errorMessage = "服务器内部错误，请稍后重试";
             } else if (error.message.includes('OpenAI API')) {
