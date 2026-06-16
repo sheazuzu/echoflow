@@ -88,6 +88,37 @@ const App = () => {
         return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     };
 
+    const getAudioExtensionFromMimeType = (mimeType = '') => {
+        const normalizedMimeType = mimeType.toLowerCase();
+
+        if (normalizedMimeType.includes('wav')) {
+            return 'wav';
+        }
+        if (normalizedMimeType.includes('mp4') || normalizedMimeType.includes('m4a') || normalizedMimeType.includes('aac')) {
+            return 'm4a';
+        }
+        if (normalizedMimeType.includes('mpeg') || normalizedMimeType.includes('mp3')) {
+            return 'mp3';
+        }
+        if (normalizedMimeType.includes('ogg')) {
+            return 'ogg';
+        }
+
+        return 'webm';
+    };
+
+    const createRecordingFileName = (extension) => {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        const seconds = String(now.getSeconds()).padStart(2, '0');
+
+        return `recording_${year}${month}${day}_${hours}${minutes}${seconds}.${extension}`;
+    };
+
     // 将 WebM/其他格式的音频 Blob 转换为 WAV 格式
     const convertToWav = async (audioBlob) => {
         try {
@@ -400,8 +431,8 @@ const App = () => {
             recorder.onstop = () => {
                 setRecordedChunks(chunks);
                 
-                // 生成音频文件并显示下载选项
-                setTimeout(async () => {
+                // 生成原始压缩音频并显示下载选项
+                setTimeout(() => {
                     try {
                         // 检查录音数据是否为空
                         if (!chunks || chunks.length === 0) {
@@ -410,8 +441,6 @@ const App = () => {
                             setIsRecording(false); // 关闭录音界面
                             return;
                         }
-                        
-                        setIsGeneratingAudio(true);
                         
                         // 确定MIME类型
                         let mimeType = 'audio/webm;codecs=opus';
@@ -425,71 +454,39 @@ const App = () => {
                         // 检查Blob大小
                         if (originalBlob.size === 0) {
                             console.error('生成的音频文件大小为0');
-                            setIsGeneratingAudio(false);
                             setErrorMsg('录音文件生成失败，请重新录音');
                             setIsRecording(false); // 关闭录音界面
                             return;
                         }
                         
                         console.log('原始音频格式:', mimeType, '大小:', (originalBlob.size / 1024 / 1024).toFixed(2), 'MB');
+
+                        const extension = getAudioExtensionFromMimeType(mimeType);
+                        const fileName = createRecordingFileName(extension);
                         
-                        // 转换为 WAV 格式
-                        let audioBlob;
-                        try {
-                            audioBlob = await convertToWav(originalBlob);
-                        } catch (convertError) {
-                            console.warn('WAV 转换失败，使用原始格式:', convertError);
-                            // 如果转换失败，使用原始格式
-                            audioBlob = originalBlob;
-                        }
-                        
-                        // 生成文件名
-                        const now = new Date();
-                        const year = now.getFullYear();
-                        const month = String(now.getMonth() + 1).padStart(2, '0');
-                        const day = String(now.getDate()).padStart(2, '0');
-                        const hours = String(now.getHours()).padStart(2, '0');
-                        const minutes = String(now.getMinutes()).padStart(2, '0');
-                        const seconds = String(now.getSeconds()).padStart(2, '0');
-                        
-                        // 确定文件扩展名
-                        let extension = 'wav'; // 默认使用 WAV
-                        if (audioBlob === originalBlob) {
-                            // 如果使用原始格式，根据 MIME 类型确定扩展名
-                            if (mimeType.includes('wav')) {
-                                extension = 'wav';
-                            } else if (mimeType.includes('mp4')) {
-                                extension = 'm4a';
-                            } else {
-                                extension = 'webm';
-                            }
-                        }
-                        
-                        const fileName = `recording_${year}${month}${day}_${hours}${minutes}${seconds}.${extension}`;
-                        
-                        // 保存下载信息到状态
-                        setDownloadBlob(audioBlob);
+                        // 保存原始压缩音频信息到状态，下载时再转换为 WAV
+                        setDownloadBlob(originalBlob);
                         setDownloadFileName(fileName);
                         setRecordingDuration(recordingTime);
-                        setRecordingSize(audioBlob.size);
+                        setRecordingSize(originalBlob.size);
                         setIsGeneratingAudio(false);
                         
                         console.log('=== 准备显示下载界面 ===');
-                        console.log('downloadBlob:', audioBlob);
+                        console.log('downloadBlob:', originalBlob);
                         console.log('downloadFileName:', fileName);
                         console.log('recordingDuration:', recordingTime);
-                        console.log('recordingSize:', audioBlob.size);
+                        console.log('recordingSize:', originalBlob.size);
                         
                         // 先关闭录音界面，再显示下载选项
                         setIsRecording(false);
                         setShowDownloadOption(true);
                         
                         console.log('✅ 已设置 showDownloadOption = true');
-                        console.log('录音文件已准备好下载:', fileName, '大小:', (audioBlob.size / 1024 / 1024).toFixed(2), 'MB');
+                        console.log('录音原始文件已准备好处理:', fileName, '大小:', (originalBlob.size / 1024 / 1024).toFixed(2), 'MB');
                     } catch (error) {
-                        console.error('准备下载文件失败:', error);
+                        console.error('准备录音文件失败:', error);
                         setIsGeneratingAudio(false);
-                        setErrorMsg('准备下载文件失败：' + error.message);
+                        setErrorMsg('准备录音文件失败：' + error.message);
                         setIsRecording(false); // 关闭录音界面
                     }
                 }, 100);
@@ -569,7 +566,7 @@ const App = () => {
     };
 
     // 下载录音文件
-    const handleDownloadRecording = () => {
+    const handleDownloadRecording = async () => {
         try {
             if (!downloadBlob || !downloadFileName) {
                 setErrorMsg('下载文件不可用');
@@ -581,12 +578,24 @@ const App = () => {
                 setErrorMsg('您的浏览器不支持文件下载功能，请升级浏览器');
                 return;
             }
+
+            setIsGeneratingAudio(true);
+            setErrorMsg('');
+
+            let wavBlob;
+            try {
+                wavBlob = await convertToWav(downloadBlob);
+            } catch (convertError) {
+                throw new Error('转换 WAV 失败：' + convertError.message);
+            }
+
+            const wavFileName = createRecordingFileName('wav');
             
             // 创建临时下载链接
-            const url = URL.createObjectURL(downloadBlob);
+            const url = URL.createObjectURL(wavBlob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = downloadFileName;
+            a.download = wavFileName;
             document.body.appendChild(a);
             a.click();
             
@@ -596,11 +605,13 @@ const App = () => {
                 URL.revokeObjectURL(url);
             }, 100);
             
-            console.log('录音文件下载成功:', downloadFileName);
+            console.log('录音文件下载成功:', wavFileName);
             
         } catch (error) {
             console.error('下载录音文件失败:', error);
-            setErrorMsg('下载失败，请重试');
+            setErrorMsg(error.message || '下载失败，请重试');
+        } finally {
+            setIsGeneratingAudio(false);
         }
     };
 
@@ -660,7 +671,7 @@ const App = () => {
         return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     };
 
-    // 生成音频文件
+    // 生成用于上传处理的原始压缩音频文件
     const generateAudioFile = async () => {
         try {
             if (recordedChunks.length === 0) {
@@ -669,7 +680,7 @@ const App = () => {
             
             // 显示加载状态
             setProcessingStatus({ status: 'uploading', progress: 0 });
-            setErrorMsg('正在生成音频文件...');
+            setErrorMsg('正在准备原始录音文件...');
             
             // 确定MIME类型
             let mimeType = 'audio/webm;codecs=opus';
@@ -679,49 +690,20 @@ const App = () => {
             
             // 创建原始 Blob
             const originalBlob = new Blob(recordedChunks, { type: mimeType });
+
+            if (originalBlob.size === 0) {
+                throw new Error('录音文件为空，请重新录音');
+            }
             
             console.log('原始音频格式:', mimeType, '大小:', (originalBlob.size / 1024 / 1024).toFixed(2), 'MB');
             
-            // 转换为 WAV 格式
-            let audioBlob;
-            try {
-                audioBlob = await convertToWav(originalBlob);
-            } catch (convertError) {
-                console.warn('WAV 转换失败，使用原始格式:', convertError);
-                // 如果转换失败，使用原始格式
-                audioBlob = originalBlob;
-            }
+            const extension = getAudioExtensionFromMimeType(mimeType);
+            const fileName = createRecordingFileName(extension);
             
-            // 生成文件名：recording_YYYYMMDD_HHMMSS.wav
-            const now = new Date();
-            const year = now.getFullYear();
-            const month = String(now.getMonth() + 1).padStart(2, '0');
-            const day = String(now.getDate()).padStart(2, '0');
-            const hours = String(now.getHours()).padStart(2, '0');
-            const minutes = String(now.getMinutes()).padStart(2, '0');
-            const seconds = String(now.getSeconds()).padStart(2, '0');
+            // 创建File对象，保持原始压缩格式用于上传
+            const audioFile = new File([originalBlob], fileName, { type: mimeType });
             
-            // 确定文件扩展名
-            let extension = 'wav'; // 默认使用 WAV
-            let finalMimeType = 'audio/wav';
-            if (audioBlob === originalBlob) {
-                // 如果使用原始格式，根据 MIME 类型确定扩展名
-                finalMimeType = mimeType;
-                if (mimeType.includes('wav')) {
-                    extension = 'wav';
-                } else if (mimeType.includes('mp4')) {
-                    extension = 'm4a';
-                } else {
-                    extension = 'webm';
-                }
-            }
-            
-            const fileName = `recording_${year}${month}${day}_${hours}${minutes}${seconds}.${extension}`;
-            
-            // 创建File对象
-            const audioFile = new File([audioBlob], fileName, { type: finalMimeType });
-            
-            console.log('音频文件生成成功:', fileName, '大小:', (audioBlob.size / 1024 / 1024).toFixed(2), 'MB');
+            console.log('原始音频文件生成成功:', fileName, '大小:', (originalBlob.size / 1024 / 1024).toFixed(2), 'MB');
             
             setErrorMsg('');
             return audioFile;
