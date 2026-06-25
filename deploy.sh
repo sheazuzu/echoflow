@@ -58,7 +58,7 @@ remove_env_keys() {
     mv "$tmp_file" "$file"
 }
 
-echo "Echoflow container deployment script"
+echo "MeetandNote container deployment script"
 echo "================================"
 
 CI_MODE=false
@@ -105,7 +105,7 @@ if [ -z "$USE_LOCAL_DB_VALUE" ]; then
     else
         echo "Select MySQL deployment mode:"
         echo "1) Use built-in MySQL container (recommended for local quick start)"
-        echo "2) Use external MySQL (make sure DOCKER_MYSQL_HOST in .env is configured)"
+    echo "2) Use external MySQL (make sure MYSQL_HOST in .env is configured)"
         read -r -p "Enter your choice (1/2, default 1): " _ans
         case "${_ans:-}" in
             2) USE_LOCAL_DB_VALUE="false" ;;
@@ -118,10 +118,10 @@ COMPOSE_PROFILE_ARGS=""
 if is_true "$USE_LOCAL_DB_VALUE"; then
     COMPOSE_PROFILE_ARGS="--profile local-db"
     # 保证 backend 连接的 host 是 compose service 名 "mysql"，避免被 .env 中其他值覆盖
-    set_env_var .env "DOCKER_MYSQL_HOST" "mysql"
+    set_env_var .env "MYSQL_HOST" "mysql"
     echo "Local MySQL container will be started (compose profile: local-db)"
 else
-    echo "Local MySQL container is disabled. Make sure DOCKER_MYSQL_HOST in .env points to your external MySQL"
+    echo "Local MySQL container is disabled. Make sure MYSQL_HOST in .env points to your external MySQL"
 fi
 
 # Check whether the API key is configured

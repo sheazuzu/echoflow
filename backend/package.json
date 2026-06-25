@@ -6,7 +6,8 @@
   "scripts": {
     "test": "node --test",
     "start": "node server.js",
-    "db:init": "node scripts/initAuthDb.js"
+    "db:init": "node scripts/initAuthDb.js",
+    "diagnose:auth": "node scripts/diagnoseAuth.js"
   },
   "keywords": [],
   "author": "",

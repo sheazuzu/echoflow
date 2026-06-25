@@ -136,17 +136,41 @@ const mysqlConfig = {
     timezone: process.env.MYSQL_TIMEZONE || 'Z',
 };
 
+const mysqlMissingEnvVars = [];
+if (!process.env.MYSQL_HOST) mysqlMissingEnvVars.push('MYSQL_HOST');
+if (!process.env.MYSQL_USER) mysqlMissingEnvVars.push('MYSQL_USER');
+if (!process.env.MYSQL_DATABASE) mysqlMissingEnvVars.push('MYSQL_DATABASE');
+
 const isMysqlConfigured = !!(mysqlConfig.host && mysqlConfig.user && mysqlConfig.database);
+mysqlConfig.incomplete = !isMysqlConfigured;
+mysqlConfig.missingEnvVars = mysqlMissingEnvVars;
+
 if (!isMysqlConfigured) {
-    logger.warn('CONFIG_MYSQL_INCOMPLETE', {
-        message: 'MySQL 配置不完整，认证存储初始化时将失败',
+    logger.error('CONFIG_MYSQL_INCOMPLETE', {
+        message: 'MySQL 配置不完整，进程将在启动健康检查阶段以非零状态退出',
+        host: mysqlConfig.host,
+        port: mysqlConfig.port,
+        user: mysqlConfig.user,
+        database: mysqlConfig.database,
+        hasPassword: Boolean(mysqlConfig.password),
+        missingEnvVars: mysqlMissingEnvVars,
         required_env: [
-            'MYSQL_HOST (可选，默认 127.0.0.1)',
+            'MYSQL_HOST (必填，无默认值)',
             'MYSQL_PORT (可选，默认 3306)',
-            'MYSQL_USER',
+            'MYSQL_USER (必填)',
             'MYSQL_PASSWORD (可选)',
-            'MYSQL_DATABASE',
+            'MYSQL_DATABASE (必填)',
         ],
+    });
+} else {
+    logger.info('DB_INIT', {
+        message: 'MySQL 配置已加载',
+        host: mysqlConfig.host,
+        port: mysqlConfig.port,
+        database: mysqlConfig.database,
+        user: mysqlConfig.user,
+        hasPassword: Boolean(mysqlConfig.password),
+        connectionLimit: mysqlConfig.connectionLimit,
     });
 }
 

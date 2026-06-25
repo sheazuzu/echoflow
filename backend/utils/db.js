@@ -3,6 +3,14 @@ const config = require('../config');
 const logger = require('./logger');
 
 let pool = null;
+let reconnectInProgress = false;
+
+const RECONNECTABLE_ERROR_CODES = new Set([
+    'PROTOCOL_CONNECTION_LOST',
+    'ECONNRESET',
+    'ETIMEDOUT',
+    'EPIPE',
+]);
 
 function getMysqlLogMeta() {
     return {
@@ -35,6 +43,54 @@ function ensureMysqlConfigured() {
     }
 }
 
+function attachPoolErrorHandlers(targetPool) {
+    if (!targetPool || typeof targetPool.on !== 'function') {
+        return;
+    }
+
+    targetPool.on('error', (error) => {
+        const code = error && error.code;
+        logger.error('DB_RUNTIME_ERROR', {
+            message: 'MySQL 连接池发生运行期错误',
+            ...getMysqlLogMeta(),
+            code,
+            errno: error && error.errno,
+            sqlState: error && error.sqlState,
+            error: error && error.message,
+            stack: error && error.stack,
+        });
+
+        if (RECONNECTABLE_ERROR_CODES.has(code) && !reconnectInProgress) {
+            reconnectInProgress = true;
+            const oldPool = pool;
+            pool = null;
+            (async () => {
+                try {
+                    if (oldPool) {
+                        await oldPool.end().catch(() => {});
+                    }
+                    const newPool = getPool();
+                    await newPool.query('SELECT 1');
+                    logger.info('DB_RECONNECTED', {
+                        message: 'MySQL 连接池已自动重连',
+                        ...getMysqlLogMeta(),
+                    });
+                } catch (reconnectError) {
+                    logger.error('DB_RECONNECT_FAILED', {
+                        message: 'MySQL 自动重连失败',
+                        ...getMysqlLogMeta(),
+                        error: reconnectError && reconnectError.message,
+                        code: reconnectError && reconnectError.code,
+                        stack: reconnectError && reconnectError.stack,
+                    });
+                } finally {
+                    reconnectInProgress = false;
+                }
+            })();
+        }
+    });
+}
+
 function getPool() {
     if (pool) {
         return pool;
@@ -62,12 +118,76 @@ function getPool() {
         decimalNumbers: true,
     });
 
+    attachPoolErrorHandlers(pool);
+
     logger.info('MYSQL_POOL_READY', {
         message: 'MySQL 连接池创建完成',
         ...getMysqlLogMeta(),
     });
 
     return pool;
+}
+
+function getPoolStatus() {
+    return {
+        host: config.mysql.host,
+        port: config.mysql.port,
+        database: config.mysql.database,
+        user: config.mysql.user,
+        hasPassword: Boolean(config.mysql.password),
+        poolSize: config.mysql.connectionLimit,
+        configured: !!config.isMysqlConfigured,
+        initialized: pool !== null,
+    };
+}
+
+async function pingPool(timeoutMs = 5000) {
+    const startedAt = Date.now();
+    if (!config.isMysqlConfigured) {
+        return {
+            ok: false,
+            durationMs: 0,
+            error: 'MYSQL_CONFIG_MISSING',
+            serverVersion: null,
+            currentSchema: null,
+        };
+    }
+
+    const probe = (async () => {
+        const activePool = getPool();
+        const [rows] = await activePool.query('SELECT VERSION() AS version, DATABASE() AS db');
+        const row = Array.isArray(rows) && rows[0] ? rows[0] : {};
+        return {
+            ok: true,
+            durationMs: Date.now() - startedAt,
+            error: null,
+            serverVersion: row.version || null,
+            currentSchema: row.db || null,
+        };
+    })();
+
+    let timeoutHandle = null;
+    const timeout = new Promise((_, reject) => {
+        timeoutHandle = setTimeout(() => {
+            reject(new Error(`PING_TIMEOUT_${timeoutMs}MS`));
+        }, timeoutMs);
+    });
+
+    try {
+        const result = await Promise.race([probe, timeout]);
+        return result;
+    } catch (error) {
+        return {
+            ok: false,
+            durationMs: Date.now() - startedAt,
+            error: error && error.message,
+            code: error && error.code,
+            serverVersion: null,
+            currentSchema: null,
+        };
+    } finally {
+        if (timeoutHandle) clearTimeout(timeoutHandle);
+    }
 }
 
 async function testConnection() {
@@ -187,6 +307,8 @@ async function closePool() {
 
 module.exports = {
     getPool,
+    getPoolStatus,
+    pingPool,
     testConnection,
     query,
     queryOne,

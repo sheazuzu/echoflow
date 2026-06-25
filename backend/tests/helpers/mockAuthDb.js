@@ -450,6 +450,24 @@ function createMockDb() {
     withTransaction,
     closePool: async () => {},
     ensureMysqlConfigured: () => {},
+    getPool: () => ({ query }),
+    getPoolStatus: () => ({
+      host: process.env.MYSQL_HOST || '127.0.0.1',
+      port: Number(process.env.MYSQL_PORT || 3306),
+      database: process.env.MYSQL_DATABASE || 'echoflow_test',
+      user: process.env.MYSQL_USER || 'test',
+      hasPassword: Boolean(process.env.MYSQL_PASSWORD),
+      poolSize: 10,
+      configured: true,
+      initialized: true,
+    }),
+    pingPool: async () => ({
+      ok: true,
+      durationMs: 1,
+      error: null,
+      serverVersion: '8.0.99-mock',
+      currentSchema: process.env.MYSQL_DATABASE || 'echoflow_test',
+    }),
     __state: state,
   };
 }

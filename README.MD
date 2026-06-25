@@ -297,6 +297,9 @@ A: 不可以，需要联网调用 OpenAI API。
 ### Q: 下载的音频是什么格式？
 A: WAV 格式，兼容性好，所有设备都能播放。
 
+### Q: production 注册成功，但 `auth_users` 表里没数据？
+A: 多半是后端容器内 `MYSQL_*` 环境变量没真正生效或连错了库。请按 [docs/runbook-auth.md](./docs/runbook-auth.md) 5 步排查；从本版本起，配置缺失或连接失败会让后端 fail-fast 退出，不会再出现"前端成功、库里没数据"。
+
 更多问题请查看 [DOCUMENTATION.md](./DOCUMENTATION.md#常见问题)
 
 ---

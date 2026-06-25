@@ -4,10 +4,10 @@ services:
       - local-db
     image: mysql:8.4
     environment:
-      - MYSQL_ROOT_PASSWORD=${DOCKER_MYSQL_ROOT_PASSWORD:-root123456}
-      - MYSQL_DATABASE=${DOCKER_MYSQL_DATABASE:-echoflow}
-      - MYSQL_USER=${DOCKER_MYSQL_USER:-echoflow}
-      - MYSQL_PASSWORD=${DOCKER_MYSQL_PASSWORD:-echoflow123}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-root123456}
+      - MYSQL_DATABASE=${MYSQL_DATABASE:-echoflow}
+      - MYSQL_USER=${MYSQL_USER:-echoflow}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD:-echoflow123}
     command:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
@@ -32,11 +32,11 @@ services:
       - NODE_ENV=production
 
       - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - MYSQL_HOST=${DOCKER_MYSQL_HOST:-mysql}
-      - MYSQL_PORT=${DOCKER_MYSQL_PORT:-3306}
-      - MYSQL_USER=${DOCKER_MYSQL_USER:-echoflow}
-      - MYSQL_PASSWORD=${DOCKER_MYSQL_PASSWORD:-echoflow123}
-      - MYSQL_DATABASE=${DOCKER_MYSQL_DATABASE:-echoflow}
+      - MYSQL_HOST=${MYSQL_HOST:-mysql}
+      - MYSQL_PORT=${MYSQL_PORT:-3306}
+      - MYSQL_USER=${MYSQL_USER:-echoflow}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD:-echoflow123}
+      - MYSQL_DATABASE=${MYSQL_DATABASE:-echoflow}
       - MYSQL_CONNECTION_LIMIT=${MYSQL_CONNECTION_LIMIT}
       - MYSQL_QUEUE_LIMIT=${MYSQL_QUEUE_LIMIT}
       - MYSQL_CHARSET=${MYSQL_CHARSET}
@@ -59,8 +59,23 @@ services:
       - COS_BUCKET=${COS_BUCKET}
       - COS_ENDPOINT=${COS_ENDPOINT}
       - COS_REGION=${COS_REGION}
-      
-      # SMTP邮件服务配置
+
+      # Admin console
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - ADMIN_SESSION_SECRET=${ADMIN_SESSION_SECRET}
+      - ADMIN_SESSION_TTL_HOURS=${ADMIN_SESSION_TTL_HOURS}
+      - ADMIN_COOKIE_NAME=${ADMIN_COOKIE_NAME}
+
+      # Video-link transcription (YouTube / Bilibili)
+      - VIDEO_URL_FEATURE_ENABLED=${VIDEO_URL_FEATURE_ENABLED}
+      - VIDEO_URL_MAX_DURATION_SECONDS=${VIDEO_URL_MAX_DURATION_SECONDS}
+      - VIDEO_URL_MAX_TASKS_PER_HOUR=${VIDEO_URL_MAX_TASKS_PER_HOUR}
+      - VIDEO_URL_MAX_FILE_SIZE_MB=${VIDEO_URL_MAX_FILE_SIZE_MB}
+      - YT_DLP_TIMEOUT_MS=${YT_DLP_TIMEOUT_MS}
+      - YT_DLP_BINARY=${YT_DLP_BINARY}
+      - YT_DLP_COOKIES_FILE=${YT_DLP_COOKIES_FILE}
+
+      # SMTP mail service
       - SMTP_HOST=${SMTP_HOST}
       - SMTP_PORT=${SMTP_PORT}
       - SMTP_SECURE=${SMTP_SECURE}

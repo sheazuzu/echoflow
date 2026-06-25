@@ -113,7 +113,16 @@ export default function AuthPage({ mode = 'login' }) {
     }
 
     if (!response?.success) {
-      setErrorMessage(response?.message || t('auth.messages.genericError'));
+      // \u8bc6\u522b\u670d\u52a1\u4e0d\u53ef\u7528\uff08503 / SERVICE_UNAVAILABLE\uff09\u4e0e\u6ce8\u518c\u5199\u5165\u5931\u8d25\uff08REGISTER_FAILED\uff09\n      const status = response?.status || response?.error?.status;
+      const backendCode = response?.error?.data?.code || response?.data?.code;
+      let displayMessage = response?.message || t('auth.messages.genericError');
+      if (status === 503 || backendCode === 'SERVICE_UNAVAILABLE') {
+        displayMessage = response?.error?.data?.message
+          || response?.message
+          || t('auth.messages.serviceUnavailable')
+          || '\u670d\u52a1\u6682\u65f6\u4e0d\u53ef\u7528\uff0c\u8bf7\u7a0d\u540e\u518d\u8bd5';
+      }
+      setErrorMessage(displayMessage);
       return;
     }
 

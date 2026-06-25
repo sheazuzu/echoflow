@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const config = require('../config');
+const logger = require('../utils/logger');
 const userStore = require('../utils/userStore');
 const {
     createPasswordHash,
@@ -43,6 +44,7 @@ function issueSession(res, req, user) {
 }
 
 router.post('/auth/register', async (req, res, next) => {
+    let createdUser = null;
     try {
         const email = userStore.normalizeEmail(req.body?.email);
         const displayName = userStore.normalizeDisplayName(req.body?.displayName, email);
@@ -61,35 +63,93 @@ router.post('/auth/register', async (req, res, next) => {
             throw createHttpError(400, passwordError, 'INVALID_PASSWORD');
         }
 
-        const user = await userStore.createUser({
-            email,
-            displayName,
-            passwordHash: createPasswordHash(password),
-        });
+        try {
+            createdUser = await userStore.createUser({
+                email,
+                displayName,
+                passwordHash: createPasswordHash(password),
+            });
+        } catch (createError) {
+            if (createError && createError.code === 'EMAIL_ALREADY_EXISTS') {
+                next(createHttpError(409, '该邮箱已被注册', createError.code));
+                return;
+            }
 
-        await userStore.recordAuditLog({
-            action: 'register',
-            success: true,
-            userId: user.id,
-            account: email,
-            requester: buildAuthenticatedRequester(req),
-        });
+            if (createError && createError.code === 'AUTH_STORE_NOT_READY') {
+                logger.error('REGISTER_FAILED', {
+                    message: '认证存储未就绪，注册请求被拒绝',
+                    account: email,
+                    code: createError.code,
+                });
+                next(createHttpError(503, '服务暂时不可用，请稍后再试', 'SERVICE_UNAVAILABLE'));
+                return;
+            }
 
-        await userStore.markUserLoginSuccess(user.id);
-        const loggedInUser = await userStore.findUserById(user.id);
-        issueSession(res, req, loggedInUser);
+            // 未知错误（例如连接池未初始化、SQL 错误、网络不通等）
+            const errorCode = createError && createError.code;
+            const isPoolMissing = errorCode === 'MYSQL_CONFIG_MISSING'
+                || errorCode === 'PROTOCOL_CONNECTION_LOST'
+                || errorCode === 'ECONNREFUSED'
+                || errorCode === 'ETIMEDOUT';
 
-        res.status(201).json({
-            success: true,
-            authenticated: true,
-            user: toPublicUser(loggedInUser),
-            message: '注册成功，已自动登录',
-        });
-    } catch (error) {
-        if (error.code === 'EMAIL_ALREADY_EXISTS') {
-            next(createHttpError(409, '该邮箱已被注册', error.code));
+            logger.error('REGISTER_FAILED', {
+                message: '注册写入库失败',
+                account: email,
+                code: errorCode,
+                errno: createError && createError.errno,
+                sqlState: createError && createError.sqlState,
+                error: createError && createError.message,
+                stackPreview: createError && String(createError.stack || '').split('\n').slice(0, 5).join('\n'),
+            });
+
+            if (isPoolMissing) {
+                next(createHttpError(503, '服务暂时不可用，请稍后再试', 'SERVICE_UNAVAILABLE'));
+                return;
+            }
+
+            next(createHttpError(500, '注册失败，请稍后重试', 'REGISTER_FAILED'));
             return;
         }
+
+        // 成功落库之后，纯属于“附属动作”的步骤（审计、会话）
+        // 即使这些步骤失败，也该认为注册成功（席位已创建）
+        try {
+            await userStore.recordAuditLog({
+                action: 'register',
+                success: true,
+                userId: createdUser.id,
+                account: email,
+                requester: buildAuthenticatedRequester(req),
+            });
+
+            await userStore.markUserLoginSuccess(createdUser.id);
+            const loggedInUser = await userStore.findUserById(createdUser.id);
+            issueSession(res, req, loggedInUser);
+
+            res.status(201).json({
+                success: true,
+                authenticated: true,
+                user: toPublicUser(loggedInUser),
+                message: '注册成功，已自动登录',
+            });
+        } catch (postError) {
+            logger.warn('REGISTER_PARTIAL', {
+                message: '注册主记录已写入，但后续步骤（审计/自动登录）失败',
+                userId: createdUser.id,
+                account: email,
+                code: postError && postError.code,
+                error: postError && postError.message,
+                stackPreview: postError && String(postError.stack || '').split('\n').slice(0, 5).join('\n'),
+            });
+
+            res.status(201).json({
+                success: true,
+                authenticated: false,
+                user: toPublicUser(createdUser),
+                message: '注册成功，请重新登录',
+            });
+        }
+    } catch (error) {
         next(error);
     }
 });

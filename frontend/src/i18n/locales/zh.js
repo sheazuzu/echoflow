@@ -506,6 +506,7 @@ export default {
       submitting: '提交中...',
       resetRequested: '如果邮箱存在，我们已生成重置流程。',
       resetCompleted: '密码重置成功，请重新登录。',
+      serviceUnavailable: '服务暂时不可用，请稍后再试',
     },
     login: {
       title: '欢迎回来',

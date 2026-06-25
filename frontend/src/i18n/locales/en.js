@@ -706,6 +706,7 @@ export default {
       submitting: 'Submitting...',
       resetRequested: 'If the email exists, a reset flow has been generated.',
       resetCompleted: 'Password reset completed. Please sign in again.',
+      serviceUnavailable: 'Service temporarily unavailable, please try again later',
     },
     login: {
       title: 'Welcome back',

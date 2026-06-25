@@ -55,7 +55,37 @@ VIDEO_URL_MAX_FILE_SIZE_MB=500        # 下载音频体积上限
 YT_DLP_TIMEOUT_MS=600000              # yt-dlp 调用超时上限
 YT_DLP_BINARY=yt-dlp                  # yt-dlp 可执行文件名 / 路径
 YT_DLP_COOKIES_FILE=                  # 可选：Bilibili 高清 / 会员视频使用的 cookies.txt 路径
+
+# MySQL 认证存储（必填，否则后端启动时 fail-fast 退出）
+MYSQL_HOST=                           # 数据库地址，例如 10.0.1.6 或 cdb-xxx.tencentcdb.com
+MYSQL_PORT=3306
+MYSQL_USER=                           # 必填
+MYSQL_PASSWORD=                       # 强烈建议非空
+MYSQL_DATABASE=                       # 必填，例如 local
 ```
+
+## MySQL 配置确认 checklist
+
+`MYSQL_*` 是认证模块写入用户表 `auth_users` 的关键依赖。production 出现"注册成功但库里没数据"几乎都源于这块配置在容器中未真正生效。请按下列顺序排查：
+
+```bash
+# 1. 容器内确认实际生效的 MYSQL_* 环境变量（绝不能被 docker run --env-file 之外的来源覆盖）
+docker exec -it <backend_container> env | grep -E '^MYSQL_'
+
+# 2. 查最近 1 小时启动期日志关键事件
+docker logs --since 1h <backend_container> | grep -E 'DB_INIT|DB_CONNECTED|DB_CONNECT_FAILED|CONFIG_MYSQL_INCOMPLETE|REGISTER_FAILED'
+
+# 3. 在容器内执行只读诊断脚本，验证连接 + 表 + 写入权限
+docker exec -it <backend_container> npm --prefix /app/backend run diagnose:auth
+docker exec -it <backend_container> node /app/backend/scripts/diagnoseAuth.js --email=probe-$(date +%s)@diag.local
+
+# 4. 用 admin 账号请求诊断接口，看后端真正连的是哪个 host/database
+curl -s -b 'echoflow_user_session=<admin_token>' https://your-domain/api/admin/diagnostics/db | jq
+```
+
+> 说明：从本版本开始，后端启动时会以 `DB_INIT` 事件打印实际加载的 host / port / database / user / hasPassword（密码仅打印 boolean）；并强制执行 `SELECT 1` 健康检查，任何一步失败都会让进程立即退出（fail-fast），杜绝"前端注册返回 201、但表里没数据"的灵异现象。
+
+完整排障 Runbook 见 [docs/runbook-auth.md](docs/runbook-auth.md)。
 
 ## 视频链接转录功能补充说明
 
