@@ -27,8 +27,8 @@ docker-compose logs -f
 
 ### 后端服务 (backend)
 - 端口：3000
-- 功能：音频处理、AI转录、会议纪要生成
-- 依赖：Node.js、ffmpeg、OpenAI API
+- 功能：音频处理、AI转录、会议纪要生成、视频链接转录（YouTube / Bilibili）
+- 依赖：Node.js、ffmpeg、yt-dlp、OpenAI API
 
 ### 前端服务 (frontend)  
 - 端口：80
@@ -46,7 +46,37 @@ OPENAI_API_KEY=sk-your-actual-api-key
 # 可选配置
 BACKEND_PORT=3000
 FRONTEND_PORT=80
+
+# 视频链接转录功能（YouTube / Bilibili）
+VIDEO_URL_FEATURE_ENABLED=true        # 设为 false 可关闭该功能（后端路由 404，前端入口隐藏）
+VIDEO_URL_MAX_DURATION_SECONDS=14400  # 视频最长时长，默认 4 小时
+VIDEO_URL_MAX_TASKS_PER_HOUR=5        # 单用户限流阈值
+VIDEO_URL_MAX_FILE_SIZE_MB=500        # 下载音频体积上限
+YT_DLP_TIMEOUT_MS=600000              # yt-dlp 调用超时上限
+YT_DLP_BINARY=yt-dlp                  # yt-dlp 可执行文件名 / 路径
+YT_DLP_COOKIES_FILE=                  # 可选：Bilibili 高清 / 会员视频使用的 cookies.txt 路径
 ```
+
+## 视频链接转录功能补充说明
+
+- **依赖项**：Docker 镜像在 [backend/Dockerfile](backend/Dockerfile) 中已预装 `python3`/`py3-pip` 以及 `pip install yt-dlp`，同时保留了 `ffmpeg`。本地开发需要手动安装：
+
+  ```bash
+  # macOS
+  brew install yt-dlp ffmpeg
+
+  # Ubuntu / Debian
+  sudo apt install ffmpeg python3-pip && pip3 install -U yt-dlp
+
+  # 验证
+  yt-dlp --version
+  ```
+
+- **启动检查**：后端启动时会自动打印 `yt-dlp --version` 结果到日志（`YT_DLP_CHECK_OK`）；若失败则记录 `YT_DLP_CHECK_FAILED` 警告。
+
+- **Bilibili Cookies**（可选）：需要下载某些仅登录用户可访问的高清/会员视频时，可将 Bilibili 的 cookies 导出为 Netscape 格式的 `cookies.txt`，挂载到容器并设置 `YT_DLP_COOKIES_FILE` 环境变量。
+
+- **资源限制**：默认每用户每小时 5 任务、视频最长 4 小时、音频下载上限 500 MB。可通过上述环境变量调整。
 
 ## 常用命令
 

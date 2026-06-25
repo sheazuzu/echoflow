@@ -4,7 +4,7 @@
 }
 
 .history-main {
-  padding: 32px 20px 48px;
+  padding: calc(var(--header-height, 72px) + 24px) 20px 48px;
 }
 
 .history-shell {
@@ -250,6 +250,23 @@
   color: #2563eb;
   font-weight: 600;
   cursor: pointer;
+}
+
+.history-link-btn:disabled {
+  color: #94a3b8;
+  cursor: not-allowed;
+}
+
+.history-link-btn:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.history-record-footer-actions {
+  display: inline-flex;
+  gap: 12px;
+  align-items: center;
 }
 
 .history-pagination {

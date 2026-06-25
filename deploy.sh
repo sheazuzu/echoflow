@@ -94,6 +94,36 @@ if [ ! -f ".env" ]; then
     exit 1
 fi
 
+# Decide whether to start the local MySQL container (compose profile: local-db)
+# Priority: env var USE_LOCAL_DB > prompt > default true.
+# Set USE_LOCAL_DB=false if you want to use an external MySQL (e.g. host.docker.internal)
+USE_LOCAL_DB_VALUE="${USE_LOCAL_DB:-}"
+if [ -z "$USE_LOCAL_DB_VALUE" ]; then
+    if [ "$CI_MODE" = "true" ]; then
+        # CI 默认使用容器内 MySQL，避免依赖外部环境
+        USE_LOCAL_DB_VALUE="true"
+    else
+        echo "Select MySQL deployment mode:"
+        echo "1) Use built-in MySQL container (recommended for local quick start)"
+        echo "2) Use external MySQL (make sure DOCKER_MYSQL_HOST in .env is configured)"
+        read -r -p "Enter your choice (1/2, default 1): " _ans
+        case "${_ans:-}" in
+            2) USE_LOCAL_DB_VALUE="false" ;;
+            *) USE_LOCAL_DB_VALUE="true" ;;
+        esac
+    fi
+fi
+
+COMPOSE_PROFILE_ARGS=""
+if is_true "$USE_LOCAL_DB_VALUE"; then
+    COMPOSE_PROFILE_ARGS="--profile local-db"
+    # 保证 backend 连接的 host 是 compose service 名 "mysql"，避免被 .env 中其他值覆盖
+    set_env_var .env "DOCKER_MYSQL_HOST" "mysql"
+    echo "Local MySQL container will be started (compose profile: local-db)"
+else
+    echo "Local MySQL container is disabled. Make sure DOCKER_MYSQL_HOST in .env points to your external MySQL"
+fi
+
 # Check whether the API key is configured
 if grep -q "OPENAI_API_KEY=sk-your-openai-api-key-here" .env; then
     echo "Please configure a valid OpenAI API key in the .env file first"
@@ -233,11 +263,30 @@ fi
 
 # Build and start services
 echo "Building Docker images..."
-$DOCKER_COMPOSE_CMD build
+$DOCKER_COMPOSE_CMD $COMPOSE_PROFILE_ARGS build
+
+if is_true "$USE_LOCAL_DB_VALUE"; then
+    echo ""
+    echo "Starting MySQL container first (waiting for it to become healthy)..."
+    $DOCKER_COMPOSE_CMD $COMPOSE_PROFILE_ARGS up -d mysql
+
+    # 等待 mysql 容器 healthy，避免 backend 启动时 mysql 还未准备好导致 ENOTFOUND/ECONNREFUSED
+    for i in {1..60}; do
+        STATUS=$($DOCKER_COMPOSE_CMD $COMPOSE_PROFILE_ARGS ps --format "{{.Service}} {{.State}} {{.Health}}" 2>/dev/null | awk '$1=="mysql"{print $3; exit}')
+        if [ "$STATUS" = "healthy" ]; then
+            echo "MySQL is healthy"
+            break
+        fi
+        if [ $i -eq 60 ]; then
+            echo "Timeout: MySQL did not become healthy in time, will still continue starting other services"
+        fi
+        sleep 2
+    done
+fi
 
 echo ""
 echo "Starting services..."
-$DOCKER_COMPOSE_CMD up -d
+$DOCKER_COMPOSE_CMD $COMPOSE_PROFILE_ARGS up -d
 
 echo ""
 echo "Waiting for services to start..."
@@ -245,7 +294,7 @@ echo "   Waiting for Traefik and services to fully start..."
 
 # Wait until containers become healthy
 for i in {1..30}; do
-    if $DOCKER_COMPOSE_CMD ps | grep -q "healthy"; then
+    if $DOCKER_COMPOSE_CMD $COMPOSE_PROFILE_ARGS ps | grep -q "healthy"; then
         echo "All services are healthy"
         break
     fi
@@ -261,7 +310,7 @@ sleep 5
 # Check service status
 echo ""
 echo "Service status:"
-$DOCKER_COMPOSE_CMD ps
+$DOCKER_COMPOSE_CMD $COMPOSE_PROFILE_ARGS ps
 
 echo ""
 echo "Service health checks:"
@@ -335,7 +384,7 @@ if [ -f ".env" ]; then
         echo "   Testing SMTP connectivity..."
 
         # Use Node.js to test SMTP connectivity and pass configuration values directly
-        SMTP_TEST_RESULT=$($DOCKER_COMPOSE_CMD exec -T backend node -e "
+        SMTP_TEST_RESULT=$($DOCKER_COMPOSE_CMD $COMPOSE_PROFILE_ARGS exec -T backend node -e "
 const nodemailer = require('nodemailer');
 const transporter = nodemailer.createTransport({
     host: '$SMTP_HOST',
@@ -380,8 +429,8 @@ echo "   Backend API: http://localhost/api/"
 echo "   Traefik dashboard: http://localhost:8080/ (development environment only)"
 echo ""
 echo "Common commands:"
-echo "   View logs: $DOCKER_COMPOSE_CMD logs -f"
-echo "   Stop services: $DOCKER_COMPOSE_CMD down"
-echo "   Redeploy: $DOCKER_COMPOSE_CMD up -d --build"
+echo "   View logs: $DOCKER_COMPOSE_CMD $COMPOSE_PROFILE_ARGS logs -f"
+echo "   Stop services: $DOCKER_COMPOSE_CMD $COMPOSE_PROFILE_ARGS down"
+echo "   Redeploy: $DOCKER_COMPOSE_CMD $COMPOSE_PROFILE_ARGS up -d --build"
 echo ""
 echo "Tip: Before first use, make sure you have configured a valid OpenAI API key in the .env file"

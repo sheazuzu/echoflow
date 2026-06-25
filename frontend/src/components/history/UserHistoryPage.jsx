@@ -1,8 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import Header from '../layout/Header.jsx';
 import Footer from '../layout/Footer.jsx';
 import authService from '../../services/authService.js';
 import { useTranslation } from '../../i18n/index.js';
+import { buildLanguagePath } from '../../i18n/utils.js';
+import EmptyState from '../onboarding/EmptyState.jsx';
 import './UserHistoryPage.css';
 
 const DEFAULT_FILTERS = {
@@ -32,6 +35,9 @@ const formatDateTime = (value) => {
 
 export default function UserHistoryPage() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const { lang } = useParams();
+  const currentLang = lang || 'zh';
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [historyData, setHistoryData] = useState([]);
   const [analytics, setAnalytics] = useState(null);
@@ -83,6 +89,7 @@ export default function UserHistoryPage() {
   const activityTypeOptions = useMemo(() => ([
     { value: 'all', label: t('history.filters.allTypes') },
     { value: 'upload_task', label: t('history.activityTypes.upload_task') },
+    { value: 'video_url_task', label: t('history.activityTypes.video_url_task') },
   ]), [t]);
 
   const statusOptions = useMemo(() => ([
@@ -106,6 +113,19 @@ export default function UserHistoryPage() {
 
   const clearFilters = () => {
     setFilters(DEFAULT_FILTERS);
+  };
+
+  const goNewTask = (type) => {
+    navigate(buildLanguagePath(currentLang, `/task/new/${type}`));
+  };
+
+  const goRecordView = (record) => {
+    if (!record || !record.fileId) return;
+    if (record.status === 'processing') {
+      navigate(buildLanguagePath(currentLang, `/task/${encodeURIComponent(record.fileId)}/processing`));
+    } else {
+      navigate(buildLanguagePath(currentLang, `/task/${encodeURIComponent(record.fileId)}/result`));
+    }
   };
 
   return (
@@ -177,10 +197,20 @@ export default function UserHistoryPage() {
             {loading ? (
               <div className="history-empty">{t('common.labels.loading')}</div>
             ) : historyData.length === 0 ? (
-              <div className="history-empty">
-                <strong>{hasFilters ? t('history.noMatchTitle') : t('history.emptyTitle')}</strong>
-                <p>{hasFilters ? t('history.noMatchDescription') : t('history.emptyDescription')}</p>
-              </div>
+              hasFilters ? (
+                <div className="history-empty">
+                  <strong>{t('history.noMatchTitle')}</strong>
+                  <p>{t('history.noMatchDescription')}</p>
+                </div>
+              ) : (
+                <EmptyState
+                  variant="history"
+                  title={t('emptyState.history.title')}
+                  description={t('emptyState.history.description')}
+                  actionLabel={t('emptyState.history.action')}
+                  onAction={() => goNewTask('upload')}
+                />
+              )
             ) : (
               <>
                 <div className="history-record-list">
@@ -192,7 +222,12 @@ export default function UserHistoryPage() {
                           <div className="history-record-meta">
                             <span className="history-badge">{t(`history.activityTypes.${record.activityType}`)}</span>
                             <span className={`history-badge status-${record.status}`}>{t(`history.statuses.${record.status}`)}</span>
-                            {record.metadata?.originalFilename && <span className="history-badge">{record.metadata.originalFilename}</span>}
+                            {record.activityType === 'video_url_task' && record.metadata?.videoPlatform && (
+                              <span className="history-badge">
+                                {record.metadata.videoPlatform === 'youtube' ? '📺 YouTube' : record.metadata.videoPlatform === 'bilibili' ? '📺 Bilibili' : `📺 ${record.metadata.videoPlatform}`}
+                              </span>
+                            )}
+                            {record.metadata?.originalFilename && record.activityType !== 'video_url_task' && <span className="history-badge">{record.metadata.originalFilename}</span>}
                           </div>
                         </div>
                         <div className="history-record-time">{formatDateTime(record.createdAt)}</div>
@@ -200,7 +235,16 @@ export default function UserHistoryPage() {
                       <p className="history-record-summary">{record.summary || '-'}</p>
                       <div className="history-record-footer">
                         <span>{record.fileId || '-'}</span>
-                        <button className="history-link-btn" onClick={() => setSelectedRecord(record)}>{t('history.detail.title')}</button>
+                        <div className="history-record-footer-actions">
+                          <button
+                            className="history-link-btn"
+                            onClick={() => goRecordView(record)}
+                            disabled={!record.fileId}
+                          >
+                            {record.status === 'processing' ? t('processing.title') : t('result.title')}
+                          </button>
+                          <button className="history-link-btn" onClick={() => setSelectedRecord(record)}>{t('history.detail.title')}</button>
+                        </div>
                       </div>
                     </article>
                   ))}

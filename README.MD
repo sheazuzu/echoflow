@@ -31,6 +31,7 @@
 |-----|------|
 | 🎙️ **音频录制** | 浏览器内实时录音，支持暂停/继续，可视化波形显示 |
 | 📤 **文件上传** | 支持 MP3/WAV/M4A/OGG/WEBM，拖拽上传 |
+| 📺 **视频链接转录** | 粘贴 YouTube / Bilibili 链接即可转录并生成中英双语纪要 |
 | 💾 **音频下载** | 自动转换为 WAV 格式，持久化下载窗口，支持最小化 |
 | 🤖 **AI 转录** | 基于 OpenAI Whisper，高精度语音转文字 |
 | 📝 **智能纪要** | GPT-4 分析生成结构化会议纪要 |
@@ -144,7 +145,17 @@ SMTP_PASS=your-app-password
 # 端口配置（可选）
 BACKEND_PORT=3000
 FRONTEND_PORT=5173
+
+# 视频链接转录功能（可选，默认启用）
+VIDEO_URL_FEATURE_ENABLED=true
+VIDEO_URL_MAX_DURATION_SECONDS=14400   # 视频最长时长（4 小时）
+VIDEO_URL_MAX_TASKS_PER_HOUR=5         # 单用户每小时任务上限
+VIDEO_URL_MAX_FILE_SIZE_MB=500         # 下载音频大小上限
+YT_DLP_TIMEOUT_MS=600000               # yt-dlp 调用超时（10 分钟）
+YT_DLP_COOKIES_FILE=                   # 可选，Bilibili 高清/会员视频需要
 ```
+
+> 💡 **视频链接转录**需要服务器安装 [`yt-dlp`](https://github.com/yt-dlp/yt-dlp) 和 `ffmpeg`。Docker 镜像已预装。本地开发可使用 `pip install yt-dlp` 安装。
 
 ---
 

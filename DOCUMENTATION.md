@@ -867,6 +867,127 @@ A: 检查 SMTP 配置是否正确，邮箱地址是否有效。
 
 ---
 
+## API 接口（视频链接转录）
+
+> 该接口属于"视频链接转录"功能。需要后端启用 `VIDEO_URL_FEATURE_ENABLED=true`，且服务器已安装 `yt-dlp` + `ffmpeg`。
+
+### POST `/api/video-url/submit`
+
+提交一个 YouTube / Bilibili 视频 URL，后端会异步下载音频、复用现有上传流水线完成转录与摘要。**接口立即返回 fileId**，前端通过现有 `GET /api/progress/:fileId`、`GET /api/minutes/:fileId` 获取进度与结果。
+
+**请求**
+
+```http
+POST /api/video-url/submit
+Content-Type: application/json
+Cookie: echoflow_user_session=...   # requireAuth 中间件验证
+```
+
+```json
+{
+  "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+}
+```
+
+**支持的 URL 格式**
+
+- YouTube：`youtube.com/watch?v=...`、`youtu.be/...`、`youtube.com/shorts/...`、`m.youtube.com/watch?v=...`
+- Bilibili：`bilibili.com/video/BV...`、`bilibili.com/video/av...`、`b23.tv/...`、`m.bilibili.com/video/...`
+- 播放列表 / 分 P 参数（`?list=`、`?p=`）会被忽略，仅处理单个视频
+
+**成功响应（200）**
+
+```json
+{
+  "code": 200,
+  "cached": false,
+  "fileId": "20260221_143012_youtube_dQw4w9WgXcQ_Test_Video_Title",
+  "message": "视频链接接收成功，开始处理",
+  "messageEn": "Video URL accepted, processing started",
+  "videoMeta": {
+    "title": "Test Video Title",
+    "duration": 213,
+    "uploader": "Rick Astley",
+    "uploadDate": "20091025",
+    "thumbnail": "https://i.ytimg.com/vi/.../hqdefault.jpg",
+    "videoId": "dQw4w9WgXcQ",
+    "platform": "youtube",
+    "webpageUrl": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    "normalizedUrl": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    "ext": "m4a"
+  },
+  "playlistHint": false
+}
+```
+
+**24h 去重命中（200）**
+
+如果同一用户在 24h 内成功转录过相同 URL，将直接返回上一次的 fileId：
+
+```json
+{
+  "code": 200,
+  "cached": true,
+  "fileId": "20260220_180012_youtube_dQw4w9WgXcQ_Test_Video_Title",
+  "message": "该视频已在 24 小时内成功转录过，直接返回上次结果"
+}
+```
+
+**错误响应**
+
+| 状态码 | errorCode | 含义 |
+|--------|-----------|------|
+| 400 | `unsupported_platform` | URL 不属于 YouTube / Bilibili |
+| 400 | `not_a_video_url` | URL 看起来不是有效的视频地址 |
+| 400 | `video_unavailable` | 视频不可用 / 已删除 |
+| 400 | `geo_restricted` | 视频在当前地区不可访问 |
+| 400 | `private_video` | 视频为私密视频，需要登录 |
+| 400 | `age_restricted` | 视频受年龄限制 |
+| 400 | `network_error` | 访问视频时网络异常 |
+| 400 | `timeout` | 下载超时（超过 `YT_DLP_TIMEOUT_MS`） |
+| 400 | `yt_dlp_missing` | 服务器未安装 yt-dlp |
+| 400 | `duration_exceeded` | 视频时长超过 `VIDEO_URL_MAX_DURATION_SECONDS` 限制 |
+| 401 | - | 未登录（由 `requireAuth` 中间件返回） |
+| 404 | - | 功能未启用（`VIDEO_URL_FEATURE_ENABLED=false`） |
+| 429 | `rate_limited` | 单用户每小时任务数超过 `VIDEO_URL_MAX_TASKS_PER_HOUR`，响应头 `Retry-After` 给出秒数 |
+
+错误响应体（中英文双语）：
+
+```json
+{
+  "success": false,
+  "code": 400,
+  "errorCode": "duration_exceeded",
+  "message": "视频时长超过 4 小时限制，请提交较短的视频",
+  "messageEn": "Video duration exceeds the 4-hour limit, please submit a shorter video"
+}
+```
+
+### 进度阶段映射
+
+视频链接转录任务在已有 `GET /api/progress/:fileId` 接口的状态机基础上新增一个前置阶段：
+
+| 后端 status | 前端归并到 | 进度范围 |
+|-------------|------------|---------|
+| `downloading_video` | `uploading` | 5 – 30 % |
+| `uploading_to_cos` / `uploaded_to_cos` | `uploading` | 30 – 40 % |
+| `downloading_from_cos` | - | 40 – 50 % |
+| `splitting` | `splitting` | 50 – 70 % |
+| `transcribing` | `transcribing` | 70 – 90 % |
+| `generating_summary` | `generating_summary` | 90 – 99 % |
+| `completed` | `completed` | 100 % |
+
+### 历史记录
+
+视频链接转录任务会以 `activityType: 'video_url_task'` 写入用户历史（`auth_activity_logs`），可在用户历史列表与管理员后台筛选。`metadata` 字段额外包含：
+
+- `videoUrl`、`normalizedVideoUrl`、`videoPlatform`（`youtube` / `bilibili`）
+- `videoId`、`videoTitle`、`videoUploader`、`videoDuration`、`videoThumbnail`、`videoUploadDate`
+
+管理员后台的 `source` 字段使用 `video_url_youtube` / `video_url_bilibili` 区分平台来源。
+
+---
+
 ## 联系方式
 
 - 项目主页：[GitHub Repository]

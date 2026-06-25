@@ -968,6 +968,43 @@ async function listActivityUsers(filters = {}) {
     }));
 }
 
+/**
+ * 根据 fileId 查找用户的业务活动记录。
+ * 用于 /api/minutes/:fileId 等场景在内存状态过期后从持久层兜底取回纪要数据。
+ *
+ * @param {object} options
+ * @param {string} options.fileId 业务任务的 fileId
+ * @param {string} [options.userId] 仅查询某个用户的记录；不传则忽略用户过滤（仅供管理员调用）
+ * @returns {Promise<object|null>}
+ */
+async function findActivityByFileId(options = {}) {
+    const fileId = String(options.fileId || '').trim();
+    if (!fileId) {
+        return null;
+    }
+
+    const userId = String(options.userId || '').trim();
+    const conditions = ['a.file_id = ?'];
+    const params = [fileId];
+
+    if (userId) {
+        conditions.push('a.user_id = ?');
+        params.push(userId);
+    }
+
+    const row = await queryOne(
+        `SELECT a.*, u.email AS user_email, u.display_name AS user_display_name
+         FROM auth_activity_logs a
+         LEFT JOIN auth_users u ON u.id = a.user_id
+         WHERE ${conditions.join(' AND ')}
+         ORDER BY a.updated_at DESC, a.created_at DESC
+         LIMIT 1`,
+        params,
+    );
+
+    return mapActivityRow(row);
+}
+
 module.exports = {
     initializeUserStore,
     normalizeEmail,
@@ -994,4 +1031,5 @@ module.exports = {
     listUserActivities,
     getUserActivityAnalytics,
     listActivityUsers,
+    findActivityByFileId,
 };

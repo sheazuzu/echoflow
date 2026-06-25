@@ -1,0 +1,102 @@
+/* ResultPage 样式 - 浅色现代风 */
+
+.result-page {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  width: 100%;
+  min-height: 100vh;
+  color: #1f2937;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(59, 130, 246, 0.08), transparent 50%),
+    radial-gradient(circle at 100% 100%, rgba(14, 165, 233, 0.05), transparent 45%),
+    linear-gradient(180deg, #f0f7ff 0%, #f8fbff 50%, #ffffff 100%);
+}
+
+.result-main {
+  flex: 1;
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: calc(var(--header-height, 72px) + 24px) 24px 64px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.result-back {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #ffffff;
+  border: 1px solid rgba(37, 99, 235, 0.2);
+  color: #1d4ed8;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.result-back:hover {
+  background: #eff6ff;
+  color: #1e40af;
+  border-color: rgba(37, 99, 235, 0.4);
+}
+
+.result-back:focus-visible {
+  outline: 2px solid rgba(37, 99, 235, 0.55);
+  outline-offset: 2px;
+}
+
+.result-header {
+  background: #ffffff;
+  border: 1px solid rgba(37, 99, 235, 0.12);
+  border-radius: 14px;
+  padding: 22px 26px;
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 8px 20px -16px rgba(37, 99, 235, 0.25);
+}
+
+.result-header h1 {
+  margin: 0;
+  font-size: 1.55rem;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.01em;
+  display: inline-block;
+}
+
+.result-subtitle {
+  margin: 8px 0 0;
+  font-size: 0.82rem;
+  color: #94a3b8;
+  word-break: break-all;
+  font-family: var(--font-family-mono, Monaco, Consolas, monospace);
+}
+
+.result-loading {
+  padding: 36px;
+  border-radius: 16px;
+  background: #ffffff;
+  border: 1px dashed rgba(37, 99, 235, 0.2);
+  text-align: center;
+  color: #475569;
+}
+
+@media (max-width: 640px) {
+  .result-main {
+    padding: calc(var(--header-height, 64px) + 16px) 16px 56px;
+  }
+
+  .result-header {
+    padding: 18px 20px;
+  }
+
+  .result-header h1 {
+    font-size: 1.3rem;
+  }
+}

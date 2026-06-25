@@ -65,6 +65,7 @@ export default function AdminDashboard() {
   const activityTypeOptions = useMemo(() => ([
     { value: 'all', label: t('history.filters.allTypes') },
     { value: 'upload_task', label: t('history.activityTypes.upload_task') },
+    { value: 'video_url_task', label: t('history.activityTypes.video_url_task') },
   ]), [t]);
 
   const statusOptions = useMemo(() => ([

@@ -98,6 +98,25 @@ const corsOptions = {
 // 服务端口
 const PORT = process.env.PORT || 3000;
 
+// 视频 URL 转录功能配置（YouTube / Bilibili）
+function normalizeBoolean(value, defaultValue) {
+    if (value === undefined || value === null || value === '') return defaultValue;
+    const v = String(value).trim().toLowerCase();
+    if (['true', '1', 'yes', 'on'].includes(v)) return true;
+    if (['false', '0', 'no', 'off'].includes(v)) return false;
+    return defaultValue;
+}
+
+const videoUrlConfig = {
+    featureEnabled: normalizeBoolean(process.env.VIDEO_URL_FEATURE_ENABLED, true),
+    maxDurationSeconds: Number(process.env.VIDEO_URL_MAX_DURATION_SECONDS || 14400),
+    maxTasksPerHour: Number(process.env.VIDEO_URL_MAX_TASKS_PER_HOUR || 5),
+    maxFileSizeMB: Number(process.env.VIDEO_URL_MAX_FILE_SIZE_MB || 500),
+    ytDlpTimeoutMs: Number(process.env.YT_DLP_TIMEOUT_MS || 600000),
+    cookiesFile: process.env.YT_DLP_COOKIES_FILE || '',
+    ytDlpBinary: process.env.YT_DLP_BINARY || 'yt-dlp',
+};
+
 const adminConfig = {
     password: process.env.ADMIN_PASSWORD || '',
     sessionSecret: process.env.ADMIN_SESSION_SECRET || '',
@@ -158,4 +177,5 @@ module.exports = {
     auth: authConfig,
     mysql: mysqlConfig,
     isMysqlConfigured,
+    videoUrl: videoUrlConfig,
 };

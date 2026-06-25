@@ -25,6 +25,7 @@ const recoveryRoutes = require('./routes/recovery');
 const adminRoutes = require('./routes/admin');
 const authRoutes = require('./routes/auth');
 const historyRoutes = require('./routes/history');
+const videoUrlRoutes = require('./routes/videoUrl');
 
 // 创建 Express 应用
 const app = express();
@@ -52,6 +53,7 @@ app.use('/api', recoveryRoutes);
 app.use('/api', adminRoutes);
 app.use('/api', authRoutes);
 app.use('/api', historyRoutes);
+app.use('/api', videoUrlRoutes);
 
 // 注册错误处理中间件（必须在路由之后）
 app.use(errorHandler);

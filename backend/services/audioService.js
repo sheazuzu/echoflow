@@ -6,10 +6,46 @@
 const fs = require('fs');
 const path = require('path');
 const ffmpeg = require('fluent-ffmpeg');
-const { exec } = require('child_process');
+const { exec, spawn } = require('child_process');
 const logger = require('../utils/logger');
 const { getSplitDir } = require('../utils/fileHelper');
 const processManager = require('../utils/processManager');
+
+/**
+ * 探测音频文件的主轨 codec。用于决定能否使用 -c copy。
+ * 失败时返回 null。
+ * @param {string} filePath
+ * @returns {Promise<string|null>} 例如 'aac' | 'mp3' | 'opus' | 'vorbis'
+ */
+const probeAudioCodec = (filePath) => {
+    return new Promise((resolve) => {
+        const args = [
+            '-v', 'error',
+            '-select_streams', 'a:0',
+            '-show_entries', 'stream=codec_name',
+            '-of', 'default=nokey=1:noprint_wrappers=1',
+            filePath
+        ];
+        const proc = spawn('ffprobe', args);
+        let out = '';
+        let err = '';
+        proc.stdout.on('data', (d) => { out += d.toString(); });
+        proc.stderr.on('data', (d) => { err += d.toString(); });
+        proc.on('close', (code) => {
+            if (code !== 0) {
+                logger('FFPROBE_CODEC_WARN', `ffprobe 探测 codec 失败 code=${code} err=${err.slice(0, 200)}`);
+                return resolve(null);
+            }
+            const codec = out.trim().toLowerCase();
+            resolve(codec || null);
+        });
+        proc.on('error', (e) => {
+            logger('FFPROBE_CODEC_WARN', `ffprobe 启动失败: ${e.message}`);
+            resolve(null);
+        });
+    });
+};
+
 
 /**
  * 获取音频文件时长（增强版，支持webm等格式）
@@ -79,13 +115,6 @@ const splitAudioWithFFmpegCLI = async (filePath, segmentTime = 600, fileId = nul
         .replace(/_+/g, '_')
         .replace(/^_+|_+$/g, '');
     
-    // 根据输入文件扩展名确定输出格式和编码方式
-    const inputExt = path.extname(filePath).toLowerCase();
-    // WAV/PCM格式不能直接流复制到m4a容器，需要转码；MP3保持原格式
-    const needTranscode = ['.wav', '.pcm', '.aiff', '.flac'].includes(inputExt);
-    const outputExt = inputExt === '.mp3' ? '.mp3' : '.m4a';
-    const outputPattern = path.join(splitDir, `${cleanBaseName}_%03d${outputExt}`);
-    
     // 检查文件
     if (!fs.existsSync(filePath)) {
         throw new Error(`输入文件不存在: ${filePath}`);
@@ -96,23 +125,68 @@ const splitAudioWithFFmpegCLI = async (filePath, segmentTime = 600, fileId = nul
     } catch (err) {
         throw new Error(`文件不可读或无权限: ${filePath}`);
     }
-    
-    // 使用原生FFmpeg命令行，根据格式选择适当的编码方式
-    // WAV等PCM格式需要转码为AAC，其他格式使用流复制
-    const codecArgs = needTranscode ? '-c:a aac -b:a 128k' : '-c copy';
-    const command = `ffmpeg -i "${filePath}" -f segment -segment_time ${segmentTime} ${codecArgs} "${outputPattern}"`;
-    logger('FFMPEG_CLI_CMD', `FFmpeg CLI命令: ${command}`);
-    
+
+    // 探测输入 codec，决定输出容器与是否转码
+    // 背景：youtube/bilibili 下载的音频可能是 opus/webm，直接 -c copy 到 .m4a 会报错 "Conversion failed!"(exit 234)
+    //   规则：
+    //     - codec=aac    → -c copy 到 .m4a（无损且快）
+    //     - codec=mp3    → -c copy 到 .mp3
+    //     - codec=opus   → 转码为 aac到 .m4a（Whisper 友好）
+    //     - codec=vorbis/flac/wav/pcm/未知 → 转码为 aac到 .m4a
+    const inputExt = path.extname(filePath).toLowerCase();
+    const probedCodec = await probeAudioCodec(filePath);
+    logger('FFMPEG_CLI_PROBE', `输入探测: ext=${inputExt || '(none)'} codec=${probedCodec || '(unknown)'}`);
+
+    let outputExt;
+    let codecArgs;
+    if (probedCodec === 'aac') {
+        outputExt = '.m4a';
+        codecArgs = ['-c', 'copy'];
+    } else if (probedCodec === 'mp3' || inputExt === '.mp3') {
+        outputExt = '.mp3';
+        codecArgs = ['-c', 'copy'];
+    } else {
+        // 包含 opus/vorbis/flac/wav/pcm 以及探测不到 codec 的场景，统一转码为 AAC
+        outputExt = '.m4a';
+        // -vn 去除视频流（yt-dlp 的 webm 容器可能含缩略图）
+        //  Whisper API 友好参数：16k单声道 + 64kbps 已足够
+        codecArgs = ['-vn', '-c:a', 'aac', '-b:a', '128k'];
+    }
+
+    const outputPattern = path.join(splitDir, `${cleanBaseName}_%03d${outputExt}`);
+
+    // 使用 spawn 数组参数调用，避免 shell 拼接带来的特殊字符隐患（文件名可能含逗号/括号/空格等）
+    const ffmpegArgs = [
+        '-y',
+        '-i', filePath,
+        '-f', 'segment',
+        '-segment_time', String(segmentTime),
+        ...codecArgs,
+        outputPattern
+    ];
+    const commandStr = `ffmpeg ${ffmpegArgs.map(a => /[\s"',]/.test(a) ? `"${a}"` : a).join(' ')}`;
+    logger('FFMPEG_CLI_CMD', `FFmpeg CLI命令: ${commandStr}`);
+
     try {
-        // 记录FFmpeg进程（使用child_process以便后续终止）
-        const childProcess = exec(command);
-        
+        const childProcess = spawn('ffmpeg', ffmpegArgs, { stdio: ['ignore', 'pipe', 'pipe'] });
+
+        // 收集 stderr，出错时以供诊断
+        let stderrBuf = '';
+        childProcess.stderr.on('data', (chunk) => {
+            const s = chunk.toString();
+            stderrBuf += s;
+            // 避免无限增长
+            if (stderrBuf.length > 64 * 1024) {
+                stderrBuf = stderrBuf.slice(-64 * 1024);
+            }
+        });
+
         // 存储进程信息以便后续终止
         const processInfo = {
             type: processManager.ProcessType.FFMPEG,
             process: childProcess,
             startTime: new Date(),
-            command: command
+            command: commandStr
         };
         
         // 如果提供了fileId，则关联进程以便后续终止
@@ -131,12 +205,12 @@ const splitAudioWithFFmpegCLI = async (filePath, segmentTime = 600, fileId = nul
                 if (code === 0) {
                     resolve();
                 } else {
-                    reject(new Error(`FFmpeg进程退出码: ${code}`));
+                    const tailErr = stderrBuf.split('\n').filter(Boolean).slice(-8).join(' | ');
+                    reject(new Error(`FFmpeg进程退出码: ${code}; stderr_tail: ${tailErr}`));
                 }
             });
             
             childProcess.on('error', (error) => {
-                // 清理进程跟踪
                 if (fileId) {
                     processManager.removeProcess(fileId);
                 }

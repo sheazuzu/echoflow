@@ -5,6 +5,7 @@
 
 require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
 
+const { execFile } = require('child_process');
 const { app, setEmailTransporter } = require('./app');
 const config = require('./config');
 const logger = require('./utils/logger');
@@ -52,6 +53,29 @@ async function startServer() {
         pid: process.pid,
         port: config.PORT,
     });
+
+    // 检测 yt-dlp 可用性（视频链接转录功能依赖）
+    if (config.videoUrl && config.videoUrl.featureEnabled) {
+        execFile(config.videoUrl.ytDlpBinary || 'yt-dlp', ['--version'], { timeout: 5000 }, (err, stdout) => {
+            if (err) {
+                logger.warn('YT_DLP_CHECK_FAILED', {
+                    message: 'yt-dlp 不可用，视频链接转录功能将无法正常工作',
+                    error: err.message,
+                    binary: config.videoUrl.ytDlpBinary || 'yt-dlp',
+                    hint: '请确保已安装 yt-dlp（pip install yt-dlp 或 apk add yt-dlp）',
+                });
+            } else {
+                logger.info('YT_DLP_CHECK_OK', {
+                    message: 'yt-dlp 已就绪',
+                    version: String(stdout).trim(),
+                });
+            }
+        });
+    } else {
+        logger.info('YT_DLP_CHECK_SKIPPED', {
+            message: '视频链接转录功能未启用，跳过 yt-dlp 检查',
+        });
+    }
 
     const emailTransporter = emailService.createTransporter();
     setEmailTransporter(emailTransporter);

@@ -54,13 +54,106 @@ export default {
       mb: 'MB',
       gb: 'GB',
     },
+    actions: {
+      back: '返回',
+      backHome: '返回首页',
+      close: '关闭',
+      retry: '重试',
+      next: '下一步',
+    },
   },
 
   // 首页/主界面
   home: {
-    title: '智能会议纪要生成',
-    subtitle: '企业级 AI 引擎 · 自动分片处理大文件 · 8点结构化输出',
-    description: '上传音频文件或实时录音，AI 自动生成专业会议纪要',
+    title: '会议纪要工具',
+    subtitle: '自动分片处理大文件，输出结构化会议纪要',
+    description: '上传音频文件或实时录音，自动生成结构化会议纪要',
+    hero: {
+      eyebrow: '音频与视频纪要工具',
+      title: '把音频与视频转成结构化纪要',
+      subtitle: '录音、上传或粘贴视频链接，自动转录并生成中英双语纪要。',
+      legacyButton: '返回旧版界面',
+      legacyHint: '想用熟悉的旧界面？',
+      switchToNew: '切换到新版首页',
+      switchToNewHint: '体验重新设计的主页：',
+    },
+    entries: {
+      sectionLabel: '新建任务入口',
+      recording: {
+        title: '录音转录',
+        description: '从浏览器直接录音，结束后自动生成纪要。',
+        cta: '开始录音',
+      },
+      upload: {
+        title: '上传音频',
+        description: '已有 MP3 / M4A / WAV 文件？上传即可处理。',
+        cta: '上传文件',
+      },
+      videoUrl: {
+        title: '视频链接',
+        description: '粘贴 YouTube / Bilibili 链接，自动下载并生成纪要。',
+        cta: '粘贴链接',
+      },
+    },
+    recent: {
+      title: '最近任务',
+      viewAll: '查看全部',
+    },
+  },
+
+  // 新建任务页
+  newTask: {
+    back: '返回首页',
+    recording: {
+      title: '录音转录',
+      description: '使用麦克风或系统声音录制后自动生成会议纪要。',
+      heading: '使用旧版主界面进行录音',
+      notice: '录音流程目前仍在旧版主界面中使用，正在迁移到本页。点击下方按钮在旧界面继续。',
+      openLegacy: '打开录音入口',
+    },
+    upload: {
+      title: '上传音频',
+      description: '支持 MP3 / M4A / WAV / WebM 等常见音频格式，单文件 ≤ 50MB。',
+    },
+    videoUrl: {
+      title: '视频链接转录',
+      description: '粘贴 YouTube / Bilibili 视频链接，自动转录并生成纪要。',
+    },
+  },
+
+  // 结果页
+  result: {
+    title: '会议纪要',
+    toolbarLabel: '操作工具栏',
+    tabsLabel: '语言切换',
+    noContent: '暂无纪要内容',
+    tabs: {
+      chinese: '中文',
+      english: 'English',
+    },
+    sections: {
+      summary: '摘要',
+      keyPoints: '关键讨论点',
+      decisions: '决策',
+      actions: '行动项',
+      risks: '风险与问题',
+      nextSteps: '下一步',
+      transcript: '原始转录',
+    },
+    fields: {
+      attendees: '参与人',
+      due: '截止',
+      unassigned: '未指定',
+    },
+    actions: {
+      back: '返回首页',
+      history: '查看历史',
+      copy: '复制内容',
+      copied: '已复制',
+      download: '下载',
+      email: '发送邮件',
+      regenerate: '重新生成',
+    },
   },
 
   // 上传功能
@@ -68,6 +161,7 @@ export default {
     title: '上传音频文件',
     dragDropHint: '点击或拖拽上传音频文件',
     dragDropHintUploading: '文件上传中...',
+    dragDropHintActive: '松开即可上传',
     selectFile: '选择文件',
     supportedFormats: '支持 MP3 / M4A / WAV / WebM 等音频格式',
     supportedFormatsUploading: '请稍候，正在上传您的音频文件...',
@@ -123,16 +217,32 @@ export default {
 
   // 处理步骤
   processing: {
-    title: 'AI 正在处理您的会议录音',
+    title: '正在处理您的任务',
+    nextHint: '当前阶段完成后将自动进入下一步，请稍候。',
+    stepListLabel: '处理阶段',
     cancelProcessing: '取消处理',
+    stateLabels: {
+      pending: '待处理',
+      active: '进行中',
+      completed: '已完成',
+    },
     steps: {
       uploading: '上传文件中',
-      splitting: '智能音频分片',
-      transcribing: 'AI 语音转录',
-      generating_summary: 'AI 生成结构化纪要',
-      analyzing: '分析内容中...',
-      generating: '生成会议纪要中...',
+      uploading_to_cos: '上传文件中',
+      uploaded_to_cos: '上传完成，准备处理',
+      downloading_video: '下载视频中',
+      downloading_from_cos: '准备音频文件',
+      downloaded_from_cos: '准备音频文件',
+      processing: '准备处理',
+      splitting: '音频分片',
+      transcribing: '语音转录',
+      generating_summary: '生成结构化纪要',
+      analyzing: '分析内容中…',
+      generating: '生成会议纪要中…',
       completed: '处理完成',
+      error: '处理出错',
+      failed: '处理失败',
+      cancelled: '已取消',
     },
     progress: '进度：{progress}%',
     estimatedTime: '预计剩余时间：{time}',
@@ -217,6 +327,64 @@ export default {
 
   // 错误消息
   errors: {
+    actions: {
+      retry: '重试',
+      newTask: '新建任务',
+      contact: '联系反馈',
+      history: '查看历史',
+      resubmitLink: '重新提交链接',
+      useUpload: '改用文件上传',
+    },
+    codes: {
+      unknown: {
+        title: '处理失败',
+        description: '出现了一个未知问题，请稍后重试或联系反馈。',
+      },
+      network_error: {
+        title: '网络连接失败',
+        description: '无法连接到服务器，请检查网络后重试。',
+      },
+      processing_failed: {
+        title: '任务处理失败',
+        description: '本次处理未能完成，您可以重试或更换输入方式。',
+      },
+      quota_exceeded: {
+        title: '使用额度已超限',
+        description: '本月可用配额已用完，请稍后再试或联系管理员。',
+      },
+      video_unavailable: {
+        title: '视频无法访问',
+        description: '该视频可能已被删除、设为私密或受地区限制。',
+      },
+      video_url_invalid: {
+        title: '视频链接无效',
+        description: '请确认链接是否完整正确，目前仅支持 YouTube 与 Bilibili。',
+      },
+      video_download_failed: {
+        title: '视频下载失败',
+        description: '尝试下载视频音频时出错，您可以重试或改用文件上传。',
+      },
+      video_meta_failed: {
+        title: '获取视频信息失败',
+        description: '无法读取视频元数据，链接可能临时不可用。',
+      },
+      platform_not_supported: {
+        title: '平台暂不支持',
+        description: '当前仅支持 YouTube 与 Bilibili 视频链接。',
+      },
+      live_video_unsupported: {
+        title: '直播暂不支持',
+        description: '请改用录播或已结束的视频链接。',
+      },
+      private_video: {
+        title: '私密视频',
+        description: '该视频为私密视频，无法访问。',
+      },
+      age_restricted: {
+        title: '受年龄限制',
+        description: '该视频受年龄限制，无法获取音频。',
+      },
+    },
     // 网络错误
     networkError: '网络连接失败，请检查网络后重试',
     timeoutError: '请求超时，请稍后重试',
@@ -251,6 +419,39 @@ export default {
     notSupported: '您的浏览器不支持此功能',
     downloadFailed: '下载失败',
     copyFailed: '复制失败',
+  },
+
+  // 首次使用引导
+  onboarding: {
+    title: '欢迎使用 Meet and Note',
+    subtitle: '选择最贴近你场景的输入方式，从一次完整体验开始。',
+    skip: '稍后再说',
+    recording: {
+      title: '录音转录',
+      description: '现场会议或访谈，浏览器内即可录制。',
+    },
+    upload: {
+      title: '上传音频',
+      description: '已有现成音频文件，直接拖拽上传。',
+    },
+    videoUrl: {
+      title: '视频链接',
+      description: '粘贴线上视频链接，无需自行下载。',
+    },
+  },
+
+  // 空状态文案
+  emptyState: {
+    home: {
+      title: '还没有任务，从这里开始',
+      description: '上传一段音频或粘贴一个视频链接，自动生成结构化纪要。',
+      action: '上传第一个音频',
+    },
+    history: {
+      title: '暂无历史任务',
+      description: '完成一次任务后，纪要会保存在历史中，方便查阅与复用。',
+      action: '回到首页新建任务',
+    },
   },
 
   // 成功消息
@@ -400,6 +601,7 @@ export default {
     },
     activityTypes: {
       upload_task: '转录与纪要任务',
+      video_url_task: '视频链接转录',
     },
     statuses: {
       processing: '处理中',
@@ -640,6 +842,49 @@ export default {
       title: '立即开始使用',
       description: '无需注册，打开即用。上传音频或开始录音，AI 为您生成专业会议纪要。',
       button: '返回首页，开始使用',
+    },
+  },
+
+  // 视频链接转录模块（YouTube / Bilibili）
+  videoUrl: {
+    title: '视频链接转录',
+    subtitle: '粘贴 YouTube 或 Bilibili 视频链接，自动转录并生成中英双语纪要。',
+    urlPlaceholder: '请粘贴 YouTube 或 Bilibili 视频链接...',
+    submit: '开始转录',
+    submitting: '提交中...',
+    errorLabel: '处理失败',
+    taskStarted: '任务已启动，任务编号：{fileId}',
+    platform: {
+      youtube: 'YouTube',
+      bilibili: 'Bilibili',
+      unsupported: '不支持的平台',
+    },
+    hints: {
+      playlistOnlyCurrent: '检测到播放列表或分 P 参数，仅会转录当前单个视频。',
+    },
+    meta: {
+      platform: '平台',
+      duration: '时长',
+      uploader: 'UP 主',
+    },
+    progress: {
+      fetchingMeta: '正在获取视频信息...',
+      downloading_video: '正在下载视频音频…',
+    },
+    errors: {
+      unsupported_platform: '仅支持 YouTube 和 Bilibili 视频链接。',
+      not_a_video_url: '链接看起来不是有效的视频地址。',
+      video_unavailable: '视频不可用或已被删除。',
+      geo_restricted: '该视频在当前地区不可访问。',
+      private_video: '该视频为私密视频，需要登录后才能访问。',
+      age_restricted: '该视频受年龄限制，需要登录后才能访问。',
+      network_error: '访问视频时网络异常，请稍后重试。',
+      timeout: '视频下载超时，请尝试较短的视频或稍后重试。',
+      yt_dlp_missing: '服务器未安装 yt-dlp，请联系管理员。',
+      duration_exceeded: '视频时长超过限制，请提交较短的视频。',
+      size_exceeded: '视频音频体积超过限制，请选择较短的视频。',
+      rate_limited: '提交过于频繁，请稍后再试。',
+      unknown: '处理失败，请稍后重试。',
     },
   },
 };

@@ -54,13 +54,106 @@ export default {
       mb: 'MB',
       gb: 'GB',
     },
+    actions: {
+      back: 'Back',
+      backHome: 'Back to home',
+      close: 'Close',
+      retry: 'Retry',
+      next: 'Next',
+    },
   },
 
   // Home/Main interface
   home: {
-    title: 'AI Meeting Minutes Generator',
-    subtitle: 'Enterprise AI Engine · Auto-chunking for Large Files · 8-Point Structured Output',
-    description: 'Upload audio files or record in real-time, AI automatically generates professional meeting minutes',
+    title: 'Meeting Minutes Generator',
+    subtitle: 'Auto-chunking for large files · Structured output',
+    description: 'Upload audio files or record in real-time, automatically generate structured meeting minutes',
+    hero: {
+      eyebrow: 'Audio & video to notes',
+      title: 'Turn audio and video into structured minutes',
+      subtitle: 'Record, upload or paste a video link—we transcribe it and generate bilingual minutes for you.',
+      legacyButton: 'Open legacy view',
+      legacyHint: 'Prefer the classic interface?',
+      switchToNew: 'Switch to new home',
+      switchToNewHint: 'Try the redesigned home:',
+    },
+    entries: {
+      sectionLabel: 'Start a new task',
+      recording: {
+        title: 'Recording',
+        description: 'Record from your browser, get minutes when you stop.',
+        cta: 'Start recording',
+      },
+      upload: {
+        title: 'Upload audio',
+        description: 'Already have an MP3 / M4A / WAV? Upload to process.',
+        cta: 'Upload file',
+      },
+      videoUrl: {
+        title: 'Video link',
+        description: 'Paste a YouTube / Bilibili URL and we handle the rest.',
+        cta: 'Paste link',
+      },
+    },
+    recent: {
+      title: 'Recent tasks',
+      viewAll: 'View all',
+    },
+  },
+
+  // New task page
+  newTask: {
+    back: 'Back to home',
+    recording: {
+      title: 'Recording',
+      description: 'Record using microphone or system audio, then auto-generate minutes.',
+      heading: 'Use legacy interface to record',
+      notice: 'Recording flow is still in the legacy main view and is being migrated. Click below to continue in the legacy interface.',
+      openLegacy: 'Open recorder',
+    },
+    upload: {
+      title: 'Upload audio',
+      description: 'Supports MP3 / M4A / WAV / WebM, single file up to 50MB.',
+    },
+    videoUrl: {
+      title: 'Video link transcription',
+      description: 'Paste a YouTube / Bilibili link, we download and summarize it for you.',
+    },
+  },
+
+  // Result page
+  result: {
+    title: 'Meeting minutes',
+    toolbarLabel: 'Result toolbar',
+    tabsLabel: 'Language tabs',
+    noContent: 'No minutes content yet',
+    tabs: {
+      chinese: '中文',
+      english: 'English',
+    },
+    sections: {
+      summary: 'Summary',
+      keyPoints: 'Key discussion points',
+      decisions: 'Decisions',
+      actions: 'Action items',
+      risks: 'Risks & issues',
+      nextSteps: 'Next steps',
+      transcript: 'Original transcript',
+    },
+    fields: {
+      attendees: 'Attendees',
+      due: 'Due',
+      unassigned: 'Unassigned',
+    },
+    actions: {
+      back: 'Back to home',
+      history: 'View history',
+      copy: 'Copy content',
+      copied: 'Copied',
+      download: 'Download',
+      email: 'Send email',
+      regenerate: 'Regenerate',
+    },
   },
 
   // Upload functionality
@@ -68,6 +161,7 @@ export default {
     title: 'Upload Audio File',
     dragDropHint: 'Click or drag to upload audio file',
     dragDropHintUploading: 'Uploading file...',
+    dragDropHintActive: 'Release to upload',
     selectFile: 'Select File',
     supportedFormats: 'Supports MP3 / M4A / WAV / WebM and other audio formats',
     supportedFormatsUploading: 'Please wait, uploading your audio file...',
@@ -123,16 +217,32 @@ export default {
 
   // Processing steps
   processing: {
-    title: 'AI is processing your meeting recording',
+    title: 'Processing your task',
+    nextHint: 'You will be moved to the next step automatically. Please wait.',
+    stepListLabel: 'Processing stages',
     cancelProcessing: 'Cancel Processing',
+    stateLabels: {
+      pending: 'Pending',
+      active: 'In progress',
+      completed: 'Completed',
+    },
     steps: {
       uploading: 'Uploading file',
-      splitting: 'Smart audio segmentation',
-      transcribing: 'AI speech transcription',
-      generating_summary: 'AI generating structured minutes',
-      analyzing: 'Analyzing content...',
-      generating: 'Generating meeting minutes...',
+      uploading_to_cos: 'Uploading file',
+      uploaded_to_cos: 'Upload complete, preparing',
+      downloading_video: 'Downloading video',
+      downloading_from_cos: 'Preparing audio file',
+      downloaded_from_cos: 'Preparing audio file',
+      processing: 'Getting ready',
+      splitting: 'Audio segmentation',
+      transcribing: 'Speech transcription',
+      generating_summary: 'Generating structured minutes',
+      analyzing: 'Analyzing content…',
+      generating: 'Generating meeting minutes…',
       completed: 'Processing completed',
+      error: 'Processing error',
+      failed: 'Processing failed',
+      cancelled: 'Cancelled',
     },
     progress: 'Progress: {progress}%',
     estimatedTime: 'Estimated time remaining: {time}',
@@ -217,6 +327,64 @@ export default {
 
   // Error messages
   errors: {
+    actions: {
+      retry: 'Retry',
+      newTask: 'New task',
+      contact: 'Contact support',
+      history: 'View history',
+      resubmitLink: 'Resubmit link',
+      useUpload: 'Switch to upload',
+    },
+    codes: {
+      unknown: {
+        title: 'Something went wrong',
+        description: 'An unknown issue occurred. Please retry or contact support.',
+      },
+      network_error: {
+        title: 'Network connection failed',
+        description: 'We could not reach the server. Check your network and retry.',
+      },
+      processing_failed: {
+        title: 'Task processing failed',
+        description: 'The task could not finish. You can retry or try a different input.',
+      },
+      quota_exceeded: {
+        title: 'Quota exhausted',
+        description: 'Your monthly quota is used up. Please retry later or contact admin.',
+      },
+      video_unavailable: {
+        title: 'Video unavailable',
+        description: 'This video may be removed, private, or region-restricted.',
+      },
+      video_url_invalid: {
+        title: 'Invalid video link',
+        description: 'Please confirm the URL is correct. Only YouTube and Bilibili are supported.',
+      },
+      video_download_failed: {
+        title: 'Video download failed',
+        description: 'Could not fetch the audio. You can retry or upload a file instead.',
+      },
+      video_meta_failed: {
+        title: 'Failed to load video info',
+        description: 'We could not read the video metadata. The link may be temporarily unavailable.',
+      },
+      platform_not_supported: {
+        title: 'Platform not supported',
+        description: 'Only YouTube and Bilibili links are supported right now.',
+      },
+      live_video_unsupported: {
+        title: 'Live streams unsupported',
+        description: 'Please use a recorded or finished video instead.',
+      },
+      private_video: {
+        title: 'Private video',
+        description: 'This video is private and cannot be accessed.',
+      },
+      age_restricted: {
+        title: 'Age-restricted video',
+        description: 'This video is age-restricted and the audio cannot be fetched.',
+      },
+    },
     // Network errors
     networkError: 'Network connection failed, please check your network and try again',
     timeoutError: 'Request timeout, please try again later',
@@ -251,6 +419,39 @@ export default {
     notSupported: 'Your browser does not support this feature',
     downloadFailed: 'Download failed',
     copyFailed: 'Copy failed',
+  },
+
+  // First-use guide
+  onboarding: {
+    title: 'Welcome to Meet and Note',
+    subtitle: 'Pick the input that matches your scenario and finish your first task end-to-end.',
+    skip: 'Skip for now',
+    recording: {
+      title: 'Recording',
+      description: 'Capture meetings or interviews directly in the browser.',
+    },
+    upload: {
+      title: 'Upload audio',
+      description: 'Drop in an existing MP3 / M4A / WAV file.',
+    },
+    videoUrl: {
+      title: 'Video link',
+      description: 'Paste a public video URL—no manual download needed.',
+    },
+  },
+
+  // Empty states
+  emptyState: {
+    home: {
+      title: 'No tasks yet — start here',
+      description: 'Upload an audio clip or paste a video URL. We will turn it into structured minutes for you.',
+      action: 'Upload your first audio',
+    },
+    history: {
+      title: 'No history yet',
+      description: 'Once you finish a task, the minutes will be saved here for reuse.',
+      action: 'Back to home to start a task',
+    },
   },
 
   // Success messages
@@ -599,6 +800,7 @@ export default {
     },
     activityTypes: {
       upload_task: 'Transcription & Minutes Job',
+      video_url_task: 'Video URL Transcription',
     },
     statuses: {
       processing: 'Processing',
@@ -638,6 +840,49 @@ export default {
     messages: {
       loadFailed: 'Failed to load the admin dashboard. Please try again later.',
       noPermission: 'You do not have permission to access the admin dashboard.',
+    },
+  },
+
+  // Video URL transcription (YouTube / Bilibili)
+  videoUrl: {
+    title: 'Video URL Transcription',
+    subtitle: 'Paste a YouTube or Bilibili video URL to transcribe and generate bilingual minutes automatically.',
+    urlPlaceholder: 'Paste a YouTube or Bilibili video URL...',
+    submit: 'Start Transcription',
+    submitting: 'Submitting...',
+    errorLabel: 'Failed',
+    taskStarted: 'Task started, task ID: {fileId}',
+    platform: {
+      youtube: 'YouTube',
+      bilibili: 'Bilibili',
+      unsupported: 'Unsupported platform',
+    },
+    hints: {
+      playlistOnlyCurrent: 'Playlist or multi-part parameters detected. Only the current video will be transcribed.',
+    },
+    meta: {
+      platform: 'Platform',
+      duration: 'Duration',
+      uploader: 'Uploader',
+    },
+    progress: {
+      fetchingMeta: 'Fetching video information...',
+      downloading_video: 'Downloading video audio...',
+    },
+    errors: {
+      unsupported_platform: 'Only YouTube and Bilibili video URLs are supported.',
+      not_a_video_url: 'The URL does not appear to be a valid video link.',
+      video_unavailable: 'Video is unavailable or has been removed.',
+      geo_restricted: 'This video is not available in your region.',
+      private_video: 'This video is private and requires login.',
+      age_restricted: 'This video is age-restricted and requires authentication.',
+      network_error: 'Network error while accessing the video, please retry later.',
+      timeout: 'Video download timed out, please try a shorter video or retry later.',
+      yt_dlp_missing: 'yt-dlp is not installed on the server. Please contact the administrator.',
+      duration_exceeded: 'Video duration exceeds the limit, please submit a shorter video.',
+      size_exceeded: 'Audio size exceeds the limit, please choose a shorter video.',
+      rate_limited: 'Too many submissions, please retry later.',
+      unknown: 'Failed to process the video, please retry later.',
     },
   },
 };

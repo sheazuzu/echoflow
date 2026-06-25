@@ -1,0 +1,108 @@
+/* ErrorState 样式 - 浅色现代风 */
+
+.error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 14px;
+  padding: 40px 28px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #fff1f2, #ffffff 70%);
+  border: 1px solid #fecaca;
+  color: #1f2937;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 18px 40px -28px rgba(239, 68, 68, 0.3);
+}
+
+.error-state-icon {
+  width: 60px;
+  height: 60px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #fee2e2, #fecdd3);
+  color: #dc2626;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 20px -12px rgba(239, 68, 68, 0.45);
+}
+
+.error-state-title {
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.01em;
+}
+
+.error-state-desc {
+  margin: 0;
+  color: #475569;
+  font-size: 0.96rem;
+  max-width: 480px;
+  line-height: 1.6;
+}
+
+.error-state-detail {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #94a3b8;
+  word-break: break-word;
+  max-width: 100%;
+  font-family: var(--font-family-mono, Monaco, Consolas, monospace);
+}
+
+.error-state-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 6px;
+}
+
+.error-state-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 18px;
+  border-radius: 12px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: #ffffff;
+  color: #1f2937;
+  cursor: pointer;
+  font-size: 0.92rem;
+  font-weight: 600;
+  transition: background 0.18s ease, border-color 0.18s ease, transform 0.15s ease;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.error-state-btn:hover {
+  background: #f8fafc;
+  border-color: rgba(99, 102, 241, 0.3);
+  transform: translateY(-1px);
+}
+
+.error-state-btn:focus-visible {
+  outline: 3px solid rgba(99, 102, 241, 0.4);
+  outline-offset: 2px;
+}
+
+.error-state-btn.is-ghost {
+  background: transparent;
+  border-color: transparent;
+  color: #64748b;
+}
+
+.error-state-btn.is-ghost:hover {
+  background: rgba(15, 23, 42, 0.04);
+}
+
+.error-state-btn.is-primary {
+  background: linear-gradient(135deg, #6366f1, #ec4899);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 12px 24px -16px rgba(99, 102, 241, 0.65);
+}
+
+.error-state-btn.is-primary:hover {
+  filter: brightness(1.05);
+}

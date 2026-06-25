@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Upload, FileAudio, CheckCircle, Clock, Download, Settings, Cpu, Loader2, RefreshCw, CloudUpload, Mic, Mail, Copy, Check, Github, MessageCircle, X } from 'lucide-react';
+import { Upload, FileAudio, CheckCircle, Clock, Download, Settings, Cpu, Loader2, RefreshCw, CloudUpload, Mic, Mail, Copy, Check, Github, MessageCircle, X, ArrowRight } from 'lucide-react';
 import './App.css';
 import { useTranslation, useDocumentLanguage, getCurrentLanguage } from './i18n/index.js';
 import { RecordingWithTranscription } from './components/audio/RecordingWithTranscription.jsx';
+import VideoUrlTranscription from './components/videoUrl/VideoUrlTranscription.jsx';
+import { FEATURES } from './config/features.js';
 import Header from './components/layout/Header.jsx';
 import Footer from './components/layout/Footer.jsx';
 
@@ -26,6 +28,7 @@ const App = () => {
     const [processingStatus, setProcessingStatus] = useState({ status: '', progress: 0 });
     const [currentFileId, setCurrentFileId] = useState('');
     const [isUploading, setIsUploading] = useState(false); // 新增：上传状态标识
+    const [isDragOver, setIsDragOver] = useState(false); // 拖拽上传高亮状态
 
     // 录音功能相关状态
     const [isRecording, setIsRecording] = useState(false); // 是否正在录音
@@ -58,6 +61,7 @@ const App = () => {
     const [sendSuccess, setSendSuccess] = useState(false); // 邮件发送成功提示
     const [copiedTranscript, setCopiedTranscript] = useState(false); // 转录文本复制成功提示
     const emailInputRef = useRef(null); // 邮箱输入框引用
+    const fileInputRef = useRef(null); // 上传隐藏的 file input 引用（用于点击卡片时触发）
 
     // Contact表单状态
     const [showContactModal, setShowContactModal] = useState(false);
@@ -724,6 +728,52 @@ const App = () => {
         e.target.value = '';
     };
 
+    // 拖拽上传事件处理
+    const handleDragEnter = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (isUploading || appState !== 'idle') return;
+        setIsDragOver(true);
+    };
+
+    const handleDragOver = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (isUploading || appState !== 'idle') return;
+        if (e.dataTransfer) {
+            e.dataTransfer.dropEffect = 'copy';
+        }
+        if (!isDragOver) setIsDragOver(true);
+    };
+
+    const handleDragLeave = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        // 仅在离开卡片本身时关闭高亮（避免子元素触发）
+        if (e.currentTarget.contains(e.relatedTarget)) return;
+        setIsDragOver(false);
+    };
+
+    const handleDrop = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragOver(false);
+        if (isUploading || appState !== 'idle') return;
+        const files = e.dataTransfer && e.dataTransfer.files ? e.dataTransfer.files : null;
+        if (!files || files.length === 0) return;
+        const file = files[0];
+        // 只允许音频/视频类文件（与 accept="audio/*" 对齐，并兼容部分视频可抽取音频的类型）
+        const fileType = (file.type || '').toLowerCase();
+        const fileName = (file.name || '').toLowerCase();
+        const allowedExt = ['.mp3', '.wav', '.m4a', '.flac', '.ogg', '.aac', '.wma', '.aiff', '.opus', '.webm', '.mp4'];
+        const looksAudio = fileType.startsWith('audio/') || fileType.startsWith('video/') || allowedExt.some((ext) => fileName.endsWith(ext));
+        if (!looksAudio) {
+            setErrorMsg(currentLanguage === 'en' ? 'Unsupported file type' : '不支持的文件类型');
+            return;
+        }
+        startProcessing(file);
+    };
+
     const startProcessing = async (fileObj) => {
         // 清理下载相关状态
         setShowDownloadOption(false);
@@ -839,7 +889,8 @@ const response = await fetch(`/api/progress/${encodeURIComponent(currentFileId)}
                         
                         // 将后端细分状态映射到前端4个主要步骤
                         // uploading_to_cos / uploaded_to_cos 都属于 uploading 阶段
-                        if (progressData.status === 'uploading_to_cos' || progressData.status === 'uploaded_to_cos') {
+                        // downloading_video（视频链接转录的首阶段）同样归为 uploading 阶段
+                        if (progressData.status === 'uploading_to_cos' || progressData.status === 'uploaded_to_cos' || progressData.status === 'downloading_video') {
                             progressData.status = 'uploading';
                         }
                         
@@ -1715,6 +1766,21 @@ const minutesResponse = await fetch(`/api/minutes/${encodeURIComponent(currentFi
             <main>
                 {appState === 'idle' && (
                     <div className="hero-section">
+                        <div className="hero-top-bar">
+                            <div className="hero-top-bar-spacer" />
+                            <div className="hero-top-bar-actions">
+                                <span className="hero-switch-hint">{t('home.hero.switchToNewHint')}</span>
+                                <button
+                                    type="button"
+                                    className="hero-switch-btn"
+                                    onClick={() => navigate(`/${currentLanguage}`)}
+                                    aria-label={t('home.hero.switchToNew')}
+                                >
+                                    {t('home.hero.switchToNew')}
+                                    <ArrowRight size={14} aria-hidden="true" />
+                                </button>
+                            </div>
+                        </div>
                         <h1>{t('home.title')}</h1>
                         <p style={{ color: '#94a3b8', marginBottom: '40px', fontSize: '1.1rem' }}>
                             {t('home.subtitle')}
@@ -1726,8 +1792,35 @@ const minutesResponse = await fetch(`/api/minutes/${encodeURIComponent(currentFi
                         {/* 左侧：文件上传模块 */}
                             <div className="feature-module upload-module">
                                 <div className="upload-section">
-                                    <div className={`upload-card ${isUploading ? 'uploading' : ''}`}>
-                                        <input type="file" accept="audio/*" onChange={handleFileUpload} className="file-input" />
+                                    <div
+                                        className={`upload-card ${isUploading ? 'uploading' : ''} ${isDragOver ? 'drag-over' : ''}`}
+                                        onClick={() => {
+                                            if (isUploading || appState !== 'idle') return;
+                                            if (fileInputRef.current) fileInputRef.current.click();
+                                        }}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' || e.key === ' ') {
+                                                e.preventDefault();
+                                                if (isUploading || appState !== 'idle') return;
+                                                if (fileInputRef.current) fileInputRef.current.click();
+                                            }
+                                        }}
+                                        role="button"
+                                        tabIndex={0}
+                                        onDragEnter={handleDragEnter}
+                                        onDragOver={handleDragOver}
+                                        onDragLeave={handleDragLeave}
+                                        onDrop={handleDrop}
+                                    >
+                                        <input
+                                            ref={fileInputRef}
+                                            type="file"
+                                            accept="audio/*"
+                                            onChange={handleFileUpload}
+                                            className="file-input"
+                                            tabIndex={-1}
+                                            aria-hidden="true"
+                                        />
                                         <div className="upload-icon-wrapper" style={{background: 'rgba(99, 102, 241, 0.1)', width: '80px', height: '80px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', position: 'relative'}}>
                                             <Upload size={40} color="#818cf8"/>
                                             <div className="upload-pulse" style={{
@@ -1743,7 +1836,9 @@ const minutesResponse = await fetch(`/api/minutes/${encodeURIComponent(currentFi
                                             }}></div>
                                         </div>
                                         <h3 style={{marginBottom: '10px'}}>
-                                            {isUploading ? t('upload.dragDropHintUploading') : t('upload.dragDropHint')}
+                                            {isDragOver
+                                                ? t('upload.dragDropHintActive')
+                                                : (isUploading ? t('upload.dragDropHintUploading') : t('upload.dragDropHint'))}
                                         </h3>
                                         <p style={{ fontSize: '0.9rem', color: isUploading ? '#818cf8' : '#64748b' }}>
                                             {isUploading ? t('upload.supportedFormatsUploading') : t('upload.supportedFormats')}
@@ -1801,8 +1896,8 @@ const minutesResponse = await fetch(`/api/minutes/${encodeURIComponent(currentFi
                                 </div>
                             )}
 
-                            {/* 实时转录模块 */}
-                            {browserSupportsRecording && (
+                            {/* 实时转录模块（已通过 FEATURES.REALTIME_TRANSCRIPTION 下线） */}
+                            {FEATURES.REALTIME_TRANSCRIPTION && browserSupportsRecording && (
                                 <div className="feature-module realtime-transcription-module">
                                     <div className="recording-section">
                                         <div className="recording-icon-wrapper" style={{background: 'rgba(102, 126, 234, 0.1)', width: '80px', height: '80px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px'}}>
@@ -1862,6 +1957,25 @@ const minutesResponse = await fetch(`/api/minutes/${encodeURIComponent(currentFi
                                             {t('realtimeTranscription.startButton')}
                                         </button>
                                     </div>
+                                </div>
+                            )}
+
+                            {/* 视频链接转录模块（YouTube / Bilibili） */}
+                            {FEATURES.VIDEO_URL_TRANSCRIPTION && (
+                                <div className="feature-module video-url-feature-module" style={{ gridColumn: '1 / -1' }}>
+                                    <VideoUrlTranscription
+                                        disabled={isUploading || appState !== 'idle'}
+                                        onTaskStarted={(fileId, videoMeta, info) => {
+                                            if (!fileId) return;
+                                            setErrorMsg('');
+                                            setMinutesData(null);
+                                            setTranscript('');
+                                            setCurrentFileId(fileId);
+                                            setProcessingStatus({ status: 'uploading', progress: 10 });
+                                            setIsUploading(true);
+                                            setAppState('processing');
+                                        }}
+                                    />
                                 </div>
                             )}
                         </div>
@@ -3423,8 +3537,8 @@ const response = await fetch(`/api/audio/${encodeURIComponent(currentFileId)}/do
                 </div>
             )}
 
-            {/* 实时转录模态窗口 */}
-            {showRealtimeTranscription && (
+            {/* 实时转录模态窗口（已通过 FEATURES.REALTIME_TRANSCRIPTION 下线） */}
+            {FEATURES.REALTIME_TRANSCRIPTION && showRealtimeTranscription && (
                 <div style={{
                     position: 'fixed',
                     top: 0,

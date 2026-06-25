@@ -32,6 +32,9 @@ const Header = () => {
     } else if (item.key === 'pricing') {
       // 打开价格方案弹窗
       setPricingModalOpen(true);
+    } else if (item.key === 'home') {
+      // 主页：直接跳转到首页（任务驱动首页）
+      navigate(buildLanguagePath(lang || 'zh', '/'));
     } else {
       // 其他导航项：先跳回首页，再滚动到对应锚点
       const homePath = buildLanguagePath(lang || 'zh', '/');
@@ -45,6 +48,10 @@ const Header = () => {
         }
       }, 100);
     }
+  };
+
+  const handleBrandClick = () => {
+    navigate(buildLanguagePath(lang || 'zh', '/'));
   };
 
   const navItems = [
@@ -91,11 +98,16 @@ const Header = () => {
     <>
       <header className="enterprise-header">
       <div className="header-container">
-        {/* Logo 和品牌名称 */}
-        <div className="header-brand">
-          <img 
-            src={logo} 
-            alt="MeetandNote" 
+        {/* Logo 和品牌名称—点击返回首页 */}
+        <button
+          type="button"
+          className="header-brand header-brand-btn"
+          onClick={handleBrandClick}
+          aria-label={t('nav.home')}
+        >
+          <img
+            src={logo}
+            alt="MeetandNote"
             className="brand-logo"
           />
           <span className="brand-name">
@@ -103,7 +115,7 @@ const Header = () => {
             <span className="brand-text-accent">and</span>
             <span className="brand-text-primary">Note</span>
           </span>
-        </div>
+        </button>
 
         {/* 桌面端导航菜单 */}
         <nav className="header-nav desktop-nav" aria-label={t('nav.mainNavigation')}>

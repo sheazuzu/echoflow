@@ -35,6 +35,21 @@
   transition: var(--transition-base);
 }
 
+.header-brand-btn {
+  background: transparent;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  border-radius: var(--radius-md);
+}
+
+.header-brand-btn:focus-visible {
+  outline: 3px solid rgba(15, 23, 42, 0.4);
+  outline-offset: 4px;
+}
+
 .header-brand:hover {
   transform: translateY(-2px);
 }

@@ -426,13 +426,67 @@ a:hover {
   margin: 0 auto var(--spacing-xl);
 }
 
+/* ==================== 顶部切换到新版按钮 ==================== */
+.hero-top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  width: 100%;
+  margin-bottom: var(--spacing-md);
+}
+
+.hero-top-bar-spacer {
+  flex: 1;
+}
+
+.hero-top-bar-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.hero-switch-hint {
+  font-size: 0.78rem;
+  color: #94a3b8;
+}
+
+.hero-switch-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  background: #ffffff;
+  color: #475569;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.18s ease, background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+
+.hero-switch-btn:hover {
+  transform: translateY(-1px);
+  background: #f8fafc;
+  border-color: rgba(15, 23, 42, 0.2);
+  color: #0f172a;
+}
+
+.hero-switch-btn:focus-visible {
+  outline: 2px solid rgba(15, 23, 42, 0.4);
+  outline-offset: 2px;
+}
+
 /* ==================== 功能模块容器 ==================== */
 .features-container {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: var(--spacing-lg);
   margin-top: var(--spacing-2xl);
   width: 100%;
+  max-width: 980px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 /* ==================== 功能模块卡片 ==================== */
@@ -487,10 +541,18 @@ a:hover {
 }
 
 .file-input {
+  /* 隐藏原生文件选择框：upload-card 负责点击/拖拽交互，避免 input 遮盖后拦截 drop 事件 */
   position: absolute;
-  inset: 0;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
   opacity: 0;
-  cursor: pointer;
+  pointer-events: none;
 }
 
 .file-input:focus {
@@ -499,6 +561,14 @@ a:hover {
 
 .file-input:focus + .upload-icon-wrapper {
   box-shadow: var(--shadow-focus);
+}
+
+/* 拖拽进入上传区高亮 */
+.upload-card.drag-over {
+  border-color: var(--color-primary);
+  background: rgba(99, 102, 241, 0.08);
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-medium);
 }
 
 /* ==================== 处理状态容器 ==================== */

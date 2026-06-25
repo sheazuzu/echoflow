@@ -10,6 +10,8 @@ export const FEATURES = {
   MEETING_MINUTES: true,           // 会议纪要生成功能
   EMAIL_SENDING: true,             // 邮件发送功能
   CONTACT_FEEDBACK: true,          // 联系反馈功能
+  VIDEO_URL_TRANSCRIPTION: true,   // 视频链接转录（YouTube / Bilibili）
+  REALTIME_TRANSCRIPTION: false,   // 实时转录：已下线，不在当前 roadmap 中
   
   // 未来计划功能（第二阶段）
   USER_AUTHENTICATION: false,      // 用户注册/登录

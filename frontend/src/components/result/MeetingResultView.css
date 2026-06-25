@@ -1,0 +1,281 @@
+/* MeetingResultView 样式 - 浅色现代风 */
+
+.mr-root {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.mr-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  border-radius: 14px;
+  padding: 12px 14px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.mr-toolbar-left, .mr-toolbar-right {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.mr-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: #ffffff;
+  color: #475569;
+  cursor: pointer;
+  font-size: 0.88rem;
+  font-weight: 600;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.15s ease;
+}
+
+.mr-btn:hover {
+  background: #f8fafc;
+  border-color: rgba(99, 102, 241, 0.3);
+  color: #0f172a;
+  transform: translateY(-1px);
+}
+
+.mr-btn:focus-visible {
+  outline: 3px solid rgba(99, 102, 241, 0.4);
+  outline-offset: 2px;
+}
+
+.mr-btn-ghost {
+  background: transparent;
+  border-color: transparent;
+}
+
+.mr-btn-ghost:hover {
+  background: rgba(99, 102, 241, 0.08);
+  border-color: transparent;
+}
+
+.mr-btn-primary {
+  background: linear-gradient(135deg, #6366f1, #ec4899);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 12px 24px -16px rgba(99, 102, 241, 0.6);
+}
+
+.mr-btn-primary:hover {
+  filter: brightness(1.08);
+  background: linear-gradient(135deg, #6366f1, #ec4899);
+  border-color: transparent;
+  color: #fff;
+}
+
+.mr-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+  background: #f1f5f9;
+  border-radius: 12px;
+  width: fit-content;
+}
+
+.mr-tab {
+  background: transparent;
+  border: none;
+  color: #64748b;
+  padding: 8px 18px;
+  cursor: pointer;
+  font-size: 0.92rem;
+  font-weight: 600;
+  border-radius: 8px;
+  transition: color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.mr-tab:hover:not(:disabled) {
+  color: #0f172a;
+}
+
+.mr-tab.is-active {
+  color: #4f46e5;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 4px 14px -10px rgba(99, 102, 241, 0.45);
+}
+
+.mr-tab:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.mr-tab:focus-visible {
+  outline: 2px solid rgba(99, 102, 241, 0.5);
+  outline-offset: 2px;
+}
+
+.mr-content {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.mr-section {
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  background: #ffffff;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.mr-section-toggle {
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: #0f172a;
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.mr-section-toggle:hover {
+  background: #f8fafc;
+}
+
+.mr-section-toggle:focus-visible {
+  outline: 2px solid rgba(99, 102, 241, 0.5);
+  outline-offset: -2px;
+}
+
+.mr-section-toggle-icon {
+  font-size: 1.2rem;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.mr-section-body {
+  padding: 0 20px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 0.95rem;
+  line-height: 1.7;
+  color: #334155;
+}
+
+.mr-meeting-title {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #0f172a;
+}
+
+.mr-meta {
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.mr-summary-text {
+  margin: 8px 0 0;
+}
+
+.mr-list {
+  margin: 0;
+  padding-left: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mr-list strong {
+  color: #4f46e5;
+}
+
+.mr-due {
+  color: #94a3b8;
+  font-style: normal;
+  margin-left: 6px;
+  font-size: 0.85rem;
+}
+
+.mr-empty {
+  padding: 36px;
+  border-radius: 16px;
+  background: #ffffff;
+  border: 1px dashed rgba(15, 23, 42, 0.1);
+  text-align: center;
+  color: #64748b;
+}
+
+.mr-transcript {
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+  font-size: 0.85rem;
+  color: #475569;
+  line-height: 1.65;
+  max-height: 480px;
+  overflow: auto;
+  background: #f8fafc;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  padding: 14px;
+  border-radius: 10px;
+  font-family: var(--font-family-mono, Monaco, Consolas, monospace);
+}
+
+@media (max-width: 640px) {
+  .mr-toolbar {
+    padding: 10px;
+  }
+
+  .mr-tab {
+    padding: 7px 12px;
+    font-size: 0.9rem;
+  }
+
+  .mr-section-body {
+    padding: 0 14px 14px;
+  }
+}
+
+/* 原始转录头部：toggle + 复制按钮 */
+.mr-transcript-section .mr-transcript-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-right: 12px;
+}
+
+.mr-transcript-section .mr-transcript-header .mr-section-toggle {
+  flex: 1;
+}
+
+.mr-btn-sm {
+  padding: 6px 12px;
+  font-size: 0.85rem;
+  height: auto;
+  flex-shrink: 0;
+}
+
+.mr-transcript-copy {
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .mr-transcript-section .mr-transcript-header {
+    padding-right: 8px;
+    gap: 6px;
+  }
+
+  .mr-btn-sm {
+    padding: 5px 8px;
+    font-size: 0.8rem;
+  }
+}

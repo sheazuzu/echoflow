@@ -22,6 +22,21 @@ async function recordUploadActivity(payload = {}) {
         return;
     }
 
+    // 将视频元数据扁平化到 metadata 顶层，便于历史/管理端检索与渲染
+    const videoMetaFields = {};
+    if (payload.videoMeta && typeof payload.videoMeta === 'object') {
+        const vm = payload.videoMeta;
+        videoMetaFields.videoUrl = vm.webpageUrl || vm.videoUrl || '';
+        videoMetaFields.normalizedVideoUrl = vm.normalizedUrl || vm.normalizedVideoUrl || '';
+        videoMetaFields.videoPlatform = vm.platform || '';
+        videoMetaFields.videoId = vm.videoId || '';
+        videoMetaFields.videoTitle = vm.title || '';
+        videoMetaFields.videoUploader = vm.uploader || '';
+        videoMetaFields.videoDuration = vm.duration || 0;
+        videoMetaFields.videoThumbnail = vm.thumbnail || '';
+        videoMetaFields.videoUploadDate = vm.uploadDate || '';
+    }
+
     await userStore.recordUserActivity({
         dedupeKey: payload.dedupeKey,
         userId: payload.userId,
@@ -38,6 +53,7 @@ async function recordUploadActivity(payload = {}) {
             cosKey: payload.cosKey || '',
             transcriptCosKey: payload.transcriptCosKey || '',
             requester: payload.requester || null,
+            ...videoMetaFields,
             ...(payload.metadata || {}),
         },
     });
@@ -357,8 +373,123 @@ async function processFile(fileId, cosKey, fileSizeMB, metadata = {}) {
         // 立即更新状态为generating_summary
         processManager.setStatus(fileId, { status: 'generating_summary', progress: 80 });
 
-        // 2. 调用 LLM 生成总结 (Enhanced Prompt for Detailed Minutes)
-        const systemPrompt = `You are a senior executive assistant with extensive experience in creating high-quality, comprehensive, and actionable meeting minutes. You produce bilingual (English + Chinese) meeting documentation.
+        // 2. 调用 LLM 生成总结
+        // 根据来源选择不同的 prompt 风格：
+        //   - 视频任务（YouTube/Bilibili 等链接）：用通用"视频内容摘要" prompt，
+        //     因为视频大多是播客/演讲/教程等，不是会议，attendees/decisions/action_items 等字段可能为空
+        //   - 普通上传/录音：保持原会议纪要 prompt
+        const isVideoTask = !!(metadata.videoMeta && typeof metadata.videoMeta === 'object');
+        logger('SUMMARY_MODE', `选择总结模式: ${isVideoTask ? 'video_content' : 'meeting_minutes'}`);
+
+        let systemPrompt;
+        let userPrompt;
+        const detailLevel = transcriptLength > 10000 ? 'VERY DETAILED' : transcriptLength > 3000 ? 'MODERATELY DETAILED' : 'CONCISE';
+        const estimatedMinutes = Math.max(5, Math.round(transcriptLength / 500));
+
+        if (isVideoTask) {
+            // ====== 视频内容通用摘要 prompt ======
+            systemPrompt = `You are a professional content analyst. Your job is to read a transcript of a video (which may be a podcast, lecture, tutorial, talk, news, vlog, etc. — NOT necessarily a business meeting) and produce a high-quality bilingual (English + Chinese) content summary.
+
+## Core Principles
+1. **Accuracy First**: Only include information explicitly present in the transcript. Never fabricate facts, names, numbers, or claims.
+2. **Comprehensive & Structured**: Capture ALL substantive topics / chapters / arguments the speaker(s) discussed. Do NOT merge distinct topics into a single bullet.
+3. **Faithful to the source**: Preserve the speaker's stance and arguments. Quote specific examples, data, or analogies when they are central.
+4. **Logical Structure**: Organize key points by topic/chapter, not chronologically.
+5. **Professional & Readable**: Use clear language. Chinese should follow standard written conventions (简洁专业，避免口语化、避免逐字翻译).
+
+## Detail Level by Transcript Length
+You MUST adjust the level of detail based on transcript length:
+
+### Short Content (< 3000 characters)
+- Summary: 3-5 sentences
+- Key Points: 3-5 items, each with a clear topic heading and 1-2 sentence detail
+
+### Medium Content (3000-10000 characters)
+- Summary: 6-10 sentences covering subject, main themes, key takeaways
+- Key Points: 6-10 items, each with a clear topic heading and 2-4 sentence detail
+
+### Long Content (> 10000 characters)
+- Summary: 10-15 sentences forming a complete executive briefing of the video. Cover: what the video is about, who is speaking, the main themes/arguments, key conclusions or recommendations, and why it matters.
+- Key Points: 10-20 items (or more if warranted). Each point MUST have:
+  * A clear, specific **topic** heading (e.g. "How LLM coding agents compare to humans" not just "LLM Discussion")
+  * A **detailed paragraph of 3-6 sentences** covering: what was discussed, the speaker's argument or claim, supporting examples / data / analogies, and any conclusion or implication
+
+## Quality Standards
+- **Summary**: Must stand alone. A reader who ONLY reads the summary should understand what the video is about, the main thesis, and the key takeaways.
+- **Key Points**: This is the MOST IMPORTANT section. List each distinct idea separately. Each point's topic heading must be specific and descriptive, and the detail must be substantive (not a one-line restatement).
+- **Speakers / Attendees**: For videos, "attendees" means the speakers / hosts / guests / channel name. If you can identify them, list their names. If not, use ["Video content (no participants identified)"] / ["视频内容（未识别出讲者）"].
+- **Decisions / Action Items / Risks**: For most videos these do NOT apply. Only fill them if the video explicitly contains:
+  * decisions_made: explicit conclusions or recommendations the speaker formally states
+  * action_items: explicit calls-to-action or instructions the speaker gives to the audience (e.g. tutorial steps)
+  * risks_issues: explicit risks, warnings, caveats the speaker raises
+  Otherwise return empty arrays [].
+
+## Handling Edge Cases
+- If you cannot identify the speakers, use ["Video content (no participants identified)"] / ["视频内容（未识别出讲者）"].
+- For "date", use the video's release date if mentioned in the transcript or context; otherwise "Not specified" / "未指定".
+- Filter out filler words ("um", "you know"), audio artifacts, and off-topic chatter. Focus on substantive content.
+- If a section is sponsored content / ads, you may briefly note it but do not over-summarize ads.
+
+## Output Format
+Output MUST be a valid JSON object with this exact structure (the schema is shared with meeting minutes for downstream compatibility; for videos, decisions_made / action_items / risks_issues are USUALLY empty arrays):
+{
+  "english": {
+    "title": "Concise, descriptive content title (reflecting the video's actual topic, not literally the YouTube title)",
+    "date": "YYYY-MM-DD or Not specified",
+    "attendees": ["Speaker / host / guest names, or 'Video content (no participants identified)'"],
+    "summary": "Comprehensive executive overview of the video content (length proportional to transcript length)",
+    "key_discussion_points": [{"topic": "Specific topic heading (e.g. 'Why current AI coding agents still struggle with novel problems')", "detail": "Detailed paragraph covering the speaker's argument, examples, and conclusion"}],
+    "decisions_made": ["Empty array [] unless the video explicitly contains conclusions/recommendations"],
+    "action_items": [{"task": "Empty array [] unless the video gives explicit instructions to the audience", "assignee": "Audience or specific", "deadline": "Not specified"}],
+    "risks_issues": ["Empty array [] unless the video raises explicit warnings/caveats"]
+  },
+  "chinese": {
+    "title": "简明扼要的内容标题（反映视频实际主题）",
+    "date": "YYYY-MM-DD 或 未指定",
+    "attendees": ["讲者/主持人/嘉宾姓名，或'视频内容（未识别出讲者）'"],
+    "summary": "对视频内容的全面概述（篇幅与转录长度成正比）",
+    "key_discussion_points": [{"topic": "具体主题标题", "detail": "包含讲者论点、举例、结论的详细段落"}],
+    "decisions_made": ["默认为空数组 []，除非视频中讲者明确给出结论或建议"],
+    "action_items": [{"task": "默认为空数组 []，除非视频中明确指示听众执行某事", "assignee": "受众或具体对象", "deadline": "未指定"}],
+    "risks_issues": ["默认为空数组 []，除非视频中明确提到风险或警示"]
+  }
+}
+
+IMPORTANT:
+1. The Chinese version must NOT be a literal translation of the English version. Each should be independently well-written in its respective language.
+2. NEVER produce a short, skeletal summary for a long video. The output length should be PROPORTIONAL to the input length.
+3. Do NOT force "decisions_made" / "action_items" / "risks_issues" — for the vast majority of videos these should simply be empty arrays.`;
+
+            // 构造 user prompt 时把视频元数据作为上下文塞给模型，提升准确度
+            const vm = metadata.videoMeta || {};
+            const videoContextLines = [
+                vm.title ? `Video Title: ${vm.title}` : null,
+                vm.uploader ? `Uploader / Channel: ${vm.uploader}` : null,
+                vm.platform ? `Platform: ${vm.platform}` : null,
+                vm.duration ? `Duration: ~${Math.round(Number(vm.duration) / 60)} minutes` : null,
+                vm.uploadDate ? `Upload Date: ${vm.uploadDate}` : null,
+            ].filter(Boolean).join('\n');
+
+            userPrompt = `Please analyze the following video transcript and produce a ${detailLevel} content summary. This is a video / podcast / talk transcript (~${estimatedMinutes} minutes of speech, ${transcriptLength} characters).
+
+Output your response as a valid JSON object.
+
+## Video Context (for your reference; do not invent details not in the transcript):
+${videoContextLines || '(no extra context provided)'}
+
+## Requirements:
+1. **Be thorough**: Identify ALL distinct topics / arguments / chapters the speaker(s) discussed. List each separately.
+2. **Be faithful**: Stick to what is actually said in the transcript. Do not fabricate names, numbers, or claims.
+3. **Be detailed**: For each key point, explain the speaker's argument, the examples or evidence given, and the conclusion.
+4. **Skip filler**: Filter out filler words and audio artifacts.
+5. **Empty arrays are OK**: For most videos, decisions_made / action_items / risks_issues should be empty arrays []. Only fill them when the video explicitly contains such content.
+6. **Proportional detail**: Since this is a ~${estimatedMinutes}-minute video, the summary should be comprehensive and detailed — NOT a brief skeleton.
+
+Transcript:
+${fullTranscript}`;
+        } else {
+            // ====== 普通会议纪要 prompt（原逻辑保留） ======
+            systemPrompt = `You are a senior executive assistant with extensive experience in creating high-quality, comprehensive, and actionable meeting minutes. You produce bilingual (English + Chinese) meeting documentation.
 
 ## Core Principles
 1. **Accuracy First**: Only include information explicitly discussed in the transcript. Never fabricate or assume details not present.
@@ -432,10 +563,7 @@ IMPORTANT:
 1. The Chinese version must NOT be a literal translation of the English version. Each should be independently well-written in its respective language.
 2. NEVER produce a short, skeletal summary for a long meeting. The output length should be PROPORTIONAL to the input length. A 1-hour meeting transcript should produce substantially more detailed minutes than a 10-minute meeting.`;
 
-        const detailLevel = transcriptLength > 10000 ? 'VERY DETAILED' : transcriptLength > 3000 ? 'MODERATELY DETAILED' : 'CONCISE';
-        const estimatedMinutes = Math.max(5, Math.round(transcriptLength / 500));
-        
-        const userPrompt = `Please analyze the following meeting transcript and create ${detailLevel} meeting minutes. This appears to be approximately a ${estimatedMinutes}-minute meeting (${fileSizeMB.toFixed(1)}MB audio file) with ${transcriptLength} characters of transcript text.
+            userPrompt = `Please analyze the following meeting transcript and create ${detailLevel} meeting minutes. This appears to be approximately a ${estimatedMinutes}-minute meeting (${fileSizeMB.toFixed(1)}MB audio file) with ${transcriptLength} characters of transcript text.
 
 Output your response as a valid JSON object.
 
@@ -449,6 +577,7 @@ Output your response as a valid JSON object.
 
 Transcript:
 ${fullTranscript}`;
+        }
 
         const completion = await openaiService.openai.chat.completions.create({
             messages: [
@@ -488,9 +617,10 @@ ${fullTranscript}`;
         });
 
         await recordUploadActivity({
-            dedupeKey: `upload-task:${metadata.ownerUserId || ''}:${fileId}`,
+            dedupeKey: metadata.dedupeKey || `upload-task:${metadata.ownerUserId || ''}:${fileId}`,
             userId: metadata.ownerUserId,
             fileId,
+            activityType: metadata.activityType || 'upload_task',
             status: 'completed',
             title: aiResult.chinese?.title || aiResult.english?.title || metadata.meetingTopic || metadata.originalFilename || fileId,
             summary: aiResult.chinese?.summary || aiResult.english?.summary || '会议纪要已生成。',
@@ -498,6 +628,7 @@ ${fullTranscript}`;
             originalFilename: metadata.originalFilename || '',
             normalizedFilename: metadata.normalizedFilename || '',
             requester: metadata.requester,
+            videoMeta: metadata.videoMeta || null,
             cosKey,
             transcriptCosKey,
             detail: {
@@ -527,7 +658,7 @@ ${fullTranscript}`;
         });
         
         adminActivityStore.recordSummaryActivity({
-            source: 'upload',
+            source: metadata.adminSource || 'upload',
             fileId,
             meetingTopic: metadata.meetingTopic || '',
             originalFilename: metadata.originalFilename || '',
@@ -570,9 +701,10 @@ ${fullTranscript}`;
         
         processManager.setStatus(fileId, { status: 'error', progress: 0, error: error.message });
         await recordUploadActivity({
-            dedupeKey: `upload-task:${metadata.ownerUserId || ''}:${fileId}`,
+            dedupeKey: metadata.dedupeKey || `upload-task:${metadata.ownerUserId || ''}:${fileId}`,
             userId: metadata.ownerUserId,
             fileId,
+            activityType: metadata.activityType || 'upload_task',
             status: 'failed',
             title: metadata.meetingTopic || metadata.originalFilename || fileId,
             summary: error.message || '文件处理失败',
@@ -580,6 +712,7 @@ ${fullTranscript}`;
             originalFilename: metadata.originalFilename || '',
             normalizedFilename: metadata.normalizedFilename || '',
             requester: metadata.requester,
+            videoMeta: metadata.videoMeta || null,
             cosKey,
             transcriptCosKey,
             detail: {
@@ -616,3 +749,6 @@ ${fullTranscript}`;
 }
 
 module.exports = router;
+// 导出内部函数供其它路由复用（例如 video-url 路由）
+module.exports.processFile = processFile;
+module.exports.recordUploadActivity = recordUploadActivity;
