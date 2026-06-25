@@ -95,33 +95,31 @@ if [ ! -f ".env" ]; then
 fi
 
 # Decide whether to start the local MySQL container (compose profile: local-db)
-# Priority: env var USE_LOCAL_DB > prompt > default true.
-# Set USE_LOCAL_DB=false if you want to use an external MySQL (e.g. host.docker.internal)
-USE_LOCAL_DB_VALUE="${USE_LOCAL_DB:-}"
-if [ -z "$USE_LOCAL_DB_VALUE" ]; then
-    if [ "$CI_MODE" = "true" ]; then
-        # CI 默认使用容器内 MySQL，避免依赖外部环境
-        USE_LOCAL_DB_VALUE="true"
-    else
-        echo "Select MySQL deployment mode:"
-        echo "1) Use built-in MySQL container (recommended for local quick start)"
-    echo "2) Use external MySQL (make sure MYSQL_HOST in .env is configured)"
-        read -r -p "Enter your choice (1/2, default 1): " _ans
-        case "${_ans:-}" in
-            2) USE_LOCAL_DB_VALUE="false" ;;
-            *) USE_LOCAL_DB_VALUE="true" ;;
-        esac
-    fi
-fi
+# Always ask interactively. The result is kept ONLY in this script's memory:
+#   - Option 1 -> add `--profile local-db` AND export MYSQL_HOST=mysql so that
+#                 docker-compose makes the backend talk to the bundled MySQL
+#                 container (regardless of what MYSQL_HOST is in .env).
+#   - Option 2 -> do nothing extra; docker-compose will read MYSQL_HOST and the
+#                 other MYSQL_* values straight from the user's .env file.
+echo "Select MySQL deployment mode:"
+echo "1) Use built-in MySQL container (recommended for local quick start)"
+echo "2) Use external MySQL (make sure MYSQL_HOST in .env is configured)"
+read -r -p "Enter your choice (1/2, default 1): " _ans
+case "${_ans:-}" in
+    2) USE_LOCAL_DB_VALUE="false" ;;
+    *) USE_LOCAL_DB_VALUE="true" ;;
+esac
 
 COMPOSE_PROFILE_ARGS=""
 if is_true "$USE_LOCAL_DB_VALUE"; then
     COMPOSE_PROFILE_ARGS="--profile local-db"
-    # 保证 backend 连接的 host 是 compose service 名 "mysql"，避免被 .env 中其他值覆盖
-    set_env_var .env "MYSQL_HOST" "mysql"
-    echo "Local MySQL container will be started (compose profile: local-db)"
+    # Make sure the backend connects to the bundled MySQL container, NOT
+    # whatever MYSQL_HOST is written in .env. Exporting wins over .env values
+    # for docker-compose variable substitution.
+    export MYSQL_HOST=mysql
+    echo "Local MySQL container will be started (compose profile: local-db, MYSQL_HOST=mysql)"
 else
-    echo "Local MySQL container is disabled. Make sure MYSQL_HOST in .env points to your external MySQL"
+    echo "External MySQL mode: docker-compose will read MYSQL_HOST and other MYSQL_* values from your .env file"
 fi
 
 # Check whether the API key is configured
